@@ -1,0 +1,24 @@
+# Packaging for the Windows installer. Run `npm run desktop:installer`; the installer lands in release/.
+appId: io.github.shadowpj.generals
+productName: Generals
+copyright: Copyright © 2026 Shadow-PJ
+directories:
+  output: release
+# The app needs only the game build and the compiled main process; Vite already bundled Phaser.
+files:
+  - package.json
+  - dist/**/*
+  - desktop/build/**/*
+icon: desktop/icon.png
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  # One click, installed for this Windows user only, so no admin prompt.
+  oneClick: true
+  perMachine: false
+  artifactName: Generals-Setup-${version}.${ext}
+  shortcutName: Generals
+  # Uninstalling keeps your saves in %APPDATA%\Generals.
+  deleteAppDataOnUninstall: false

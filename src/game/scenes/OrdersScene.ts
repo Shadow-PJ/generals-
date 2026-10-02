@@ -7,14 +7,15 @@ import { cardCost } from '../../cards/cost';
 import { describeCard } from '../../cards/describe';
 import { parseOrder } from '../../cards/parser';
 import { reply, replyToVerdict } from '../../cards/replies';
-import { emptyLoadout, type Card } from '../../cards/types';
+import type { Card } from '../../cards/types';
 import { slotUnlockRank, validateCard } from '../../cards/validator';
-import { STARTER_ARMY } from '../../data/armies';
-import { DEBUG_DEFAULT_RANK, RANKS, rankRules, type RankNumber } from '../../data/ranks';
+import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
 import { builderRows, cycleRow, newDraft, type BuilderRow } from '../cardBuilder';
+import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
+import { remember, savedSetup } from '../session';
 import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
@@ -46,13 +47,7 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   init(data: Partial<MatchSetup>): void {
-    const rank = data.rank ?? (this.registry.get('rank') as RankNumber | undefined) ?? DEBUG_DEFAULT_RANK;
-    this.setup = {
-      placement: data.placement ?? STARTER_ARMY.map((t) => ({ ...t })),
-      loadout: data.loadout ?? emptyLoadout(),
-      rank,
-      tactical: data.tactical ?? (this.registry.get('tactical') as boolean | undefined) ?? false,
-    };
+    this.setup = { ...savedSetup(), ...data };
     this.drafts = this.setup.loadout.slots.map((card) => (card ? structuredClone(card) : newDraft()));
     this.slot = 0;
     this.row = FIRST_MENU_ROW;
@@ -60,6 +55,7 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   create(): void {
+    fitCamera(this);
     this.add.rectangle(0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, COLORS.background).setOrigin(0);
     this.add.text(16, 10, 'WRITE YOUR ORDERS', textStyle(18, TEXT.title, true));
     this.add.text(
@@ -141,12 +137,11 @@ export class OrdersScene extends Phaser.Scene {
 
   private change(step: number): void {
     if (this.row === RANK_ROW) {
-      const rank = Math.max(1, Math.min(RANKS.length, this.setup.rank + step)) as RankNumber;
-      this.setup.rank = rank;
-      this.registry.set('rank', rank);
+      this.setup.rank = Math.max(1, Math.min(RANKS.length, this.setup.rank + step)) as RankNumber;
+      this.keep();
     } else if (this.row === TACTICAL_ROW) {
       this.setup.tactical = !this.setup.tactical;
-      this.registry.set('tactical', this.setup.tactical);
+      this.keep();
     } else if (this.row >= FIRST_MENU_ROW) {
       const r = this.menuRows()[this.row - FIRST_MENU_ROW];
       if (r) this.draft = cycleRow(this.draft, r.id, step);
@@ -193,6 +188,7 @@ export class OrdersScene extends Phaser.Scene {
       if (verdict.ok) {
         this.setup.loadout.slots[this.slot] = structuredClone(this.draft);
         this.status = { text: `Saved to slot ${this.slot + 1}.  Captain: ${replyToVerdict(verdict)}`, color: TEXT.victory };
+        this.keep();
       } else {
         this.status = { text: `Not saved.  Captain: ${replyToVerdict(verdict)}`, color: TEXT.defeat };
       }
@@ -205,7 +201,17 @@ export class OrdersScene extends Phaser.Scene {
     this.draft = newDraft();
     this.orderInput.value = '';
     this.status = { text: `Slot ${this.slot + 1} cleared.`, color: TEXT.muted };
+    this.keep();
     this.render();
+  }
+
+  /** Writes your cards, rank and Tactical mode to the save file, and says so if that fails. */
+  private keep(): void {
+    remember(this.setup).catch(() => {
+      if (!this.scene.isActive()) return;
+      this.status = { text: 'Could not write the save file; your cards will last until you close the game.', color: TEXT.defeat };
+      this.render();
+    });
   }
 
   private backToTroops(): void {

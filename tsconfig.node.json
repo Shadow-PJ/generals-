@@ -15,5 +15,5 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["tools", "vite.config.ts"]
+  "include": ["tools", "vite.config.ts", "desktop/**/*.test.ts"]
 }

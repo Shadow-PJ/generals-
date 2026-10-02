@@ -2,6 +2,7 @@
 
 import Phaser from 'phaser';
 import { formatBattleTime, type BattleResult } from '../../sim';
+import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { resultReason, resultTitle } from '../resultText';
@@ -26,6 +27,7 @@ export class ResultScene extends Phaser.Scene {
   }
 
   create(): void {
+    fitCamera(this);
     const { result, seed } = this.setup;
     const cx = GAME_WIDTH / 2;
     const cy = GAME_HEIGHT / 2;

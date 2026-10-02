@@ -1,0 +1,65 @@
+# Builds the Windows installer on a Windows machine, installs it, checks that the installed game
+# plays and still has your card after a restart, and attaches the installer to the run as a
+# download (Actions > this run > Artifacts). Runs on every merge to main and on pull requests,
+# so an installer can be tried before merging.
+name: Windows installer
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      # electron-builder downloads its own copy of Electron for packaging.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Build the installer
+        run: npm run desktop:installer
+
+      - name: Install it the way a player would, silently
+        shell: pwsh
+        run: |
+          $installer = Get-ChildItem release -Filter 'Generals-Setup-*.exe' | Select-Object -First 1
+          if (-not $installer) { throw 'No installer was built' }
+          Start-Process -FilePath $installer.FullName -ArgumentList '/S' -Wait
+          $exe = Get-ChildItem "$env:LOCALAPPDATA\Programs" -Recurse -Filter 'Generals.exe' | Select-Object -First 1
+          if (-not $exe) { throw 'Generals.exe was not installed' }
+          Write-Output "Installed at $($exe.FullName)"
+          "GENERALS_EXE=$($exe.FullName)" >> $env:GITHUB_ENV
+
+      - name: Play - save a card and start a battle
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'smoke-play.log'
+          $run = Start-Process -FilePath $env:GENERALS_EXE -ArgumentList '--smoke-test=play', "--smoke-log=$log" -Wait -PassThru
+          if (Test-Path $log) { Get-Content $log }
+          if ($run.ExitCode -ne 0) { throw "Smoke test failed (exit code $($run.ExitCode))" }
+
+      - name: Reopen - the card must still be in slot 1
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'smoke-reopen.log'
+          $run = Start-Process -FilePath $env:GENERALS_EXE -ArgumentList '--smoke-test=reopen', "--smoke-log=$log" -Wait -PassThru
+          if (Test-Path $log) { Get-Content $log }
+          if ($run.ExitCode -ne 0) { throw "Smoke test failed (exit code $($run.ExitCode))" }
+          Get-ChildItem "$env:APPDATA\Generals" -Recurse | Select-Object FullName, Length
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Generals-Windows-installer
+          path: release/Generals-Setup-*.exe
+          if-no-files-found: error

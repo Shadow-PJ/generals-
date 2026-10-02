@@ -1,0 +1,113 @@
+// A quick automatic check that the built app really works, run by GitHub Actions on Windows
+// after installing it. `Generals.exe --smoke-test=play` writes an order into slot 1 and starts
+// a battle; `--smoke-test=reopen` starts the app again and checks the card is still in slot 1.
+// This is the owner check from docs/PLAN.md (install, play, close, reopen), done by a script.
+
+import type { BrowserWindow } from 'electron';
+import { appendFileSync } from 'node:fs';
+
+export type SmokeMode = 'play' | 'reopen';
+
+const ORDER = 'Everyone focus their Ranger';
+const READY_TIMEOUT_MS = 30_000;
+const SAVE_TIMEOUT_MS = 5_000;
+const SCREEN_CHANGE_MS = 800;
+const BATTLE_WATCH_MS = 4_000;
+
+function option(argv: readonly string[], name: string): string | null {
+  const prefix = `--${name}=`;
+  return argv.find((a) => a.startsWith(prefix))?.slice(prefix.length) ?? null;
+}
+
+export function smokeTestMode(argv: readonly string[]): SmokeMode | null {
+  const mode = option(argv, 'smoke-test');
+  return mode === 'play' || mode === 'reopen' ? mode : null;
+}
+
+/** Writes progress to stdout and to the file given by --smoke-log, since a Windows app has no console. */
+export function smokeLog(argv: readonly string[]): (line: string) => void {
+  const file = option(argv, 'smoke-log');
+  return (line) => {
+    console.log(line);
+    if (file) appendFileSync(file, `${line}\n`);
+  };
+}
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+async function waitFor(check: () => Promise<boolean>, timeoutMs: number): Promise<boolean> {
+  const end = Date.now() + timeoutMs;
+  while (Date.now() < end) {
+    if (await check()) return true;
+    await wait(100);
+  }
+  return false;
+}
+
+export async function runSmokeTest(options: {
+  mode: SmokeMode;
+  win: BrowserWindow;
+  gameReady: Promise<void>;
+  readProfile: () => Promise<string | null>;
+  log: (line: string) => void;
+}): Promise<boolean> {
+  const { mode, win, log } = options;
+  const contents = win.webContents;
+  const errors: string[] = [];
+  contents.on('console-message', (event) => {
+    if (event.level === 'error') errors.push(event.message);
+  });
+  contents.on('render-process-gone', (_event, details) => errors.push(`game window crashed: ${details.reason}`));
+  contents.on('preload-error', (_event, _path, error) => errors.push(`preload failed: ${error.message}`));
+
+  let passed = true;
+  const check = (ok: boolean, what: string) => {
+    log(`${ok ? 'ok  ' : 'FAIL'}  ${what}`);
+    passed &&= ok;
+  };
+  const page = <T>(code: string): Promise<T> => contents.executeJavaScript(code, true) as Promise<T>;
+  // The game reads keys by KeyboardEvent.code, through the same input layer the player uses.
+  const press = (code: string) =>
+    page(`for (const type of ['keydown', 'keyup']) window.dispatchEvent(new KeyboardEvent(type, { code: '${code}', bubbles: true }));`);
+  const orderBox = () => page<string | null>(`document.querySelector('input')?.value ?? null`);
+
+  const ready = await Promise.race([options.gameReady.then(() => true), wait(READY_TIMEOUT_MS).then(() => false)]);
+  check(ready, 'the game started and drew its first screen');
+  if (!ready) return false;
+  check((await page<string>('document.title')) === 'Generals', 'the window shows the game');
+  check(
+    await page<boolean>(`typeof window.generalsDesktop === 'object' && typeof require === 'undefined' && typeof process === 'undefined'`),
+    'the game sees the desktop bridge and not Node',
+  );
+
+  await wait(SCREEN_CHANGE_MS);
+  await press('Enter'); // troops -> orders
+  await wait(SCREEN_CHANGE_MS);
+  const box = await orderBox();
+  check(box !== null, 'Enter opens the orders screen');
+
+  if (mode === 'play') {
+    check(box === '', 'slot 1 starts empty');
+    // Type the order and press Enter in the text box (translate), then Enter again (save to slot 1).
+    await page(
+      `(() => { const box = document.querySelector('input'); box.focus(); box.value = ${JSON.stringify(ORDER)};` +
+        ` box.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true })); })()`,
+    );
+    await wait(300);
+    await press('Enter');
+    const saved = await waitFor(async () => (await options.readProfile())?.includes(ORDER) ?? false, SAVE_TIMEOUT_MS);
+    check(saved, 'the card was written to saves\\profile.json');
+    await press('KeyB'); // start the battle
+    await wait(BATTLE_WATCH_MS);
+    check(await page<boolean>(`document.querySelector('input') === null`), 'the battle started');
+  } else {
+    check(box === ORDER, 'after reopening, slot 1 still holds the card');
+  }
+
+  check(
+    await page<boolean>(`window.generalsDesktop.readFile('saves/profile.json').then((t) => t !== null && t.includes(${JSON.stringify(ORDER)}))`),
+    'the game reads its save back through the bridge',
+  );
+  check(errors.length === 0, `no errors in the game${errors.length ? `: ${errors.join(' | ')}` : ''}`);
+  return passed;
+}

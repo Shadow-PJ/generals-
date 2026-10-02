@@ -2,15 +2,15 @@
 // Drag a troop with the mouse, or pick one with Tab and move it with the arrow keys.
 
 import Phaser from 'phaser';
-import { emptyLoadout } from '../../cards/types';
-import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES, type TroopPlacement } from '../../data/armies';
-import { DEBUG_DEFAULT_RANK, type RankNumber } from '../../data/ranks';
+import { STARTER_ARMY_MIRRORED, STARTER_RESERVES, type TroopPlacement } from '../../data/armies';
 import { OPEN_FIELD } from '../../data/maps';
 import { UNIT_CLASSES } from '../../data/units';
 import { placementProblem } from '../../sim';
 import { drawBody, drawField, drawWall, drawZone } from '../draw';
+import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
+import { remember, savedSetup } from '../session';
 import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
@@ -33,27 +33,25 @@ export class PrepScene extends Phaser.Scene {
     super('Prep');
   }
 
+  /** With no data (the game just started, or back from Settings) it picks up your saved setup. */
   init(data: Partial<MatchSetup>): void {
-    this.setup = {
-      placement: data.placement ?? STARTER_ARMY,
-      loadout: data.loadout ?? emptyLoadout(),
-      rank: data.rank ?? (this.registry.get('rank') as RankNumber | undefined) ?? DEBUG_DEFAULT_RANK,
-      tactical: data.tactical ?? (this.registry.get('tactical') as boolean | undefined) ?? false,
-    };
+    this.setup = { ...savedSetup(), ...data };
     this.placement = this.setup.placement.map((t) => ({ ...t }));
     this.selected = 0;
     this.drag = null;
   }
 
   create(): void {
+    fitCamera(this);
     this.add.text(16, 10, 'PLACE YOUR TROOPS', textStyle(18, TEXT.title, true));
     this.add.text(250, 13, '■ Vanguard   ▲ Ranger   ● Guardian', textStyle(13, TEXT.muted));
     this.add.text(
       16,
       38,
-      'Drag a troop, or pick one with Tab and move it with the arrow keys. Enter: next, write your orders.',
+      'Drag a troop, or pick one with Tab and move it with the arrow keys. Enter: write orders.',
       textStyle(13),
     );
+    addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.toSettings(), 140, 34);
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
 
     const world = this.add.container(0, TOP_BAR_HEIGHT);
@@ -87,11 +85,13 @@ export class PrepScene extends Phaser.Scene {
     this.actions = new InputLayer(this)
       .on('next', () => this.cycleSelection(1))
       .on('prev', () => this.cycleSelection(-1))
-      .on('confirm', () => this.toOrders());
+      .on('confirm', () => this.toOrders())
+      .on('back', () => this.toSettings());
 
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.x, p.y - TOP_BAR_HEIGHT));
+    // World coordinates, so dragging works at any render scale.
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.worldX, p.worldY - TOP_BAR_HEIGHT));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (this.drag) this.drag = { ...this.drag, x: p.x, y: p.y - TOP_BAR_HEIGHT };
+      if (this.drag) this.drag = { ...this.drag, x: p.worldX, y: p.worldY - TOP_BAR_HEIGHT };
     });
     this.input.on('pointerup', () => this.drop());
   }
@@ -181,6 +181,13 @@ export class PrepScene extends Phaser.Scene {
 
   private toOrders(): void {
     this.drop();
-    this.scene.start('Orders', { ...this.setup, placement: this.placement });
+    const setup = { ...this.setup, placement: this.placement };
+    void remember(setup).catch(() => undefined);
+    this.scene.start('Orders', setup);
+  }
+
+  private toSettings(): void {
+    this.drop();
+    this.scene.start('Settings', { ...this.setup, placement: this.placement });
   }
 }

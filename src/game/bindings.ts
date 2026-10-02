@@ -19,7 +19,8 @@ export type InputAction =
   | 'slot3'
   | 'slot4'
   | 'slot5'
-  | 'ultimate';
+  | 'ultimate'
+  | 'fullscreen';
 
 /** The card slot actions, in slot order. */
 export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
@@ -44,6 +45,7 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   slot4: ['Digit4', 'Numpad4'],
   slot5: ['Digit5', 'Numpad5'],
   ultimate: ['KeyU'],
+  fullscreen: ['F11'],
 };
 
 const ACTION_BY_CODE = new Map<string, InputAction>();

@@ -36,6 +36,7 @@ import {
 } from '../battleClock';
 import { SLOT_ACTIONS } from '../bindings';
 import { drawBar, drawBarrier, drawBody, drawField, drawMark, drawWall } from '../draw';
+import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { threats } from '../threats';
@@ -128,6 +129,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   create(): void {
+    fitCamera(this);
     this.world = this.add.container(0, TOP_BAR_HEIGHT);
     const field = this.add.graphics();
     drawField(field, OPEN_FIELD);
