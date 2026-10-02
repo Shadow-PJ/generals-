@@ -1,6 +1,7 @@
 // The battle engine's public face. The renderer and tools import from here.
 
 export { createBattle, runBattle, stepBattle } from './battle';
+export { overtimeMultiplier } from './overtime';
 export { TICKS_PER_SECOND, formatBattleTime, secondsToTicks, ticksToSeconds } from './time';
 export { otherSide, SIDES } from './types';
 export type {
@@ -15,3 +16,4 @@ export type {
   Wall,
   Winner,
 } from './types';
+export { isArmyPlaced, placementProblem, type PlacementProblem } from './placement';

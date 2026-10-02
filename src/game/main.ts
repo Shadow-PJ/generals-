@@ -1,14 +1,17 @@
-// Starts Phaser. The game reads battle state from src/sim; it never changes it.
+// Starts Phaser. The screens read battle state from src/sim; they never change it.
 
 import Phaser from 'phaser';
-import { EngineCheckScene } from './scenes/EngineCheckScene';
+import { BattleScene } from './scenes/BattleScene';
+import { PrepScene } from './scenes/PrepScene';
+import { ResultScene } from './scenes/ResultScene';
+import { COLORS, GAME_HEIGHT, GAME_WIDTH } from './theme';
 
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
-  width: 960,
-  height: 540,
-  backgroundColor: '#1b2230',
+  width: GAME_WIDTH,
+  height: GAME_HEIGHT,
+  backgroundColor: COLORS.background,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [EngineCheckScene],
+  scene: [PrepScene, BattleScene, ResultScene],
 });

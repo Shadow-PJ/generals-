@@ -6,6 +6,12 @@ A 2D top-down strategy game. Armies fight on their own; before a battle you writ
 - `docs/PLAN.md`: the build plan, one session at a time
 - `CLAUDE.md`: how the code is organized and the rules it must never break
 
+## Play it
+
+In the browser: https://shadow-pj.github.io/generals-/ (updated on every merge to `main`).
+
+Place your troops, press Enter, and watch them fight. Space pauses and F switches between 1x and 2x speed.
+
 ## Running it
 
 Needs Node 22.12 or newer.

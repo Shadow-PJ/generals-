@@ -34,12 +34,12 @@ Done when: tests pass and a full battle runs in the terminal.
 
 ### 1B. Watchable battle
 
-- [ ] Phaser renderer draws the battle each frame with simple shapes, HP bars and projectiles
-- [ ] One open-field map with a few walls
-- [ ] Prep screen: place 5 troops on your half; the enemy army is preset
-- [ ] Speed controls: pause, 1x, 2x
-- [ ] Win or loss screen with a rematch button
-- [ ] GitHub Actions: tests and build on every pull request; deploy to GitHub Pages on every merge to main
+- [x] Phaser renderer draws the battle each frame with simple shapes, HP bars and projectiles
+- [x] One open-field map with a few walls
+- [x] Prep screen: place 5 troops on your half; the enemy army is preset
+- [x] Speed controls: pause, 1x, 2x
+- [x] Win or loss screen with a rematch button
+- [x] GitHub Actions: tests and build on every pull request; deploy to GitHub Pages on every merge to main
 
 Done when: a battle is playable at the GitHub Pages link.
 
