@@ -8,6 +8,7 @@ import type { Platform } from './types';
 
 export type { ChatTurn, LoadOptions, LocalModel } from './model';
 export { ORDER_MODELS, type ModelChoice } from './models';
+export type { Listening, SpeechInput, SpeechProblem, SpeechResult } from './speech';
 export type { Display, FileName, Files, Platform } from './types';
 export { windowScales } from './windowSizes';
 

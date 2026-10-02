@@ -1,5 +1,5 @@
-// Writing orders: each slot holds one Command card. Type an order and the rule parser turns it
-// into a card, or build one from the menus. The validator checks it against your rank, then your
+// Writing orders: each slot holds one Command card. Type or speak an order (hold V to talk) and
+// the translators turn it into a card, or build one from the menus. The validator checks it against your rank, then your
 // General reads it by their personality rules and answers. Slots keep the card as you wrote it;
 // the General's version is what fires. Rephrasing is free.
 
@@ -14,6 +14,7 @@ import { slotUnlockRank, validateCard } from '../../cards/validator';
 import { TRANSLATOR_RULES } from '../../data/cards';
 import { GENERAL_IDS, GENERALS } from '../../data/generals';
 import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
+import { keyLabel } from '../bindings';
 import { builderRows, newDraft, type BuilderRow } from '../cardBuilder';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
@@ -21,9 +22,10 @@ import { orderModelState, orderModelTranslator } from '../orderModel';
 import { orderReaderTranslator } from '../orderReader';
 import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
-import { remember, savedSetup } from '../session';
+import { currentPlatform, remember, savedSetup } from '../session';
 import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
+import { PushToTalk, VOICE_MESSAGES } from '../voice';
 
 const SLOT_COUNT = 4;
 const SLOT_X = 16;
@@ -50,6 +52,8 @@ export class OrdersScene extends Phaser.Scene {
   private orderInput!: HTMLInputElement;
   /** True while an order is being translated, so Enter twice doesn't start a second one. */
   private translating = false;
+  /** Speaking orders: hold the talk key or the Talk button. */
+  private voice!: PushToTalk;
 
   constructor() {
     super('Orders');
@@ -65,12 +69,33 @@ export class OrdersScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
+    const platform = currentPlatform();
+    this.voice = new PushToTalk(
+      platform.speech,
+      {
+        onWords: (text) => {
+          this.orderInput.value = text;
+        },
+        onOrder: (text) => {
+          this.orderInput.value = text;
+          void this.translate();
+        },
+        onStatus: (text, problem) => {
+          this.status = { text, color: problem ? TEXT.defeat : TEXT.muted };
+          this.render();
+        },
+      },
+      platform.kind === 'desktop' ? VOICE_MESSAGES.noSpeechInApp : VOICE_MESSAGES.noSpeechInBrowser,
+    );
+    this.events.once('shutdown', () => this.voice.cancel());
+
     this.add.rectangle(0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, COLORS.background).setOrigin(0);
     this.add.text(16, 10, 'WRITE YOUR ORDERS', textStyle(18, TEXT.title, true));
+    const talkHint = this.voice.available ? ` Hold ${keyLabel('talk')} to speak an order.` : '';
     this.add.text(
       16,
       38,
-      '↑↓ pick a line, ←→ change it, Enter saves to the slot, Tab switches slots.',
+      `↑↓ pick a line, ←→ change it, Enter saves to the slot, Tab switches slots.${talkHint}`,
       textStyle(12, TEXT.muted),
     );
 
@@ -81,7 +106,7 @@ export class OrdersScene extends Phaser.Scene {
       placeholder: 'e.g. When their Assassin dives, protect my Ranger, then everyone focus him',
     });
     Object.assign(this.orderInput.style, {
-      width: '400px',
+      width: '320px',
       height: '28px',
       padding: '0 8px',
       font: `13px ${FONT}`,
@@ -102,6 +127,10 @@ export class OrdersScene extends Phaser.Scene {
       this.row = TEXT_ROW;
       this.render();
     });
+    // Hold to talk: the press starts listening, letting go anywhere stops it.
+    addButton(this, PANEL_X + 436, 96, `Talk  ${keyLabel('talk')}`, () => this.voice.press(), 72, 28);
+    this.input.on('pointerup', () => this.voice.release());
+    this.input.on('pointerupoutside', () => this.voice.release());
     addButton(this, GAME_WIDTH - 66, 96, 'Translate  ⏎', () => void this.translate(), 100, 28);
 
     addButton(this, SLOT_X + 72, GAME_HEIGHT - 34, '◀ Troops  Esc', () => this.backToTroops(), 140, 32);
@@ -121,7 +150,9 @@ export class OrdersScene extends Phaser.Scene {
       .on('confirm', () => (this.row === TEXT_ROW ? this.orderInput.focus() : this.save()))
       .on('clear', () => this.clear())
       .on('start', () => this.startBattle())
-      .on('back', () => this.backToTroops());
+      .on('back', () => this.backToTroops())
+      .on('talk', () => this.voice.press())
+      .onRelease('talk', () => this.voice.release());
 
     this.render();
   }

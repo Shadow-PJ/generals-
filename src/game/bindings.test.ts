@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionForKey, KEYBOARD_BINDINGS } from './bindings';
+import { actionForKey, KEYBOARD_BINDINGS, keyLabel } from './bindings';
 
 describe('key bindings', () => {
   it('maps keys to actions', () => {
@@ -24,6 +24,13 @@ describe('key bindings', () => {
     ]);
     expect(actionForKey('Numpad3')).toBe('slot3');
     expect(actionForKey('KeyU')).toBe('ultimate');
+  });
+
+  it('holds V to speak an order, and names keys for the screen', () => {
+    expect(actionForKey('KeyV')).toBe('talk');
+    expect(keyLabel('talk')).toBe('V');
+    expect(keyLabel('slot1')).toBe('1');
+    expect(keyLabel('confirm')).toBe('Enter');
   });
 
   it('gives each key at most one action', () => {

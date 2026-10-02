@@ -1,5 +1,5 @@
-// Guard for rule 7 in CLAUDE.md: game code never talks to Electron, a store, the file system
-// or browser storage directly; only src/platform does.
+// Guard for rule 7 in CLAUDE.md: game code never talks to Electron, a store, the file system,
+// browser storage or the microphone directly; only src/platform does.
 
 import { describe, expect, it } from 'vitest';
 
@@ -21,6 +21,7 @@ const FORBIDDEN = [
   /requestFullscreen|exitFullscreen/,
   /from\s+['"](node:|fs|path|child_process)/,
   /\bsteam|\bepic\b/i,
+  /SpeechRecognition|getUserMedia/,
 ];
 
 describe('platform rule', () => {

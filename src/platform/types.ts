@@ -3,6 +3,7 @@
 // past it to Electron, the file system or a store.
 
 import type { LoadOptions, LocalModel } from './model';
+import type { SpeechInput } from './speech';
 
 /**
  * The files the game keeps. Everything under `saves/` is your progress and is meant to sync
@@ -44,9 +45,8 @@ export interface Platform {
   quit: (() => void) | null;
   /** Called once the first screen is drawn; the desktop app shows its window then. */
   ready(): void;
-  /**
-   * Starts the small order-reading model. Both builds download it on first use for now; in
-   * session 3C the desktop app loads the copy it ships with instead.
-   */
+  /** Starts the experimental language model for reading orders; both builds download it on first use. */
   loadModel(url: string, options?: LoadOptions): Promise<LocalModel>;
+  /** Turns speech into words for spoken orders; null where there is no speech recognition. */
+  readonly speech: SpeechInput | null;
 }

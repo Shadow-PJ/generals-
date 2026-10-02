@@ -131,8 +131,8 @@ Owner checks: type some orders the rule parser can't read on the Orders screen a
 
 ### 3D. Voice input
 
-- [ ] Push-to-talk on the card screen using the browser's speech recognition
-- [ ] Typing still works when the browser has no speech support
+- [x] Push-to-talk on the card screen using the browser's speech recognition
+- [x] Typing still works when the browser has no speech support
 
 ## Phase 4: Combos and content
 

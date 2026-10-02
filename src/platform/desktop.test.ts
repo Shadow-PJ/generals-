@@ -45,6 +45,11 @@ describe('desktop platform', () => {
     expect(heard).toEqual([false]);
   });
 
+  it('has no speech recognition yet, so the player types', async () => {
+    const platform = await createDesktopPlatform(fakeBridge().bridge);
+    expect(platform.speech).toBeNull();
+  });
+
   it('can size its window and shows it only once', async () => {
     const fake = fakeBridge();
     const platform = await createDesktopPlatform(fake.bridge);
