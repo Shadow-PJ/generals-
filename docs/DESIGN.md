@@ -163,6 +163,8 @@ Combos come in four layers, from automatic to expert. Hidden combos fill in a Co
 
 **2. Chains (from Rank III).** Fire a card within 3 s of the last one to chain them. Each link costs 1 less pip and doubles Momentum gain. A counter shows the chain: x2, x3, x4.
 
+In detail: every link after the first costs 1 pip less than its card (not 1 less per link so far), and never under 1. Every link after the first adds 8 Momentum, and all the Momentum a chained card earns (that, a Perfect timing, its combos) counts double. Cards that fire by themselves (Auto) chain too, and the ultimate counts as a link.
+
 **3. Signature combos (from Rank III).** Certain steps in a row trigger a bonus. They work across a chain of cards and inside a single card, so a well-written order can be a combo on its own.
 
 | Combo | Steps in a row | Bonus |
@@ -173,7 +175,11 @@ Combos come in four layers, from automatic to expert. Hidden combos fill in a Co
 | Hammer and Anvil | Move a Vanguard behind enemies, then Overcharge it | Shove pushes them into your line and stuns them for 2 s |
 | Iron Shell | Protect, then Hold | Held troops reflect 30% of damage while their Barrier lasts |
 
-**4. Finishers (from Rank IV).** Fire your ultimate as the last link of a chain of 3 or more and it gains +50% power. Example with the Strategist: Fall Back, then Focus (Feigned Retreat), then Gravity Well pulls the chasing enemies together for a Finisher.
+Each signature combo also adds 10 Momentum. In detail: Feigned Retreat slows the enemies within 160 of a retreating troop when it turns to Focus, for 4 s. An Ambush across a chain moves the reserve the last card called in. Overload's self-damage never takes a troop's last point of HP. Hammer and Anvil's stun starts when the push ends. Iron Shell reflects only while the Hold lasts.
+
+**4. Finishers (from Rank IV).** Fire your ultimate as the last link of a chain of 3 or more and it gains +50% power. The cards before it count: two chained cards, then the ultimate, is a Finisher.
+
+**Combo Codex.** Lists the signature combos and the Finisher, each hidden until you first land it. Troop synergies join it when they are built (4B and 4C). Example with the Strategist: Fall Back, then Focus (Feigned Retreat), then Gravity Well pulls the chasing enemies together for a Finisher.
 
 ## Command progression
 

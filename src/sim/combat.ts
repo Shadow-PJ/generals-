@@ -1,9 +1,9 @@
 // Attacks, projectiles and damage.
 
 import { BATTLE_RULES } from '../data/battle';
-import { ULTIMATES } from '../data/command';
 import { distance } from './geometry';
 import { overtimeMultiplier } from './overtime';
+import { COMBO_BONUSES } from '../data/combos';
 import { findUnit, orderPower } from './queries';
 import { nextRange } from './rng';
 import { attackIntervalTicks, TICKS_PER_SECOND } from './time';
@@ -26,7 +26,10 @@ export function damageAfterDefenses(raw: number, armor: number, armorPierce: num
   return Math.max(BATTLE_RULES.minDamage, Math.round(damage));
 }
 
-/** Applies one hit: Overtime grows it, a Barrier soaks damage first, then HP. Writes a damage event. */
+/**
+ * Applies one hit: Overtime grows it, a Barrier soaks damage first, then HP. Writes a damage
+ * event. A troop holding with Iron Shell sends part of the hit back while its Barrier lasts.
+ */
 export function dealDamage(
   state: BattleState,
   sourceId: number,
@@ -36,8 +39,9 @@ export function dealDamage(
   cause: DamageCause,
 ): void {
   if (!target.alive || target.hp <= 0) return;
-  const markBonus = target.mark ? target.mark.damageTakenBonus : 0;
-  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick), target.stats.armor, armorPierce, markBonus);
+  const bonus = (target.mark?.damageTakenBonus ?? 0) + (target.chased?.damageTakenBonus ?? 0);
+  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick), target.stats.armor, armorPierce, bonus);
+  const shelled = target.barrier !== null && cause !== 'reflect' && ironShellHolds(target);
   let absorbed = 0;
   if (target.barrier) {
     absorbed = Math.min(target.barrier.amount, total);
@@ -48,6 +52,19 @@ export function dealDamage(
   target.hp -= amount;
   if (amount > 0) target.lastHitBy = sourceId;
   state.events.push({ tick: state.tick, type: 'damage', sourceId, targetId: target.id, amount, absorbed, cause });
+  if (shelled) {
+    const attacker = findUnit(state, sourceId);
+    const reflected = Math.round(total * COMBO_BONUSES.ironShell.reflectShare);
+    if (attacker?.alive && attacker.side !== target.side && reflected > 0) {
+      // The reflected share already counts Overtime and ignores the attacker's armor.
+      dealDamage(state, target.id, attacker, reflected / overtimeMultiplier(state.tick), 1, 'reflect');
+    }
+  }
+}
+
+function ironShellHolds(unit: Unit): boolean {
+  const order = unit.orders[0];
+  return order?.started === true && order.kind === 'hold' && order.combo === 'ironShell';
 }
 
 /** One attack: melee hits land at once, ranged attacks fire a projectile. */
@@ -68,7 +85,7 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
   } else {
     dealDamage(state, unit.id, target, raw, unit.stats.armorPierce, 'attack');
   }
-  const rally = unit.rallyTicks > 0 ? 1 + ULTIMATES.rally.attackSpeedBonus : 1;
+  const rally = unit.rallyTicks > 0 ? 1 + unit.rallyBonus : 1;
   unit.attackCooldown = attackIntervalTicks(unit.stats.attacksPerSecond * rally);
 }
 

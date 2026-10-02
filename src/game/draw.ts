@@ -109,6 +109,24 @@ export function drawBarrier(g: Graphics, x: number, y: number, r: number, share:
   g.lineStyle(1 + 3 * share, COLORS.barrier, 0.85).strokeCircle(x, y, r + 5);
 }
 
+/** Chased (Feigned Retreat): a broken violet ring, slowed and taking more damage. */
+export function drawChased(g: Graphics, x: number, y: number, r: number): void {
+  g.lineStyle(2, COLORS.chased, 0.9);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    g.beginPath().arc(x, y, r + 7, a, a + Math.PI / 6).strokePath();
+  }
+}
+
+/** Stunned (Hammer and Anvil): three small stars circling over the head. */
+export function drawStun(g: Graphics, x: number, y: number, r: number, time: number): void {
+  g.fillStyle(COLORS.stun, 1);
+  for (let i = 0; i < 3; i++) {
+    const a = time / 180 + (i * Math.PI * 2) / 3;
+    g.fillCircle(x + Math.cos(a) * (r * 0.7), y - r - 6 + Math.sin(a) * 3, 2.5);
+  }
+}
+
 /** A Mark: a yellow crosshair around the target. */
 export function drawMark(g: Graphics, x: number, y: number, r: number): void {
   const inner = r + 4;

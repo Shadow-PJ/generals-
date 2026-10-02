@@ -19,7 +19,20 @@ export const COMMAND_RULES = {
     /** Fills on its own, so every player gets their ultimate (a full bar in about 75 s). */
     passivePerSecond: 1.35,
     perfectGain: 20,
+    /** Each chain link after the first adds this much... */
+    chainLinkGain: 8,
+    /** ...and a chained card's Momentum (Perfect, combos, the link itself) counts this many times. */
+    chainMultiplier: 2,
   },
+  /** Chains (from Rank III): fire the next card within the window to chain it to the last one. */
+  chain: {
+    windowSeconds: 3,
+    /** Each link after the first costs this many pips less, but never under `minCost`. */
+    linkDiscount: 1,
+    minCost: 1,
+  },
+  /** Finishers (from Rank IV): the ultimate as link `minLinks` or later of a chain hits harder. */
+  finisher: { minLinks: 3, powerBonus: 0.5 },
   /** Tactical mode pauses the battle this often. */
   tacticalPauseSeconds: 10,
 } as const;

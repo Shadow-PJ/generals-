@@ -22,7 +22,8 @@ export type InputAction =
   | 'ultimate'
   | 'fullscreen'
   /** Held to speak an order (push-to-talk). */
-  | 'talk';
+  | 'talk'
+  | 'codex';
 
 /** The card slot actions, in slot order. */
 export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
@@ -49,6 +50,7 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   ultimate: ['KeyU'],
   fullscreen: ['F11'],
   talk: ['KeyV'],
+  codex: ['KeyC'],
 };
 
 const ACTION_BY_CODE = new Map<string, InputAction>();

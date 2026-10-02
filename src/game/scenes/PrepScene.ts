@@ -51,6 +51,7 @@ export class PrepScene extends Phaser.Scene {
       'Drag a troop, or pick one with Tab and move it with the arrow keys. Enter: write orders.',
       textStyle(13),
     );
+    addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
     addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.toSettings(), 140, 34);
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
 
@@ -86,7 +87,8 @@ export class PrepScene extends Phaser.Scene {
       .on('next', () => this.cycleSelection(1))
       .on('prev', () => this.cycleSelection(-1))
       .on('confirm', () => this.toOrders())
-      .on('back', () => this.toSettings());
+      .on('back', () => this.toSettings())
+      .on('codex', () => this.toCodex());
 
     // World coordinates, so dragging works at any render scale.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.worldX, p.worldY - TOP_BAR_HEIGHT));
@@ -184,6 +186,11 @@ export class PrepScene extends Phaser.Scene {
     const setup = { ...this.setup, placement: this.placement };
     void remember(setup).catch(() => undefined);
     this.scene.start('Orders', setup);
+  }
+
+  private toCodex(): void {
+    this.drop();
+    this.scene.start('Codex', { ...this.setup, placement: this.placement });
   }
 
   private toSettings(): void {

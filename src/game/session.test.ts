@@ -7,6 +7,8 @@ import {
   availableWindowScales,
   changeSettings,
   chosenWindowScale,
+  foundCombos,
+  recordCombo,
   remember,
   savedSetup,
   startSession,
@@ -78,6 +80,18 @@ describe('the session', () => {
     // The next start picks it all up again.
     await startSession(fake.platform);
     expect(savedSetup()).toEqual(setup);
+  });
+
+  it('adds a combo to the Codex once, saves it, and keeps it when your cards change', async () => {
+    expect(foundCombos()).toEqual([]);
+    await recordCombo('ironShell');
+    expect(recordCombo('ironShell')).toBeNull();
+    await recordCombo('feignedRetreat');
+    expect(foundCombos()).toEqual(['feignedRetreat', 'ironShell']);
+    await remember({ ...savedSetup(), rank: 4 });
+    expect(readProfile(fake.files.get('saves/profile.json') ?? null).codex).toEqual(['feignedRetreat', 'ironShell']);
+    await startSession(fake.platform);
+    expect(foundCombos()).toEqual(['feignedRetreat', 'ironShell']);
   });
 
   it('keeps saves in order and skips writing a file that did not change', async () => {
