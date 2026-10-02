@@ -7,6 +7,9 @@
 //   --isolated        serve the page cross-origin isolated (needed for more than 1 thread),
 //                     as the desktop app does; GitHub Pages can't, so the browser build runs with 1
 //   --set, --limit    which sentences: test (default), train or all; and how many at most
+//   --minutes         stop reading orders after this long and report what was done (default 45)
+// Orders are taken round-robin across the groups, so a run cut short still covers every kind.
+// The report file is rewritten every 10 orders, so even a killed run leaves one.
 // Set CHROMIUM_PATH to use a Chromium that Playwright didn't download.
 
 import { writeFileSync } from 'node:fs';
@@ -39,8 +42,19 @@ const isolated = flag('isolated');
 const set = option('set') ?? 'test';
 const limit = Number(option('limit') ?? '0');
 
+const minutes = Number(option('minutes') ?? '45');
+
+/** The first sentence of every group, then the second of every group, and so on. */
+function roundRobin<T extends { group: string }>(items: readonly T[]): T[] {
+  const groups = new Map<string, T[]>();
+  for (const item of items) groups.set(item.group, [...(groups.get(item.group) ?? []), item]);
+  const lists = [...groups.values()];
+  const longest = Math.max(0, ...lists.map((l) => l.length));
+  return Array.from({ length: longest }, (_, i) => lists.flatMap((l) => (l[i] ? [l[i]] : []))).flat();
+}
+
 const all = loadNatural();
-const pool = set === 'all' ? all : splitNatural(all)[set === 'train' ? 'train' : 'test'];
+const pool = roundRobin(set === 'all' ? all : splitNatural(all)[set === 'train' ? 'train' : 'test']);
 const examples = limit > 0 ? pool.slice(0, limit) : pool;
 
 const server = await createServer({
@@ -79,40 +93,49 @@ try {
   const translate = (text: string) => page.evaluate((t) => (globalThis as unknown as EvalPage).evalTranslate(t), text);
   const warmUp = await translate(PROMPT_EXAMPLES[0]!.text);
 
+  const name = choice?.name ?? path.basename(modelFile ?? modelArg);
+  const out = option('out');
+  const report = (outcomes: readonly Outcome[], finished: boolean) => {
+    // What the game does: the parser first, the model only for what the parser can't read.
+    const chained: Outcome[] = outcomes.map((o) => {
+      const parsed = parseOrder(o.example.text);
+      return parsed.ok ? { example: o.example, result: parsed, ms: 0, by: 'parser' } : o;
+    });
+    const parserOnly: Outcome[] = outcomes.map((o) => ({ example: o.example, result: parseOrder(o.example.text), ms: 0, by: 'parser' }));
+    const text = [
+      `## ${name}: ${load.threads === 1 ? 'single-threaded (browser build)' : `${load.threads} threads (desktop app)`}`,
+      '',
+      `- Model: ${choice ? `[${choice.name}](${choice.url}) (${choice.license})` : modelUrl}`,
+      `- Download: **${(load.bytes / 1e6).toFixed(0)} MB** for the model, plus 8.8 MB for the runtime. Loading took ${(load.ms / 1000).toFixed(1)} s${modelFile ? ' from a local copy (no download time)' : ', download included'}.`,
+      `- Threads: ${load.threads}; cross-origin isolated: ${load.isolated}. First order (also reads the prompt): ${(warmUp.ms / 1000).toFixed(1)} s.`,
+      `- Orders: ${outcomes.length} of the ${examples.length} in the ${set} set${limit ? ` (first ${limit})` : ''}, taken round-robin across the ${new Set(examples.map((e) => e.group)).size} groups${finished ? '' : ` (stopped at the ${minutes}-minute limit)`}.`,
+      '',
+      reportSection('Model alone', outcomes),
+      reportSection('Parser first, then the model (what the game does)', chained),
+      reportSection('Parser alone, on the same orders', parserOnly),
+      pageErrors.length ? `Errors in the page: ${pageErrors.join(' | ')}` : '',
+    ].join('\n');
+    if (out) writeFileSync(out, text);
+    return text;
+  };
+
   const modelOutcomes: Outcome[] = [];
+  const deadline = Date.now() + minutes * 60_000;
+  let finished = true;
   for (const [i, example] of examples.entries()) {
+    if (Date.now() > deadline) {
+      finished = false;
+      break;
+    }
     const { raw, ms } = await translate(example.text);
     modelOutcomes.push({ example, result: cardFromModelOutput(raw, example.text), ms, by: 'model' });
     if ((i + 1) % 10 === 0 || i === examples.length - 1) {
       const s = score(modelOutcomes);
       console.log(`${i + 1}/${examples.length}  accuracy so far ${percent(s.accuracy)}  median ${s.medianMs.toFixed(0)} ms`);
+      report(modelOutcomes, false);
     }
   }
-
-  // What the game does: the parser first, the model only for what the parser can't read.
-  const chained: Outcome[] = modelOutcomes.map((o) => {
-    const parsed = parseOrder(o.example.text);
-    return parsed.ok ? { example: o.example, result: parsed, ms: 0, by: 'parser' } : o;
-  });
-  const parserOnly: Outcome[] = modelOutcomes.map((o) => ({ example: o.example, result: parseOrder(o.example.text), ms: 0, by: 'parser' }));
-
-  const name = choice?.name ?? path.basename(modelFile ?? modelArg);
-  const report = [
-    `## ${name}: ${load.threads === 1 ? 'single-threaded (browser build)' : `${load.threads} threads (desktop app)`}`,
-    '',
-    `- Model: ${choice ? `[${choice.name}](${choice.url}) (${choice.license})` : modelUrl}`,
-    `- Download: **${(load.bytes / 1e6).toFixed(0)} MB** for the model, plus 8.8 MB for the runtime. Loading took ${(load.ms / 1000).toFixed(1)} s${modelFile ? ' from a local copy (no download time)' : ', download included'}.`,
-    `- Threads: ${load.threads}; cross-origin isolated: ${load.isolated}. First order (reads the prompt): ${(warmUp.ms / 1000).toFixed(1)} s.`,
-    `- Sentences: the ${set} set${limit ? `, first ${examples.length}` : ''} (${examples.length}).`,
-    '',
-    reportSection('Model alone', modelOutcomes),
-    reportSection('Parser first, then the model (what the game does)', chained),
-    reportSection('Parser alone, for comparison', parserOnly),
-    pageErrors.length ? `Errors in the page: ${pageErrors.join(' | ')}` : '',
-  ].join('\n');
-  const out = option('out');
-  if (out) writeFileSync(out, report);
-  console.log(report);
+  console.log(report(modelOutcomes, finished));
 } finally {
   await browser.close();
   await server.close();

@@ -22,7 +22,7 @@ concurrency:
 jobs:
   eval:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 110
     strategy:
       fail-fast: false
       matrix:
@@ -43,10 +43,13 @@ jobs:
           echo "Downloading $url"
           curl -fL --retry 3 -o "$RUNNER_TEMP/model.gguf" "$url"
           ls -la "$RUNNER_TEMP/model.gguf"
-      - name: Desktop app (all threads, cross-origin isolated), every test order
-        run: npx tsx tools/eval/model/run.ts --model ${{ matrix.model }} --model-file "$RUNNER_TEMP/model.gguf" --threads 0 --isolated --out report-desktop.md
-      - name: Browser build (1 thread), first 40 test orders for speed
-        run: npx tsx tools/eval/model/run.ts --model ${{ matrix.model }} --model-file "$RUNNER_TEMP/model.gguf" --threads 1 --limit 40 --out report-browser.md
+      - name: Desktop app (all threads, cross-origin isolated), test orders for up to 45 minutes
+        timeout-minutes: 60
+        run: npx tsx tools/eval/model/run.ts --model ${{ matrix.model }} --model-file "$RUNNER_TEMP/model.gguf" --threads 0 --isolated --minutes 45 --out report-desktop.md
+      - name: Browser build (1 thread), test orders for up to 12 minutes, for speed
+        if: always()
+        timeout-minutes: 25
+        run: npx tsx tools/eval/model/run.ts --model ${{ matrix.model }} --model-file "$RUNNER_TEMP/model.gguf" --threads 1 --limit 40 --minutes 12 --out report-browser.md
       - name: Summary
         if: always()
         run: cat report-desktop.md report-browser.md >> "$GITHUB_STEP_SUMMARY" || true
