@@ -7,13 +7,18 @@ export interface Rect {
   h: number;
 }
 
+export interface WallData extends Rect {
+  /** Damage the wall stops before it breaks. Leave out to use BATTLE_RULES.walls.hp. */
+  hp?: number;
+}
+
 export interface MapData {
   id: string;
   name: string;
   width: number;
   height: number;
-  /** Walls block movement. */
-  walls: Rect[];
+  /** Walls block movement and shots until they break. */
+  walls: WallData[];
   /** Where each side may place its troops before battle. */
   deployZones: { player: Rect; enemy: Rect };
 }

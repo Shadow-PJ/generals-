@@ -6,16 +6,16 @@ import { UNIT_CLASSES } from '../data/units';
 import { think, type Action, type SkillCast } from './behaviors';
 import { performAttack, updateProjectiles } from './combat';
 import { isSpaceFree, moveUnitBy, separateUnits, stepAwayFrom, updateKnockbacks, walkToward } from './movement';
-import { buildNavGraph } from './navigation';
+import { overtimeStartTick } from './overtime';
 import { findUnit, livingUnits } from './queries';
 import { createRng, nextInt, type RngState } from './rng';
 import { castBarrier, castMark, castShove, initialSkillCooldownTicks } from './skills';
 import { attackIntervalTicks, secondsToTicks } from './time';
-import { SIDES, type BattleSetup, type BattleState, type Side, type Unit, type Winner } from './types';
+import { SIDES, type BattleSetup, type BattleState, type Side, type Unit, type Wall, type Winner } from './types';
+import { rebuildNav } from './walls';
 
 export function createBattle(setup: BattleSetup): BattleState {
   const rng = createRng(setup.seed);
-  const maxRadius = Math.max(...Object.values(UNIT_CLASSES).map((c) => c.stats.radius));
   const units: Unit[] = [];
 
   // Ids alternate between the sides (player, enemy, player, ...) so neither side always acts first.
@@ -27,18 +27,18 @@ export function createBattle(setup: BattleSetup): BattleState {
     }
   }
 
-  for (const unit of units) {
-    if (!isSpaceFree(setup.map, unit.x, unit.y, unit.stats.radius)) {
-      throw new Error(`${unit.side} ${unit.cls} at (${unit.x}, ${unit.y}) is inside a wall or off the map`);
-    }
-  }
+  const walls: Wall[] = setup.map.walls.map((w, i) => {
+    const hp = w.hp ?? BATTLE_RULES.walls.hp;
+    return { id: i + 1, x: w.x, y: w.y, w: w.w, h: w.h, hp, maxHp: hp };
+  });
 
-  return {
+  const state: BattleState = {
     seed: setup.seed,
     tick: 0,
     rng,
     map: setup.map,
-    nav: buildNavGraph(setup.map, maxRadius + BATTLE_RULES.navigation.wallClearance),
+    walls,
+    nav: { walls: [], blockers: [], corners: [] },
     units,
     projectiles: [],
     nextProjectileId: 1,
@@ -49,6 +49,14 @@ export function createBattle(setup: BattleSetup): BattleState {
     events: [],
     result: null,
   };
+  rebuildNav(state);
+
+  for (const unit of units) {
+    if (!isSpaceFree(state, unit.x, unit.y, unit.stats.radius)) {
+      throw new Error(`${unit.side} ${unit.cls} at (${unit.x}, ${unit.y}) is inside a wall or off the map`);
+    }
+  }
+  return state;
 }
 
 function createUnit(id: number, side: Side, placement: TroopPlacement, rng: RngState): Unit {
@@ -83,6 +91,7 @@ function totalMaxHp(units: Unit[], side: Side): number {
 export function stepBattle(state: BattleState): void {
   if (state.result) return;
 
+  if (state.tick === overtimeStartTick()) state.events.push({ tick: state.tick, type: 'overtime' });
   tickTimers(state);
 
   // Decide: every unit looks at the same start-of-tick state.

@@ -90,7 +90,7 @@ export function thinkRanger(state: BattleState, unit: Unit): Intent {
   if (gap < UNIT_CLASSES.ranger.behavior.retreatDistance) {
     const step = stepAwayFrom(unit, threat);
     if (step) {
-      const to = slideMove(state.map, unit.x, unit.y, unit.stats.radius, step.x, step.y);
+      const to = slideMove(state, unit.x, unit.y, unit.stats.radius, step.x, step.y);
       const moved = distance(unit.x, unit.y, to.x, to.y);
       if (moved >= stepLength(unit) * BATTLE_RULES.corneredMoveShare) {
         return { action: { kind: 'backAway', from: { x: threat.x, y: threat.y }, targetId: threat.id }, cast: null };
@@ -108,8 +108,10 @@ export function thinkRanger(state: BattleState, unit: Unit): Intent {
 
 /**
  * Guardian: stays near the most hurt ally, on the side away from the enemy closest to that ally,
- * and shoots enemies in reach while it is there. Gives a Barrier to the most hurt ally in range
- * that has none yet (never to itself).
+ * and shoots enemies in reach while it is there. It only guards allies that aren't Guardians
+ * (two Guardians guarding each other would keep stepping behind one another, away from the
+ * fight); with no one else left to guard, it fights. Gives a Barrier to the most hurt ally in
+ * range that has none yet (never to itself).
  */
 export function thinkGuardian(state: BattleState, unit: Unit): Intent {
   const enemies = livingEnemies(state, unit);
@@ -117,7 +119,7 @@ export function thinkGuardian(state: BattleState, unit: Unit): Intent {
   const allies = livingAllies(state, unit);
   const cast = chooseBarrierTarget(unit, allies);
 
-  const ward = mostHurt(allies);
+  const ward = mostHurt(allies.filter((a) => a.cls !== 'guardian'));
   if (ward) {
     const danger = nearestTo(enemies, ward.x, ward.y)!;
     const spot = guardSpot(state, unit, ward, danger);

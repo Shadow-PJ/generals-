@@ -5,7 +5,7 @@
 // the corners of the grown walls (a visibility graph). With a few walls on a map this is
 // a handful of nodes, so planning is cheap and the paths are smooth.
 
-import type { MapData, Rect } from '../data/maps';
+import type { Rect } from '../data/maps';
 import { distance, inflateRect, pointInRect, segmentCrossesRect, type Point } from './geometry';
 
 /** How far outside a grown wall its corner nodes sit, so they never touch it. */
@@ -20,8 +20,9 @@ export interface NavGraph {
   corners: Point[];
 }
 
-export function buildNavGraph(map: MapData, clearance: number): NavGraph {
-  const walls = map.walls.map((w) => ({ ...w }));
+/** Builds the graph for a map of the given size with these standing walls. */
+export function buildNavGraph(width: number, height: number, standing: readonly Rect[], clearance: number): NavGraph {
+  const walls = standing.map((w) => ({ x: w.x, y: w.y, w: w.w, h: w.h }));
   const blockers = walls.map((w) => inflateRect(w, clearance));
   const corners: Point[] = [];
   for (const b of blockers) {
@@ -32,7 +33,7 @@ export function buildNavGraph(map: MapData, clearance: number): NavGraph {
       { x: b.x + b.w + CORNER_OFFSET, y: b.y + b.h + CORNER_OFFSET },
     ];
     for (const c of candidates) {
-      const inMap = c.x >= clearance && c.y >= clearance && c.x <= map.width - clearance && c.y <= map.height - clearance;
+      const inMap = c.x >= clearance && c.y >= clearance && c.x <= width - clearance && c.y <= height - clearance;
       if (inMap && !blockers.some((other) => pointInRect(c.x, c.y, other))) corners.push(c);
     }
   }

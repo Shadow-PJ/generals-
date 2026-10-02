@@ -41,6 +41,14 @@ export function circleOverlapsRect(cx: number, cy: number, radius: number, r: Re
  * Grazing a corner or running along an edge doesn't count, so paths can hug walls.
  */
 export function segmentCrossesRect(ax: number, ay: number, bx: number, by: number, r: Rect): boolean {
+  return segmentEntry(ax, ay, bx, by, r) !== null;
+}
+
+/**
+ * How far along the segment from a to b (0 at a, 1 at b) it first enters the inside of
+ * the rectangle, or null if it never does. Grazing an edge or corner doesn't count.
+ */
+export function segmentEntry(ax: number, ay: number, bx: number, by: number, r: Rect): number | null {
   let tMin = 0;
   let tMax = 1;
   const axes: [number, number, number, number][] = [
@@ -49,7 +57,7 @@ export function segmentCrossesRect(ax: number, ay: number, bx: number, by: numbe
   ];
   for (const [start, delta, lo, hi] of axes) {
     if (delta === 0) {
-      if (start <= lo || start >= hi) return false;
+      if (start <= lo || start >= hi) return null;
       continue;
     }
     let t1 = (lo - start) / delta;
@@ -61,7 +69,7 @@ export function segmentCrossesRect(ax: number, ay: number, bx: number, by: numbe
     }
     tMin = Math.max(tMin, t1);
     tMax = Math.min(tMax, t2);
-    if (tMin >= tMax) return false;
+    if (tMin >= tMax) return null;
   }
-  return true;
+  return tMin;
 }

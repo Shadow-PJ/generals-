@@ -27,6 +27,8 @@ Goal: troops fight on their own, the same way every time for the same seed, and 
 - [x] A battle ends when one army is gone, or after 3 minutes by remaining HP
 - [x] Headless runner: `npm run sim -- --seed 42` prints the winner and a short log
 - [x] Determinism test: the same seed and inputs always give the same result
+- [x] Walls also stop shots like a shield and break when worn down (owner decision on the 1A pull request)
+- [x] Overtime from 2:20 so stalled battles end; class numbers rebalanced so mixed armies beat single-class ones
 
 Done when: tests pass and a full battle runs in the terminal.
 

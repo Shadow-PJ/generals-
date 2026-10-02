@@ -2,10 +2,12 @@
 
 import { BATTLE_RULES } from '../data/battle';
 import { distance } from './geometry';
+import { overtimeMultiplier } from './overtime';
 import { findUnit } from './queries';
 import { nextRange } from './rng';
 import { attackIntervalTicks, TICKS_PER_SECOND } from './time';
 import type { BattleState, DamageCause, Unit } from './types';
+import { damageWall, firstWallOnSegment } from './walls';
 
 /** Base damage with the battle's random spread applied. Uses the battle's seeded generator. */
 export function rollDamage(state: BattleState, base: number): number {
@@ -23,7 +25,7 @@ export function damageAfterDefenses(raw: number, armor: number, armorPierce: num
   return Math.max(BATTLE_RULES.minDamage, Math.round(damage));
 }
 
-/** Applies one hit: a Barrier soaks damage first, then HP. Writes a damage event. */
+/** Applies one hit: Overtime grows it, a Barrier soaks damage first, then HP. Writes a damage event. */
 export function dealDamage(
   state: BattleState,
   sourceId: number,
@@ -34,7 +36,7 @@ export function dealDamage(
 ): void {
   if (!target.alive || target.hp <= 0) return;
   const markBonus = target.mark ? target.mark.damageTakenBonus : 0;
-  const total = damageAfterDefenses(raw, target.stats.armor, armorPierce, markBonus);
+  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick), target.stats.armor, armorPierce, markBonus);
   let absorbed = 0;
   if (target.barrier) {
     absorbed = Math.min(target.barrier.amount, total);
@@ -68,7 +70,10 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
   unit.attackCooldown = attackIntervalTicks(unit.stats.attacksPerSecond);
 }
 
-/** Projectiles fly straight at their target and hit when they reach its body. They vanish if it dies first. */
+/**
+ * Projectiles fly straight at their target and hit when they reach its body. A standing
+ * wall in the way takes the hit instead. They vanish if the target dies first.
+ */
 export function updateProjectiles(state: BattleState): void {
   const flying = [];
   for (const p of state.projectiles) {
@@ -76,12 +81,20 @@ export function updateProjectiles(state: BattleState): void {
     if (!target || !target.alive) continue;
     const step = p.speed / TICKS_PER_SECOND;
     const d = distance(p.x, p.y, target.x, target.y);
-    if (d <= step + target.stats.radius) {
+    const arrives = d <= step + target.stats.radius;
+    const toX = arrives ? target.x : p.x + ((target.x - p.x) / d) * step;
+    const toY = arrives ? target.y : p.y + ((target.y - p.y) / d) * step;
+    const wall = firstWallOnSegment(state, p.x, p.y, toX, toY);
+    if (wall) {
+      damageWall(state, wall, p.ownerId, p.damage);
+      continue;
+    }
+    if (arrives) {
       dealDamage(state, p.ownerId, target, p.damage, p.armorPierce, 'attack');
       continue;
     }
-    p.x += ((target.x - p.x) / d) * step;
-    p.y += ((target.y - p.y) / d) * step;
+    p.x = toX;
+    p.y = toY;
     flying.push(p);
   }
   state.projectiles = flying;

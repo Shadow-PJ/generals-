@@ -86,9 +86,9 @@ export const UNIT_CLASSES: UnitClassTable = {
   vanguard: {
     name: 'Vanguard',
     stats: {
-      maxHp: 1100,
+      maxHp: 1550,
       armor: 0.4,
-      damage: 36,
+      damage: 24,
       attacksPerSecond: 0.8,
       range: 10,
       moveSpeed: 55,
@@ -111,9 +111,9 @@ export const UNIT_CLASSES: UnitClassTable = {
   ranger: {
     name: 'Ranger',
     stats: {
-      maxHp: 420,
+      maxHp: 450,
       armor: 0,
-      damage: 28,
+      damage: 34,
       attacksPerSecond: 0.9,
       range: 220,
       moveSpeed: 60,
@@ -135,8 +135,8 @@ export const UNIT_CLASSES: UnitClassTable = {
   guardian: {
     name: 'Guardian',
     stats: {
-      maxHp: 650,
-      armor: 0.2,
+      maxHp: 600,
+      armor: 0.15,
       damage: 14,
       attacksPerSecond: 1,
       range: 130,
@@ -147,10 +147,10 @@ export const UNIT_CLASSES: UnitClassTable = {
     },
     behavior: { followDistance: 45, followSlack: 20 },
     barrier: {
-      cooldownSeconds: 10,
+      cooldownSeconds: 8,
       initialCooldownSeconds: 2,
       range: 200,
-      amount: 160,
+      amount: 260,
       durationSeconds: 6,
       hpThreshold: 0.85,
     },

@@ -133,6 +133,21 @@ describe('Guardian behavior', () => {
     expect(think(state, guardian!).cast).toBeNull();
   });
 
+  it("doesn't guard other Guardians, and fights once only Guardians are left", () => {
+    const state = battleWith(
+      [
+        { cls: 'guardian', x: 100, y: 300 },
+        { cls: 'guardian', x: 150, y: 300 },
+      ],
+      [{ cls: 'ranger', x: 800, y: 300 }],
+    );
+    const [guardian, , other] = state.units;
+    other!.hp = 100;
+    const enemy = state.units.find((u) => u.side === 'enemy')!;
+    // Two Guardians guarding each other would keep stepping back; instead it advances on the enemy.
+    expect(think(state, guardian!).action).toMatchObject({ kind: 'walk', targetId: enemy.id });
+  });
+
   it('deals the lowest damage of the three classes', () => {
     const dps = (c: keyof typeof UNIT_CLASSES) =>
       UNIT_CLASSES[c].stats.damage * UNIT_CLASSES[c].stats.attacksPerSecond;

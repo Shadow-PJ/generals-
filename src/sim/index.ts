@@ -12,5 +12,6 @@ export type {
   Side,
   SkillName,
   Unit,
+  Wall,
   Winner,
 } from './types';

@@ -2,7 +2,7 @@
 // sent over the network, and the same state plus the same step always gives the same result.
 
 import type { TroopPlacement } from '../data/armies';
-import type { MapData } from '../data/maps';
+import type { MapData, Rect } from '../data/maps';
 import type { UnitClass, UnitStats } from '../data/units';
 import type { Point } from './geometry';
 import type { NavGraph } from './navigation';
@@ -69,6 +69,13 @@ export interface Unit {
   repathTick: number;
 }
 
+/** A wall on the battlefield. It blocks movement and shots until its HP runs out. */
+export interface Wall extends Rect {
+  id: number;
+  hp: number;
+  maxHp: number;
+}
+
 export interface Projectile {
   id: number;
   ownerId: number;
@@ -103,6 +110,9 @@ export type BattleEvent =
     }
   | { tick: number; type: 'skill'; unitId: number; skill: SkillName; targetIds: number[] }
   | { tick: number; type: 'death'; unitId: number; killerId: number | null }
+  | { tick: number; type: 'wallHit'; wallId: number; sourceId: number; amount: number }
+  | { tick: number; type: 'wallBreak'; wallId: number; sourceId: number }
+  | { tick: number; type: 'overtime' }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
 
 export interface BattleResult {
@@ -119,6 +129,9 @@ export interface BattleState {
   tick: number;
   rng: RngState;
   map: MapData;
+  /** The map's walls with their current HP; a wall at 0 HP is broken and blocks nothing. */
+  walls: Wall[];
+  /** Paths around the standing walls; rebuilt when a wall breaks. */
   nav: NavGraph;
   units: Unit[];
   projectiles: Projectile[];

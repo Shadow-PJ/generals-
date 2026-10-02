@@ -1,18 +1,18 @@
 // Moving units: steps toward a goal around walls, backing away, knockback and keeping
-// bodies from overlapping. Walls and the map edge always block movement.
+// bodies from overlapping. Standing walls and the map edge always block movement.
 
 import { BATTLE_RULES } from '../data/battle';
-import type { MapData } from '../data/maps';
 import { circleOverlapsRect, distance, type Point } from './geometry';
 import { findPath, isLineClear } from './navigation';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
 import type { BattleState, Unit } from './types';
 
-/** True if a body of this radius fits at (x, y): inside the map and touching no wall. */
-export function isSpaceFree(map: MapData, x: number, y: number, radius: number): boolean {
-  if (x < radius || y < radius || x > map.width - radius || y > map.height - radius) return false;
-  for (const wall of map.walls) {
-    if (circleOverlapsRect(x, y, radius, wall)) return false;
+/** True if a body of this radius fits at (x, y): inside the map and touching no standing wall. */
+export function isSpaceFree(state: BattleState, x: number, y: number, radius: number): boolean {
+  const { width, height } = state.map;
+  if (x < radius || y < radius || x > width - radius || y > height - radius) return false;
+  for (const wall of state.walls) {
+    if (wall.hp > 0 && circleOverlapsRect(x, y, radius, wall)) return false;
   }
   return true;
 }
@@ -21,15 +21,22 @@ export function isSpaceFree(map: MapData, x: number, y: number, radius: number):
  * Where a body ends up after trying to move by (dx, dy). If the full move is blocked
  * it slides along the wall on one axis; if both are blocked it stays put.
  */
-export function slideMove(map: MapData, x: number, y: number, radius: number, dx: number, dy: number): Point {
-  if (isSpaceFree(map, x + dx, y + dy, radius)) return { x: x + dx, y: y + dy };
-  if (dx !== 0 && isSpaceFree(map, x + dx, y, radius)) return { x: x + dx, y };
-  if (dy !== 0 && isSpaceFree(map, x, y + dy, radius)) return { x, y: y + dy };
+export function slideMove(
+  state: BattleState,
+  x: number,
+  y: number,
+  radius: number,
+  dx: number,
+  dy: number,
+): Point {
+  if (isSpaceFree(state, x + dx, y + dy, radius)) return { x: x + dx, y: y + dy };
+  if (dx !== 0 && isSpaceFree(state, x + dx, y, radius)) return { x: x + dx, y };
+  if (dy !== 0 && isSpaceFree(state, x, y + dy, radius)) return { x, y: y + dy };
   return { x, y };
 }
 
 export function moveUnitBy(state: BattleState, unit: Unit, dx: number, dy: number): void {
-  const to = slideMove(state.map, unit.x, unit.y, unit.stats.radius, dx, dy);
+  const to = slideMove(state, unit.x, unit.y, unit.stats.radius, dx, dy);
   unit.x = to.x;
   unit.y = to.y;
 }

@@ -51,7 +51,7 @@ function armySummary(state: BattleState, side: Side): string {
 
 const SKILL_VERBS = { shove: 'Shoved', mark: 'Marked', barrier: 'gave a Barrier to' } as const;
 
-/** One line per notable event: deaths always, skills when verbose. */
+/** One line per notable event: deaths and broken walls always, skills when verbose. */
 export function formatLog(state: BattleState, verbose: boolean): string[] {
   const byId = new Map(state.units.map((u) => [u.id, u]));
   const label = (id: number | null) => {
@@ -63,6 +63,10 @@ export function formatLog(state: BattleState, verbose: boolean): string[] {
     const time = formatBattleTime(e.tick).padStart(8);
     if (e.type === 'death') {
       lines.push(`${time}  ${label(e.unitId)} fell (by ${label(e.killerId)})`);
+    } else if (e.type === 'overtime') {
+      lines.push(`${time}  Overtime: damage grows every second from here`);
+    } else if (e.type === 'wallBreak') {
+      lines.push(`${time}  Wall ${e.wallId} broke (shot by ${label(e.sourceId)})`);
     } else if (e.type === 'skill' && verbose) {
       lines.push(`${time}  ${label(e.unitId)} ${SKILL_VERBS[e.skill]} ${e.targetIds.map(label).join(', ')}`);
     }
@@ -118,7 +122,7 @@ export function formatReport(state: BattleState, verbose: boolean): string {
     `  Player: ${armySummary(state, 'player')}`,
     `  Enemy:  ${armySummary(state, 'enemy')}`,
     '',
-    verbose ? 'Log (skills and deaths):' : 'Log (deaths; add --verbose for skills):',
+    verbose ? 'Log (skills, deaths and broken walls):' : 'Log (deaths and broken walls; add --verbose for skills):',
     ...(log.length > 0 ? log : ['  (nothing happened)']),
     '',
     resultLine(state),

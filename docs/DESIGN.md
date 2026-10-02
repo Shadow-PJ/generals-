@@ -49,6 +49,14 @@ A battle takes about 2 to 3 minutes, and each one feeds the next:
 
 Before the battle you see the enemy army and the map, place 5 troops and 3 reserves, and write your orders. After it, the Battle IQ report teaches instead of only listing damage, for example: "Your ultimate was ready for 8.4 s before you used it," or "Fall Back then Focus would have made a Feigned Retreat."
 
+**On the battlefield.** All numbers are starting values to tune in playtests.
+
+- **Walls** block movement and shots. A wall works like a shield: a shot that would cross it hits the wall instead and wears it down. A worn-out wall breaks, opening the way for troops and shots alike.
+- **Overtime** keeps stalled fights from dragging: from 2:20, all damage grows by 6% every second.
+- **Time limit:** if both armies still stand at 3:00, the side with the larger share of its starting HP left wins.
+- **Luck** is small: each attack's damage varies by up to 10% either way, set by the battle's seed.
+- Without cards, a battle between two starter armies lasts about 1:45. Cards, ultimates and combos are expected to shorten it.
+
 ## Command Slots
 
 You command through slots: each slot holds one card, written before the battle and fired during it.
