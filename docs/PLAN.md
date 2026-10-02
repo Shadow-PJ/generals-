@@ -117,12 +117,17 @@ Done when: the pull request includes the eval report and a recommendation: keep 
 
 Owner checks: read the report and decide whether 3C is needed.
 
-### 3C. Fine-tune (only if 3B recommends it)
+### 3C. Intent-and-slots reader (replaces the fine-tune, owner decision on the 3B report)
 
-- [ ] A training notebook that uses the dataset from 3B
-- [ ] The owner runs it on a free or cheap GPU service such as Google Colab, then adds the model file to `models/`
-- [ ] The model ships inside the desktop app and downloads on first use in the browser build, compressed to keep it small
-- [ ] The eval from 3B runs again, with before and after numbers
+- [x] The dataset generator labels every word with its part of the card (condition, step, troops, action, target) and adds slang, fillers and typos
+- [x] A small model written in TypeScript, trained by a script on the generated data: word taggers and slot classifiers, with its weights in `models/`
+- [x] The reader assembles the tags and slots into a card literally, and refuses ("I didn't catch that") when it is unsure; the validator runs after it as always
+- [x] Translator order in the game: rule parser, then the reader, then the experimental model if it is switched on
+- [x] The eval from 3B runs again, with before and after numbers: exact cards, wrong cards, speed and size
+
+Done when: the reader is fast (under 10 ms per order) and small (under 5 MB), it makes few wrong cards, and the eval report says how many of the held-out free-form orders it reads.
+
+Owner checks: type some orders the rule parser can't read on the Orders screen and see what the reader makes of them.
 
 ### 3D. Voice input
 
