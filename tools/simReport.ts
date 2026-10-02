@@ -63,6 +63,12 @@ export function formatLog(state: BattleState, verbose: boolean): string[] {
     const time = formatBattleTime(e.tick).padStart(8);
     if (e.type === 'death') {
       lines.push(`${time}  ${label(e.unitId)} fell (by ${label(e.killerId)})`);
+    } else if (e.type === 'cardFired') {
+      lines.push(`${time}  Card in slot ${e.slot + 1} fired${e.perfect ? ' (Perfect timing)' : e.auto ? ' (Auto)' : ''}`);
+    } else if (e.type === 'ultimate') {
+      lines.push(`${time}  Rally!`);
+    } else if (e.type === 'reserveCalled') {
+      lines.push(`${time}  ${label(e.unitId)} arrives from the reserves`);
     } else if (e.type === 'overtime') {
       lines.push(`${time}  Overtime: damage grows every second from here`);
     } else if (e.type === 'wallBreak') {

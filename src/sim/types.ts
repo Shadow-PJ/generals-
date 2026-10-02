@@ -1,8 +1,10 @@
 // Battle state. Everything here is plain data: it can be copied, saved, hashed and
 // sent over the network, and the same state plus the same step always gives the same result.
 
+import type { Card, Loadout, Place, Target } from '../cards/types';
 import type { TroopPlacement } from '../data/armies';
 import type { MapData, Rect } from '../data/maps';
+import type { RankNumber } from '../data/ranks';
 import type { UnitClass, UnitStats } from '../data/units';
 import type { Point } from './geometry';
 import type { NavGraph } from './navigation';
@@ -21,7 +23,21 @@ export interface BattleSetup {
   map: MapData;
   player: TroopPlacement[];
   enemy: TroopPlacement[];
+  /** Your Command cards. Cards your rank doesn't allow are left out. */
+  loadout?: Loadout;
+  /** Your Command Rank; sets max pips and which slots are open. Rank I when left out. */
+  rank?: RankNumber;
+  /** Troops waiting off the field until a Call Reserve card brings them in. */
+  reserves?: { player: UnitClass[]; enemy: UnitClass[] };
+  /** Tactical mode: the screen pauses every 10 s, and there is no Perfect timing. */
+  tactical?: boolean;
 }
+
+/** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
+export type BattleInput =
+  /** Fire a card slot: 0 to 3 are the regular slots, 4 the Legendary slot. */
+  | { tick: number; kind: 'slot'; slot: number }
+  | { tick: number; kind: 'ultimate' };
 
 export interface Knockback {
   /** Movement per tick. */
@@ -39,6 +55,25 @@ export interface Mark {
 export interface Barrier {
   amount: number;
   ticksLeft: number;
+}
+
+/** An order a card gave a troop. Troops carry out their orders one after another. */
+export interface UnitOrder {
+  kind: 'focus' | 'move' | 'fallBack' | 'hold' | 'protect' | 'overcharge';
+  /** What the card named; turned into a unit or a point when the order starts. */
+  target: Target | null;
+  place: Place | null;
+  /** The units that set off the card's condition, for "him" and "her". */
+  triggerEnemyId: number | null;
+  triggerAllyId: number | null;
+  /** 1, or more after a Perfect timing: the troop hits harder and moves faster while it lasts. */
+  power: number;
+  started: boolean;
+  ticksLeft: number;
+  /** The unit it is about: whom to focus or protect, or the ally to move to. */
+  unitId: number | null;
+  /** Where to go, when the place is a spot on the map. */
+  point: Point | null;
 }
 
 export interface Unit {
@@ -67,6 +102,41 @@ export interface Unit {
   path: Point[];
   /** Tick at which the path is planned again. */
   repathTick: number;
+  /** Orders from cards, the current one first. With none, the troop acts on its own. */
+  orders: UnitOrder[];
+  /** Ticks left of the Captain's Rally. */
+  rallyTicks: number;
+}
+
+export interface SlotState {
+  card: Card | null;
+  /** Ticks until the slot can fire again. */
+  restTicks: number;
+  /** The card's condition is met, or was within the last moment. */
+  glowing: boolean;
+  /** Ticks the glow lasts after the condition stops being true. */
+  lingerTicks: number;
+  /** Already fired during this glow; Auto waits for the condition to return. */
+  firedThisGlow: boolean;
+  /** Who set off the condition, for "him" and "her". */
+  triggerEnemyId: number | null;
+  triggerAllyId: number | null;
+  /** How often the card fired by itself; a "when" card does so once per battle. */
+  autoFires: number;
+  lastAutoTick: number | null;
+}
+
+/** Your side's Command pips, Momentum and card slots. */
+export interface CommandState {
+  side: Side;
+  rank: RankNumber;
+  pips: number;
+  maxPips: number;
+  /** Progress toward the next pip, in ticks. */
+  pipProgress: number;
+  momentum: number;
+  /** 0 to 3 the regular slots, 4 the Legendary slot. */
+  slots: SlotState[];
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out. */
@@ -113,6 +183,9 @@ export type BattleEvent =
   | { tick: number; type: 'wallHit'; wallId: number; sourceId: number; amount: number }
   | { tick: number; type: 'wallBreak'; wallId: number; sourceId: number }
   | { tick: number; type: 'overtime' }
+  | { tick: number; type: 'cardFired'; side: Side; slot: number; auto: boolean; perfect: boolean; cost: number }
+  | { tick: number; type: 'ultimate'; side: Side; name: 'rally' }
+  | { tick: number; type: 'reserveCalled'; side: Side; unitId: number }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
 
 export interface BattleResult {
@@ -136,8 +209,15 @@ export interface BattleState {
   units: Unit[];
   projectiles: Projectile[];
   nextProjectileId: number;
-  /** Total max HP each side started with. */
+  /** Total max HP each side brought onto the field (reserves count once called in). */
   startHp: Record<Side, number>;
   events: BattleEvent[];
   result: BattleResult | null;
+  /** Your cards, pips and Momentum. The enemy gets its own in session 4D. */
+  command: CommandState;
+  /** Troops still waiting in reserve. */
+  reserves: { player: UnitClass[]; enemy: UnitClass[] };
+  tactical: boolean;
+  /** Every input applied, in order: with the setup, this replays the battle exactly. */
+  inputLog: BattleInput[];
 }

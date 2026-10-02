@@ -1,9 +1,10 @@
 // Attacks, projectiles and damage.
 
 import { BATTLE_RULES } from '../data/battle';
+import { ULTIMATES } from '../data/command';
 import { distance } from './geometry';
 import { overtimeMultiplier } from './overtime';
-import { findUnit } from './queries';
+import { findUnit, orderPower } from './queries';
 import { nextRange } from './rng';
 import { attackIntervalTicks, TICKS_PER_SECOND } from './time';
 import type { BattleState, DamageCause, Unit } from './types';
@@ -51,7 +52,7 @@ export function dealDamage(
 
 /** One attack: melee hits land at once, ranged attacks fire a projectile. */
 export function performAttack(state: BattleState, unit: Unit, target: Unit): void {
-  const raw = rollDamage(state, unit.stats.damage);
+  const raw = rollDamage(state, unit.stats.damage) * orderPower(unit);
   if (unit.stats.projectileSpeed > 0) {
     state.projectiles.push({
       id: state.nextProjectileId++,
@@ -67,7 +68,8 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
   } else {
     dealDamage(state, unit.id, target, raw, unit.stats.armorPierce, 'attack');
   }
-  unit.attackCooldown = attackIntervalTicks(unit.stats.attacksPerSecond);
+  const rally = unit.rallyTicks > 0 ? 1 + ULTIMATES.rally.attackSpeedBonus : 1;
+  unit.attackCooldown = attackIntervalTicks(unit.stats.attacksPerSecond * rally);
 }
 
 /**

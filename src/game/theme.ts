@@ -4,8 +4,12 @@ import { OPEN_FIELD } from '../data/maps';
 
 /** Height of the bar above the battlefield that holds titles, the clock and buttons. */
 export const TOP_BAR_HEIGHT = 64;
+/** Height of the bar below the battlefield that holds the card slots, pips and Momentum. */
+export const BOTTOM_BAR_HEIGHT = 100;
 export const GAME_WIDTH = OPEN_FIELD.width;
-export const GAME_HEIGHT = OPEN_FIELD.height + TOP_BAR_HEIGHT;
+export const GAME_HEIGHT = OPEN_FIELD.height + TOP_BAR_HEIGHT + BOTTOM_BAR_HEIGHT;
+/** Where the bottom bar starts. */
+export const BOTTOM_BAR_Y = TOP_BAR_HEIGHT + OPEN_FIELD.height;
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 
@@ -27,6 +31,9 @@ export const COLORS = {
   mark: 0xfde047,
   selected: 0xffffff,
   invalid: 0xf87171,
+  glow: 0xfacc15,
+  pip: 0x7dd3fc,
+  momentum: 0xf59e0b,
 } as const;
 
 export const TEXT = {
@@ -36,4 +43,6 @@ export const TEXT = {
   victory: '#86efac',
   defeat: '#fca5a5',
   overtime: '#fb923c',
+  perfect: '#fde047',
+  threat: '#fca5a5',
 } as const;

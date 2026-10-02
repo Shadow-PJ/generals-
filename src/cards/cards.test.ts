@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_COSTS, LEGENDARY_ACTION_COST } from '../data/cards';
 import { cardCost } from './cost';
-import { describeCard, describeStep } from './describe';
+import { describeCard, describeStep, shortCard } from './describe';
 import type { Card } from './types';
 
 // The Rank III loadout from the design.
@@ -89,6 +89,21 @@ describe('cards in words', () => {
         auto: false,
       }),
     ).toBe('When 3 or more enemies are close together: Focus the group');
+  });
+});
+
+describe('cards in a few words', () => {
+  it('fit the slot bar', () => {
+    expect(shortCard(healer)).toBe('Focus Guardians');
+    expect(shortCard(assassinDives)).toBe('Assassin dives: Protect Rangers, Focus it');
+    expect(shortCard(fallBack)).toBe('Fall back to Guardians');
+    expect(
+      shortCard({
+        condition: { triggers: [{ kind: 'allyBelowHp', ally: 'any', hpPercent: 50 }, { kind: 'enemiesGrouped', count: 3 }], repeat: true },
+        steps: [{ action: 'callReserve', reserve: null }],
+        auto: true,
+      }),
+    ).toBe('Every time Ally < 50% + 3+ enemies grouped: Call reserve');
   });
 });
 

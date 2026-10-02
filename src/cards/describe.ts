@@ -118,3 +118,67 @@ export function describeCard(card: Card): string {
   const steps = card.steps.map((s) => describeStep(s, card)).join(', then ') || 'No steps yet';
   return card.condition ? `${describeCondition(card.condition)}: ${steps}` : steps;
 }
+
+const SHORT_TRIGGERS = {
+  enemyReachesBackline: (t: Extract<Trigger, { kind: 'enemyReachesBackline' }>) =>
+    `${t.enemy === 'any' ? 'Enemy' : TROOP_NAMES[t.enemy].one} dives`,
+  allyBelowHp: (t: Extract<Trigger, { kind: 'allyBelowHp' }>) =>
+    `${t.ally === 'any' ? 'Ally' : TROOP_NAMES[t.ally].one} < ${t.hpPercent}%`,
+  enemiesGrouped: (t: Extract<Trigger, { kind: 'enemiesGrouped' }>) => `${t.count}+ enemies grouped`,
+  enemyUltimateCharging: () => 'Enemy ult',
+};
+
+function shortTrigger(t: Trigger): string {
+  switch (t.kind) {
+    case 'enemyReachesBackline':
+      return SHORT_TRIGGERS.enemyReachesBackline(t);
+    case 'allyBelowHp':
+      return SHORT_TRIGGERS.allyBelowHp(t);
+    case 'enemiesGrouped':
+      return SHORT_TRIGGERS.enemiesGrouped(t);
+    case 'enemyUltimateCharging':
+      return SHORT_TRIGGERS.enemyUltimateCharging();
+  }
+}
+
+function shortTarget(target: Target, side: 'enemy' | 'ally'): string {
+  switch (target.kind) {
+    case 'class':
+      return TROOP_NAMES[target.cls].many;
+    case 'named':
+      return target.name;
+    case 'nearest':
+      return 'nearest';
+    case 'weakest':
+      return 'weakest';
+    case 'trigger':
+      return side === 'enemy' ? 'it' : 'them';
+  }
+}
+
+function shortStep(step: Step): string {
+  switch (step.action) {
+    case 'focus':
+      return `Focus ${shortTarget(step.target, 'enemy')}`;
+    case 'protect':
+      return `Protect ${shortTarget(step.target, 'ally')}`;
+    case 'move':
+      return step.to.kind === 'ally' ? `Move to ${shortTarget(step.to.ally, 'ally')}` : `Move ${describePlace(step.to)}`;
+    case 'fallBack':
+      return step.to ? `Fall back to ${shortTarget(step.to, 'ally')}` : 'Fall back';
+    case 'overcharge':
+      return step.actors.kind === 'class' ? `Overcharge ${TROOP_NAMES[step.actors.cls].many}` : 'Overcharge';
+    case 'hold':
+      return 'Hold';
+    case 'callReserve':
+      return step.reserve ? `Reserve ${TROOP_NAMES[step.reserve].one}` : 'Call reserve';
+  }
+}
+
+/** A card in a few words, for the battle's slot bar: "Assassin dives: Protect Rangers, Focus it". */
+export function shortCard(card: Card): string {
+  const steps = card.steps.map(shortStep).join(', ');
+  if (!card.condition) return steps;
+  const prefix = card.condition.repeat ? 'Every time ' : '';
+  return `${prefix}${card.condition.triggers.map(shortTrigger).join(' + ')}: ${steps}`;
+}

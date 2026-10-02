@@ -9,4 +9,6 @@ export interface MatchSetup {
   loadout: Loadout;
   /** Set by the debug switch on the Orders screen until ranks are earned (session 5A). */
   rank: RankNumber;
+  /** Tactical mode: the battle pauses every 10 s so you can choose cards calmly; no Perfect timing. */
+  tactical: boolean;
 }
