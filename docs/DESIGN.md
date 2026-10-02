@@ -175,11 +175,13 @@ In detail: every link after the first costs 1 pip less than its card (not 1 less
 | Hammer and Anvil | Move a Vanguard behind enemies, then Overcharge it | Shove pushes them into your line and stuns them for 2 s |
 | Iron Shell | Protect, then Hold | Held troops reflect 30% of damage while their Barrier lasts |
 
+In detail: a synergy is on when both classes are in your army, the 5 troops on the field or the 3 in reserve, from the start of the battle. Fire Break needs the Invoker to be a Pyromancer; an enemy pushed into one of your fire Rifts takes 3 of its pulses of burn at once, once per Shove. Execution Protocol makes every hit of your Assassins on a Marked target a critical hit, the Shadowstep strike included. Iron Wall: while one of your Vanguards has a Barrier, Shoves don't move it, and enemies within 90 of it must attack it (renewed every moment they stay close). Crossfire: an arrow of your Rangers that flies through one of your Rifts burns (+50% damage) if the Rift is plain or fire, or slows its target by 30% for 2 s if it is frost. Shadow Escort: when an Assassin's Barrier breaks (not when it runs out), enemies can't pick the Assassin as a target for 2 s, though area attacks still hit it. Each synergy shows its name the first time it takes effect in a battle, and joins your Combo Codex then.
+
 Each signature combo also adds 10 Momentum. In detail: Feigned Retreat slows the enemies within 160 of a retreating troop when it turns to Focus, for 4 s. An Ambush across a chain moves the reserve the last card called in. Overload's self-damage never takes a troop's last point of HP. Hammer and Anvil's stun starts when the push ends. Iron Shell reflects only while the Hold lasts.
 
 **4. Finishers (from Rank IV).** Fire your ultimate as the last link of a chain of 3 or more and it gains +50% power. The cards before it count: two chained cards, then the ultimate, is a Finisher.
 
-**Combo Codex.** Lists the signature combos and the Finisher, each hidden until you first land it. Troop synergies join it when they are built (4B and 4C). Example with the Strategist: Fall Back, then Focus (Feigned Retreat), then Gravity Well pulls the chasing enemies together for a Finisher.
+**Combo Codex.** Lists the signature combos, the Finisher and the troop synergies, each hidden until you first land it (a synergy, until it first takes effect). Example with the Strategist: Fall Back, then Focus (Feigned Retreat), then Gravity Well pulls the chasing enemies together for a Finisher.
 
 ## Command progression
 
@@ -223,7 +225,28 @@ Each class controls one thing on the battlefield, so how you mix them matters. E
 | Invoker | Areas | Casts at groups of enemies | Rift: a damaging zone on the ground | Long cast that can be interrupted | Pyromancer (fire zones) or Frostcaller (slowing zones) |
 | Assassin | Priority targets | Hunts the weakest or backline enemy | Shadowstep: blinks behind its target and executes it below 15% HP | Fragile; weak to area damage | Blade (burst kills) or Saboteur (silences enemy skills) |
 
-An army is 5 active troops plus 3 in reserve. You start with Vanguard, Ranger and Guardian; Invoker and Assassin are unlocked in the campaign.
+An army is 5 active troops plus 3 in reserve. You start with Vanguard, Ranger and Guardian; Invoker and Assassin are unlocked in the campaign. Until the campaign and the Tech Web exist, a debug Troops screen picks the class of every troop and reserve, one specialization per class (all troops of a class share it), and whether the enemy brings the starter army or a mirror of yours.
+
+**Invoker in detail.** It keeps its distance like a Ranger (it backs away from enemies closer than 80) and shoots the nearest enemy. When the Rift is ready, it looks for the enemy within 230 with the most other enemies within 60 of it, and casts there if that is 2 or more (or everyone left). The cast takes 1.5 s, standing still; then a Rift of radius 60 opens on that spot for 4 s and hurts every enemy touching it every 0.5 s. A Shove, a stun, a silence, or losing 10% of its max HP during the cast breaks it: no Rift, and the skill is ready again 3 s later instead of 9 s. Overcharge opens the Rift at once, with no cast, on the biggest group anywhere. Invokers count as your backline, like Rangers and Guardians, for "when an enemy reaches my backline".
+
+**Assassin in detail.** It hunts enemy Guardians first, then Rangers and Invokers, then anyone, the weakest of them (by share of HP left), and keeps its prey while the prey stays in the first group that has anyone. When Shadowstep is ready and its prey is within 240, it blinks to just behind the prey (as seen from where it stood) and strikes for 1.5 times a normal hit; a prey left below 15% of its HP dies on the spot. Every hit of an Assassin has a 20% chance to be a critical hit, 1.75 times as strong. It takes 50% more damage from area attacks: Rifts, Shoves, Volley splash and Fire Break burn. Overcharge Shadowsteps to its prey at any distance.
+
+**Specializations in detail.**
+
+| Specialization | What it does |
+| --- | --- |
+| Breaker | Moves 20% faster; Shove pushes 50% further and deals 50% more damage |
+| Bulwark | An enemy shot that crosses its body on the way to another troop hits it instead; moves 10% slower |
+| Sniper | Ignores 60% of armor, 20% more range and damage, attacks 20% slower |
+| Volley | Each arrow also hits enemies within 45 of the target for half its damage; 15% less damage |
+| Warden | Barriers 50% bigger; enemies within 80 of the shielded ally must attack that ally for 2 s |
+| Mender | Barriers 40% smaller, but the shielded ally also heals 25 HP a second for 6 s |
+| Pyromancer | Fire Rifts: 40% more damage |
+| Frostcaller | Frost Rifts: enemies inside are 40% slower; 30% less damage |
+| Blade | Shadowstep strikes for 2 times a normal hit and executes below 25% HP |
+| Saboteur | Shadowstep silences its target for 4 s: no skills, not even from Overcharge, and a Rift cast breaks |
+
+A taunted troop (Warden, Iron Wall) attacks its taunter whatever its card says; card orders take over again once the taunt ends. A slowed troop keeps the strongest slow on it.
 
 ## The Generals
 

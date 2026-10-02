@@ -148,9 +148,9 @@ Goal: everything that happens inside one battle, playable in a skirmish mode.
 
 ### 4B. Invoker, Assassin and specializations
 
-- [ ] Invoker (Rift) and Assassin (Shadowstep) with their behaviors and weaknesses
-- [ ] Two specializations for each of the 5 classes, chosen in a debug menu for now
-- [ ] The 5 troop synergies, switched on automatically by the army you bring
+- [x] Invoker (Rift) and Assassin (Shadowstep) with their behaviors and weaknesses
+- [x] Two specializations for each of the 5 classes, chosen in a debug menu for now
+- [x] The 5 troop synergies, switched on automatically by the army you bring
 
 ### 4C. The 5 Generals
 

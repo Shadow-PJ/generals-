@@ -11,6 +11,7 @@ describe('key bindings', () => {
     expect(actionForKey('Tab', true)).toBe('prev');
     expect(actionForKey('Delete')).toBe('clear');
     expect(actionForKey('KeyB')).toBe('start');
+    expect(actionForKey('KeyT')).toBe('troops');
     expect(actionForKey('KeyQ')).toBeUndefined();
   });
 

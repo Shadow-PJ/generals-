@@ -26,3 +26,14 @@ export const STARTER_ARMY_MIRRORED: TroopPlacement[] = STARTER_ARMY.map((t) => (
 
 /** Your 3 reserve troops, called in by a Call Reserve card. They arrive at your edge of the map. */
 export const STARTER_RESERVES: UnitClass[] = ['vanguard', 'ranger', 'guardian'];
+
+/** An army is 5 troops on the field plus 3 in reserve. */
+export const ARMY_SIZE = STARTER_ARMY.length;
+export const RESERVE_COUNT = STARTER_RESERVES.length;
+
+/**
+ * Which army the enemy brings, chosen on the debug Troops screen until there are real opponents:
+ * the starter army, or a mirror of yours (the same classes, reserves and specializations).
+ */
+export type EnemyArmy = 'starter' | 'mirror';
+export const ENEMY_ARMIES: readonly EnemyArmy[] = ['starter', 'mirror'];

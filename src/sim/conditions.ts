@@ -34,8 +34,8 @@ export function checkTrigger(state: BattleState, side: Side, trigger: Trigger): 
   const theirs = livingUnits(state, otherSide(side));
   switch (trigger.kind) {
     case 'enemyReachesBackline': {
-      // Your backline is your Rangers and Guardians; an enemy close to one of them has reached it.
-      const backline = mine.filter((u) => u.cls === 'ranger' || u.cls === 'guardian');
+      // Your backline is your Rangers, Guardians and Invokers; an enemy close to one of them has reached it.
+      const backline = mine.filter((u) => u.cls === 'ranger' || u.cls === 'guardian' || u.cls === 'invoker');
       let best: Unit | undefined;
       let bestDistance = Infinity;
       for (const enemy of theirs) {

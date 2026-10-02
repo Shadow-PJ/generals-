@@ -7,6 +7,8 @@ import type { TroopPlacement } from '../data/armies';
 import type { GeneralId } from '../data/generals';
 import type { MapData, Rect } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
+import type { SpecChoice, SpecializationId } from '../data/specializations';
+import type { SynergyId } from '../data/synergies';
 import type { UnitClass, UnitStats } from '../data/units';
 import type { Point } from './geometry';
 import type { NavGraph } from './navigation';
@@ -35,6 +37,8 @@ export interface BattleSetup {
   tactical?: boolean;
   /** Your General, who reads your cards by their personality rules. The Captain when left out. */
   general?: GeneralId;
+  /** Each side's specializations, one per class; none when left out. */
+  specs?: { player?: SpecChoice; enemy?: SpecChoice };
 }
 
 /** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
@@ -48,6 +52,10 @@ export interface Knockback {
   dx: number;
   dy: number;
   ticksLeft: number;
+  /** Who pushed. */
+  byId: number;
+  /** Fire Break already burned the unit during this push. */
+  burned: boolean;
 }
 
 export interface Mark {
@@ -67,6 +75,57 @@ export interface Chased {
   /** Share of speed lost (0.5 = half speed). */
   slow: number;
   damageTakenBonus: number;
+}
+
+/** Moving slower for a while: a frost Rift, or a frost arrow (Crossfire). */
+export interface Slow {
+  /** Share of speed lost (0.4 = 40% slower). */
+  share: number;
+  ticksLeft: number;
+}
+
+/** Taunted (Warden, Iron Wall): the unit must attack the taunter for a while. */
+export interface Taunt {
+  unitId: number;
+  ticksLeft: number;
+}
+
+/** Healing over time (Mender): `amount` HP every second while it lasts. */
+export interface Regen {
+  amount: number;
+  ticksLeft: number;
+}
+
+/** An Invoker opening a Rift: it stands still until the cast ends, unless something breaks the cast. */
+export interface Cast {
+  ticksLeft: number;
+  /** Where the Rift opens. */
+  x: number;
+  y: number;
+  /** HP lost since the cast began; too much breaks it. */
+  damageTaken: number;
+}
+
+/** What a Rift is made of: plain, or fire (Pyromancer) or frost (Frostcaller). */
+export type ZoneElement = 'arcane' | 'fire' | 'frost';
+
+/** A Rift: a zone on the ground that hurts the other side's troops inside it, once per pulse. */
+export interface Zone {
+  id: number;
+  /** The Invoker that opened it. */
+  ownerId: number;
+  side: Side;
+  x: number;
+  y: number;
+  radius: number;
+  element: ZoneElement;
+  /** Damage each pulse deals to every enemy inside, before armor. */
+  damage: number;
+  /** Share of speed enemies inside lose (frost); 0 for none. */
+  slow: number;
+  ticksLeft: number;
+  /** Ticks until the next pulse. */
+  pulseIn: number;
 }
 
 /** An order a card gave a troop. Troops carry out their orders one after another. */
@@ -95,8 +154,9 @@ export interface Unit {
   id: number;
   side: Side;
   cls: UnitClass;
-  /** Copied from src/data when the battle starts, so later upgrades can change one unit. */
+  /** Copied from src/data when the battle starts, with its specialization's changes. */
   stats: UnitStats;
+  spec: SpecializationId | null;
   x: number;
   y: number;
   hp: number;
@@ -114,6 +174,15 @@ export interface Unit {
   knockback: Knockback | null;
   /** Ticks left of a stun (Hammer and Anvil): a stunned unit can't act. */
   stunTicks: number;
+  slow: Slow | null;
+  taunt: Taunt | null;
+  /** Ticks left of a silence (Saboteur): no skills meanwhile. */
+  silencedTicks: number;
+  /** Ticks left invisible (Shadow Escort): enemies can't pick it as a target. */
+  invisibleTicks: number;
+  regen: Regen | null;
+  /** The Rift an Invoker is casting; it can't act meanwhile. */
+  casting: Cast | null;
   lastHitBy: number | null;
   /** Path corners still to walk around walls; empty when the way is clear. */
   path: Point[];
@@ -189,11 +258,31 @@ export interface Projectile {
   /** Damage before armor and Mark. */
   damage: number;
   armorPierce: number;
+  /** Volley: the hit also lands on enemies this close to the target, at this share of the damage. */
+  splash: { radius: number; share: number } | null;
+  /** Crossfire: a Ranger's arrow that picks up the element of a Rift it flies through. */
+  crossfire: boolean;
+  element: 'burn' | 'frost' | null;
 }
 
-export type SkillName = 'shove' | 'mark' | 'barrier';
-/** What dealt damage: a plain attack, a Shove, Overload's cost to the troop itself, or Iron Shell's reflection. */
-export type DamageCause = 'attack' | 'shove' | 'overload' | 'reflect';
+export type SkillName = 'shove' | 'mark' | 'barrier' | 'rift' | 'shadowstep';
+/**
+ * What dealt damage: a plain attack, a Shove, Overload's cost to the troop itself, Iron Shell's
+ * reflection, a Rift's pulse, Fire Break's burn, Volley's splash, the strike after a Shadowstep,
+ * or an execution.
+ */
+export type DamageCause =
+  | 'attack'
+  | 'shove'
+  | 'overload'
+  | 'reflect'
+  | 'rift'
+  | 'burn'
+  | 'splash'
+  | 'shadowstep'
+  | 'execute';
+/** Damage that hits an area; Assassins take more of it. */
+export const AREA_CAUSES: readonly DamageCause[] = ['shove', 'rift', 'burn', 'splash'];
 export type EndReason = 'eliminated' | 'timeout';
 export type Winner = Side | 'draw';
 
@@ -211,6 +300,10 @@ export type BattleEvent =
       cause: DamageCause;
     }
   | { tick: number; type: 'skill'; unitId: number; skill: SkillName; targetIds: number[] }
+  /** An Invoker's cast was broken: by a hit, a Shove, a stun or a silence (`byId`: whose). */
+  | { tick: number; type: 'interrupted'; unitId: number; byId: number | null }
+  /** A troop synergy took effect for the first time this battle. */
+  | { tick: number; type: 'synergy'; side: Side; synergy: SynergyId }
   | { tick: number; type: 'death'; unitId: number; killerId: number | null }
   | { tick: number; type: 'wallHit'; wallId: number; sourceId: number; amount: number }
   | { tick: number; type: 'wallBreak'; wallId: number; sourceId: number }
@@ -244,6 +337,14 @@ export interface BattleState {
   units: Unit[];
   projectiles: Projectile[];
   nextProjectileId: number;
+  /** Open Rifts. */
+  zones: Zone[];
+  nextZoneId: number;
+  /** Each side's specializations. */
+  specs: Record<Side, SpecChoice>;
+  /** The troop synergies each side's army switched on, and those that have taken effect so far. */
+  synergies: Record<Side, SynergyId[]>;
+  synergiesSeen: Record<Side, SynergyId[]>;
   /** Total max HP each side brought onto the field (reserves count once called in). */
   startHp: Record<Side, number>;
   events: BattleEvent[];

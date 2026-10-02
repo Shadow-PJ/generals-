@@ -4,6 +4,7 @@ import type { Card, Loadout, Step } from '../../cards/types';
 import type { TroopPlacement } from '../../data/armies';
 import type { GeneralId } from '../../data/generals';
 import type { RankNumber } from '../../data/ranks';
+import type { SpecChoice } from '../../data/specializations';
 import type { MapData, WallData } from '../../data/maps';
 import { createBattle } from '../battle';
 import type { BattleState, Unit } from '../types';
@@ -25,8 +26,11 @@ export interface BattleOptions {
   cards?: (Card | null)[];
   rank?: RankNumber;
   reserves?: TroopPlacement['cls'][];
+  enemyReserves?: TroopPlacement['cls'][];
   tactical?: boolean;
   general?: GeneralId;
+  specs?: SpecChoice;
+  enemySpecs?: SpecChoice;
 }
 
 export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], options: BattleOptions = {}): BattleState {
@@ -38,9 +42,10 @@ export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], op
     enemy,
     loadout,
     rank: options.rank ?? 5,
-    reserves: { player: options.reserves ?? [], enemy: [] },
+    reserves: { player: options.reserves ?? [], enemy: options.enemyReserves ?? [] },
     tactical: options.tactical,
     general: options.general,
+    specs: { player: options.specs, enemy: options.enemySpecs },
   });
 }
 
@@ -52,4 +57,9 @@ export function cardOf(...steps: Step[]): Card {
 /** Units of one side, in the order they were placed. */
 export function sideUnits(state: BattleState, side: Unit['side']): Unit[] {
   return state.units.filter((u) => u.side === side);
+}
+
+/** Leaves units standing where they are, doing nothing, for a long while. */
+export function freeze(...units: Unit[]): void {
+  for (const u of units) u.stunTicks = 100_000;
 }

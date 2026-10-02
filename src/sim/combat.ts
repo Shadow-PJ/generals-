@@ -1,13 +1,18 @@
 // Attacks, projectiles and damage.
 
 import { BATTLE_RULES } from '../data/battle';
-import { distance } from './geometry';
-import { overtimeMultiplier } from './overtime';
 import { COMBO_BONUSES } from '../data/combos';
-import { findUnit, orderPower } from './queries';
-import { nextRange } from './rng';
-import { attackIntervalTicks, TICKS_PER_SECOND } from './time';
-import type { BattleState, DamageCause, Unit } from './types';
+import { SPEC_RULES } from '../data/specializations';
+import { SYNERGY_RULES } from '../data/synergies';
+import { UNIT_CLASSES } from '../data/units';
+import { distance, segmentNearCircle } from './geometry';
+import { overtimeMultiplier } from './overtime';
+import { centerDistance, findUnit, orderPower } from './queries';
+import { nextFloat, nextRange } from './rng';
+import { applySlow, interruptCast } from './status';
+import { hasSynergy, noteSynergy } from './synergies';
+import { attackIntervalTicks, secondsToTicks, TICKS_PER_SECOND } from './time';
+import { AREA_CAUSES, type BattleState, type DamageCause, type Projectile, type Unit, type Zone } from './types';
 import { damageWall, firstWallOnSegment } from './walls';
 
 /** Base damage with the battle's random spread applied. Uses the battle's seeded generator. */
@@ -27,8 +32,9 @@ export function damageAfterDefenses(raw: number, armor: number, armorPierce: num
 }
 
 /**
- * Applies one hit: Overtime grows it, a Barrier soaks damage first, then HP. Writes a damage
- * event. A troop holding with Iron Shell sends part of the hit back while its Barrier lasts.
+ * Applies one hit: Overtime grows it (and area damage, for troops weak to it), a Barrier soaks
+ * damage first, then HP. Writes a damage event. A troop holding with Iron Shell sends part of
+ * the hit back while its Barrier lasts. Losing too much HP breaks an Invoker's cast.
  */
 export function dealDamage(
   state: BattleState,
@@ -40,18 +46,24 @@ export function dealDamage(
 ): void {
   if (!target.alive || target.hp <= 0) return;
   const bonus = (target.mark?.damageTakenBonus ?? 0) + (target.chased?.damageTakenBonus ?? 0);
-  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick), target.stats.armor, armorPierce, bonus);
+  const area = AREA_CAUSES.includes(cause) ? target.stats.areaDamageTaken : 1;
+  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick) * area, target.stats.armor, armorPierce, bonus);
   const shelled = target.barrier !== null && cause !== 'reflect' && ironShellHolds(target);
   let absorbed = 0;
   if (target.barrier) {
     absorbed = Math.min(target.barrier.amount, total);
     target.barrier.amount -= absorbed;
-    if (target.barrier.amount <= 0) target.barrier = null;
+    if (target.barrier.amount <= 0) barrierBroke(state, target);
   }
   const amount = Math.min(target.hp, total - absorbed);
   target.hp -= amount;
   if (amount > 0) target.lastHitBy = sourceId;
   state.events.push({ tick: state.tick, type: 'damage', sourceId, targetId: target.id, amount, absorbed, cause });
+  if (target.casting && amount > 0) {
+    target.casting.damageTaken += amount;
+    const limit = target.stats.maxHp * UNIT_CLASSES.invoker.rift.interruptDamageShare;
+    if (target.casting.damageTaken >= limit) interruptCast(state, target, sourceId);
+  }
   if (shelled) {
     const attacker = findUnit(state, sourceId);
     const reflected = Math.round(total * COMBO_BONUSES.ironShell.reflectShare);
@@ -62,14 +74,36 @@ export function dealDamage(
   }
 }
 
+/** A Barrier broke. Shadow Escort: an Assassin whose Barrier breaks turns invisible for a moment. */
+function barrierBroke(state: BattleState, unit: Unit): void {
+  unit.barrier = null;
+  if (unit.cls !== 'assassin' || !hasSynergy(state, unit.side, 'shadowEscort')) return;
+  unit.invisibleTicks = secondsToTicks(SYNERGY_RULES.shadowEscort.invisibleSeconds);
+  noteSynergy(state, unit.side, 'shadowEscort');
+}
+
 function ironShellHolds(unit: Unit): boolean {
   const order = unit.orders[0];
   return order?.started === true && order.kind === 'hold' && order.combo === 'ironShell';
 }
 
+/**
+ * How many times normal damage an Assassin's hit deals: its crit multiplier on a critical hit,
+ * else 1. Other troops never crit. Execution Protocol: a Marked target is always a critical hit.
+ */
+export function critMultiplier(state: BattleState, unit: Unit, target: Unit): number {
+  if (unit.cls !== 'assassin') return 1;
+  const crit = UNIT_CLASSES.assassin.crit;
+  if (target.mark && hasSynergy(state, unit.side, 'executionProtocol')) {
+    noteSynergy(state, unit.side, 'executionProtocol');
+    return crit.multiplier;
+  }
+  return nextFloat(state.rng) < crit.chance ? crit.multiplier : 1;
+}
+
 /** One attack: melee hits land at once, ranged attacks fire a projectile. */
 export function performAttack(state: BattleState, unit: Unit, target: Unit): void {
-  const raw = rollDamage(state, unit.stats.damage) * orderPower(unit);
+  const raw = rollDamage(state, unit.stats.damage) * orderPower(unit) * critMultiplier(state, unit, target);
   if (unit.stats.projectileSpeed > 0) {
     state.projectiles.push({
       id: state.nextProjectileId++,
@@ -81,6 +115,9 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
       speed: unit.stats.projectileSpeed,
       damage: raw,
       armorPierce: unit.stats.armorPierce,
+      splash: unit.spec === 'volley' ? { radius: SPEC_RULES.volley.splashRadius, share: SPEC_RULES.volley.splashShare } : null,
+      crossfire: unit.cls === 'ranger' && hasSynergy(state, unit.side, 'crossfire'),
+      element: null,
     });
   } else {
     dealDamage(state, unit.id, target, raw, unit.stats.armorPierce, 'attack');
@@ -91,7 +128,8 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
 
 /**
  * Projectiles fly straight at their target and hit when they reach its body. A standing
- * wall in the way takes the hit instead. They vanish if the target dies first.
+ * wall in the way takes the hit instead, and so does an enemy Bulwark whose body is in the way.
+ * They vanish if the target dies first. Crossfire arrows take the element of a Rift they fly through.
  */
 export function updateProjectiles(state: BattleState): void {
   const flying = [];
@@ -108,8 +146,17 @@ export function updateProjectiles(state: BattleState): void {
       damageWall(state, wall, p.ownerId, p.damage);
       continue;
     }
+    const shield = blockingBulwark(state, p, target, toX, toY);
+    if (shield) {
+      dealDamage(state, p.ownerId, shield, p.damage, p.armorPierce, 'attack');
+      continue;
+    }
+    if (p.crossfire && !p.element) {
+      const zone = zoneAt(state, p.side, toX, toY);
+      if (zone) p.element = zone.element === 'frost' ? 'frost' : 'burn';
+    }
     if (arrives) {
-      dealDamage(state, p.ownerId, target, p.damage, p.armorPierce, 'attack');
+      projectileHit(state, p, target);
       continue;
     }
     p.x = toX;
@@ -117,4 +164,45 @@ export function updateProjectiles(state: BattleState): void {
     flying.push(p);
   }
   state.projectiles = flying;
+}
+
+function projectileHit(state: BattleState, p: Projectile, target: Unit): void {
+  const crossfire = SYNERGY_RULES.crossfire;
+  const damage = p.element === 'burn' ? p.damage * (1 + crossfire.burnBonus) : p.damage;
+  dealDamage(state, p.ownerId, target, damage, p.armorPierce, 'attack');
+  if (p.element) {
+    if (p.element === 'frost' && target.alive) applySlow(target, crossfire.frostSlow, secondsToTicks(crossfire.frostSeconds));
+    noteSynergy(state, p.side, 'crossfire');
+  }
+  if (p.splash) {
+    for (const other of state.units) {
+      if (!other.alive || other.side === p.side || other.id === target.id) continue;
+      if (centerDistance(other, target) <= p.splash.radius) {
+        dealDamage(state, p.ownerId, other, p.damage * p.splash.share, p.armorPierce, 'splash');
+      }
+    }
+  }
+}
+
+/** Bulwark: the first enemy Bulwark (not the target itself) whose body this step of the shot crosses. */
+function blockingBulwark(state: BattleState, p: Projectile, target: Unit, toX: number, toY: number): Unit | undefined {
+  for (const u of state.units) {
+    if (!u.alive || u.side === p.side || u.id === target.id || u.spec !== 'bulwark') continue;
+    if (segmentNearCircle(p.x, p.y, toX, toY, u.x, u.y, u.stats.radius)) return u;
+  }
+  return undefined;
+}
+
+/** The first open Rift of `side` (of that element, if given) within `slack` of the point. */
+export function zoneAt(
+  state: BattleState,
+  side: Zone['side'],
+  x: number,
+  y: number,
+  element?: Zone['element'],
+  slack = 0,
+): Zone | undefined {
+  return state.zones.find(
+    (z) => z.side === side && (element === undefined || z.element === element) && distance(x, y, z.x, z.y) <= z.radius + slack,
+  );
 }

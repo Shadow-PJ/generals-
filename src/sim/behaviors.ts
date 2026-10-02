@@ -11,12 +11,15 @@ import { slideMove, stepAwayFrom, stepLength } from './movement';
 import {
   centerDistance,
   edgeDistance,
+  findUnit,
   hpShare,
   livingAllies,
-  livingEnemies,
   mostHurt,
   nearestTo,
+  visibleEnemies,
 } from './queries';
+import { riftSpot } from './rift';
+import { choosePrey } from './shadowstep';
 import { shoveTargets } from './skills';
 import type { BattleState, Unit } from './types';
 
@@ -29,7 +32,9 @@ export type Action =
 export type SkillCast =
   | { skill: 'shove' }
   | { skill: 'mark'; targetId: number }
-  | { skill: 'barrier'; targetId: number };
+  | { skill: 'barrier'; targetId: number }
+  | { skill: 'rift'; at: Point }
+  | { skill: 'shadowstep'; targetId: number };
 
 export interface Intent {
   action: Action;
@@ -46,7 +51,22 @@ export function think(state: BattleState, unit: Unit): Intent {
       return thinkRanger(state, unit);
     case 'guardian':
       return thinkGuardian(state, unit);
+    case 'invoker':
+      return thinkInvoker(state, unit);
+    case 'assassin':
+      return thinkAssassin(state, unit);
   }
+}
+
+/**
+ * A taunted troop must attack its taunter (Warden, Iron Wall), whatever it or a card wanted;
+ * null when it isn't taunted, or the taunter is gone.
+ */
+export function tauntIntent(state: BattleState, unit: Unit): Intent | null {
+  if (!unit.taunt) return null;
+  const taunter = findUnit(state, unit.taunt.unitId);
+  if (!taunter?.alive || taunter.invisibleTicks > 0) return null;
+  return { action: attackOrApproach(unit, taunter), cast: null };
 }
 
 /** Attack the target if it is in reach, otherwise walk toward it. */
@@ -62,7 +82,7 @@ function attackOrApproach(unit: Unit, target: Unit): Action {
  * or else the enemy front. Shoves whenever enemies are close and the skill is ready.
  */
 export function thinkVanguard(state: BattleState, unit: Unit): Intent {
-  const enemies = livingEnemies(state, unit);
+  const enemies = visibleEnemies(state, unit);
   if (enemies.length === 0) return HOLD;
   const cast = unit.skillCooldown <= 0 && shoveTargets(state, unit).length > 0 ? { skill: 'shove' as const } : null;
 
@@ -82,21 +102,10 @@ export function thinkVanguard(state: BattleState, unit: Unit): Intent {
  * against a wall or the map edge it stands and shoots. Marks its target when the skill is ready.
  */
 export function thinkRanger(state: BattleState, unit: Unit): Intent {
-  const enemies = livingEnemies(state, unit);
-  const threat = nearestTo(enemies, unit.x, unit.y);
+  const threat = nearestTo(visibleEnemies(state, unit), unit.x, unit.y);
   if (!threat) return HOLD;
-  const gap = edgeDistance(unit, threat);
-
-  if (gap < UNIT_CLASSES.ranger.behavior.retreatDistance) {
-    const step = stepAwayFrom(unit, threat);
-    if (step) {
-      const to = slideMove(state, unit.x, unit.y, unit.stats.radius, step.x, step.y);
-      const moved = distance(unit.x, unit.y, to.x, to.y);
-      if (moved >= stepLength(unit) * BATTLE_RULES.corneredMoveShare) {
-        return { action: { kind: 'backAway', from: { x: threat.x, y: threat.y }, targetId: threat.id }, cast: null };
-      }
-    }
-  }
+  const away = backAway(state, unit, threat, UNIT_CLASSES.ranger.behavior.retreatDistance);
+  if (away) return { action: away, cast: null };
 
   const action = attackOrApproach(unit, threat);
   const cast =
@@ -107,6 +116,46 @@ export function thinkRanger(state: BattleState, unit: Unit): Intent {
 }
 
 /**
+ * A ranged troop backs away from an enemy closer than `retreatDistance`, and can't shoot meanwhile.
+ * Null when the enemy is far enough, or the troop is cornered against a wall or the map edge.
+ */
+function backAway(state: BattleState, unit: Unit, threat: Unit, retreatDistance: number): Action | null {
+  if (edgeDistance(unit, threat) >= retreatDistance) return null;
+  const step = stepAwayFrom(unit, threat);
+  if (!step) return null;
+  const to = slideMove(state, unit.x, unit.y, unit.stats.radius, step.x, step.y);
+  const moved = distance(unit.x, unit.y, to.x, to.y);
+  if (moved < stepLength(unit) * BATTLE_RULES.corneredMoveShare) return null;
+  return { kind: 'backAway', from: { x: threat.x, y: threat.y }, targetId: threat.id };
+}
+
+/**
+ * Invoker: keeps its distance like a Ranger and attacks the nearest enemy, and casts a Rift at
+ * the biggest group of enemies in reach when the skill is ready. It stands still while casting,
+ * so it only starts a cast when no enemy is pressing it.
+ */
+export function thinkInvoker(state: BattleState, unit: Unit): Intent {
+  const threat = nearestTo(visibleEnemies(state, unit), unit.x, unit.y);
+  if (!threat) return HOLD;
+  const away = backAway(state, unit, threat, UNIT_CLASSES.invoker.behavior.retreatDistance);
+  if (away) return { action: away, cast: null };
+  const spot = unit.skillCooldown <= 0 ? riftSpot(state, unit) : null;
+  if (spot) return { action: { kind: 'hold' }, cast: { skill: 'rift', at: spot } };
+  return { action: attackOrApproach(unit, threat), cast: null };
+}
+
+/**
+ * Assassin: hunts Guardians first, then the other backline troops, then the weakest enemy, and
+ * Shadowsteps behind its prey as soon as the skill is ready and the prey is in reach of it.
+ */
+export function thinkAssassin(state: BattleState, unit: Unit): Intent {
+  const prey = choosePrey(state, unit);
+  if (!prey) return HOLD;
+  const ready = unit.skillCooldown <= 0 && centerDistance(unit, prey) <= UNIT_CLASSES.assassin.shadowstep.range;
+  return { action: attackOrApproach(unit, prey), cast: ready ? { skill: 'shadowstep', targetId: prey.id } : null };
+}
+
+/**
  * Guardian: stays near the most hurt ally, on the side away from the enemy closest to that ally,
  * and shoots enemies in reach while it is there. It only guards allies that aren't Guardians
  * (two Guardians guarding each other would keep stepping behind one another, away from the
@@ -114,7 +163,7 @@ export function thinkRanger(state: BattleState, unit: Unit): Intent {
  * range that has none yet (never to itself).
  */
 export function thinkGuardian(state: BattleState, unit: Unit): Intent {
-  const enemies = livingEnemies(state, unit);
+  const enemies = visibleEnemies(state, unit);
   if (enemies.length === 0) return HOLD;
   const allies = livingAllies(state, unit);
   const cast = chooseBarrierTarget(unit, allies);

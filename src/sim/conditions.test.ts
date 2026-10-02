@@ -3,7 +3,7 @@ import { checkCondition, checkTrigger } from './conditions';
 import { battleWith } from './testing/fixtures';
 
 describe('card conditions', () => {
-  it('an enemy reaches your backline: near one of your Rangers or Guardians', () => {
+  it('an enemy reaches your backline: near one of your Rangers, Guardians or Invokers', () => {
     const state = battleWith(
       [
         { cls: 'vanguard', x: 300, y: 300 },
@@ -21,6 +21,13 @@ describe('card conditions', () => {
     expect(checkTrigger(state, 'player', { kind: 'enemyReachesBackline', enemy: 'assassin' }).met).toBe(false);
     enemy.x = 600;
     expect(checkTrigger(state, 'player', { kind: 'enemyReachesBackline', enemy: 'any' }).met).toBe(false);
+  });
+
+  it('an enemy reaches your backline: an Invoker is backline too, a Vanguard is not', () => {
+    const near = (cls: 'invoker' | 'vanguard') =>
+      battleWith([{ cls, x: 100, y: 300 }], [{ cls: 'assassin', x: 160, y: 300 }]);
+    expect(checkTrigger(near('invoker'), 'player', { kind: 'enemyReachesBackline', enemy: 'assassin' }).met).toBe(true);
+    expect(checkTrigger(near('vanguard'), 'player', { kind: 'enemyReachesBackline', enemy: 'assassin' }).met).toBe(false);
   });
 
   it('an ally drops below a set HP: points at the most hurt one', () => {

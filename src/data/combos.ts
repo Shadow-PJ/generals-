@@ -2,6 +2,7 @@
 // inside one card and across a chain of cards. All numbers are starting values to tune.
 
 import type { ActionName } from '../cards/types';
+import { SYNERGIES, type SynergyId } from './synergies';
 import type { TroopClass } from './units';
 
 export type SignatureComboId = 'feignedRetreat' | 'ambush' | 'overload' | 'hammerAndAnvil' | 'ironShell';
@@ -91,9 +92,9 @@ export const COMBO_BONUSES = {
   ironShell: { reflectShare: 0.3 },
 } as const;
 
-/** What the Combo Codex lists, in order: the signature combos, then the Finisher. */
-export type CodexEntryId = SignatureComboId | 'finisher';
-export const CODEX_ENTRY_IDS: readonly CodexEntryId[] = [...SIGNATURE_COMBOS.map((c) => c.id), 'finisher'];
+/** What the Combo Codex lists, in order: the signature combos, the Finisher, then the troop synergies. */
+export type CodexEntryId = SignatureComboId | 'finisher' | SynergyId;
+export const CODEX_ENTRY_IDS: readonly CodexEntryId[] = [...SIGNATURE_COMBOS.map((c) => c.id), 'finisher', ...SYNERGIES.map((s) => s.id)];
 
 /** The Finisher, for the Combo Codex. */
 export const FINISHER_TEXT = {

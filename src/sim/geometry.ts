@@ -17,6 +17,17 @@ export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+/** True if the segment from a to b passes within `radius` of the point c. */
+export function segmentNearCircle(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, radius: number): boolean {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared === 0 ? 0 : clamp(((cx - ax) * dx + (cy - ay) * dy) / lengthSquared, 0, 1);
+  const px = ax + dx * t - cx;
+  const py = ay + dy * t - cy;
+  return px * px + py * py < radius * radius;
+}
+
 /** Grows a rectangle by `by` on every side. */
 export function inflateRect(r: Rect, by: number): Rect {
   return { x: r.x - by, y: r.y - by, w: r.w + by * 2, h: r.h + by * 2 };

@@ -15,6 +15,7 @@ import { OrdersScene } from './scenes/OrdersScene';
 import { PrepScene } from './scenes/PrepScene';
 import { ResultScene } from './scenes/ResultScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { TroopsScene } from './scenes/TroopsScene';
 import { applyWindowSettings, currentPlatform, currentSettings, startSession, toggleFullscreen } from './session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from './theme';
 
@@ -44,7 +45,7 @@ async function boot(): Promise<void> {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     // The order text box on the Orders screen is a real HTML input laid over the canvas.
     dom: { createContainer: true },
-    scene: [PrepScene, OrdersScene, BattleScene, ResultScene, SettingsScene, CodexScene],
+    scene: [PrepScene, OrdersScene, BattleScene, ResultScene, SettingsScene, CodexScene, TroopsScene],
   });
 
   // The desktop app keeps its window hidden until the first screen is drawn.

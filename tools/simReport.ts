@@ -1,6 +1,8 @@
 // Formatting for the headless battle runner: a short, readable log and a summary.
 
 import { SIGNATURE_COMBOS } from '../src/data/combos';
+import { SPECIALIZATIONS } from '../src/data/specializations';
+import { SYNERGIES } from '../src/data/synergies';
 import { UNIT_CLASSES } from '../src/data/units';
 import { formatBattleTime, type BattleState, type Side, type Unit } from '../src/sim';
 
@@ -40,17 +42,30 @@ export function unitLabel(unit: Unit): string {
   return `${SIDE_NAMES[unit.side]} ${UNIT_CLASSES[unit.cls].name} #${unit.id}`;
 }
 
+/** "2 Vanguard, 1 Invoker (Pyromancer)", then the synergies the army switched on. */
 function armySummary(state: BattleState, side: Side): string {
   const counts = new Map<string, number>();
   for (const u of state.units) {
     if (u.side !== side) continue;
-    const name = UNIT_CLASSES[u.cls].name;
+    const name = UNIT_CLASSES[u.cls].name + (u.spec ? ` (${SPECIALIZATIONS[u.spec].name})` : '');
     counts.set(name, (counts.get(name) ?? 0) + 1);
   }
-  return [...counts].map(([name, n]) => `${n} ${name}`).join(', ');
+  const army = [...counts].map(([name, n]) => `${n} ${name}`).join(', ');
+  const synergies = state.synergies[side].map(synergyName);
+  return synergies.length > 0 ? `${army}; synergies: ${synergies.join(', ')}` : army;
 }
 
-const SKILL_VERBS = { shove: 'Shoved', mark: 'Marked', barrier: 'gave a Barrier to' } as const;
+function synergyName(id: string): string {
+  return SYNERGIES.find((s) => s.id === id)?.name ?? id;
+}
+
+const SKILL_VERBS = {
+  shove: 'Shoved',
+  mark: 'Marked',
+  barrier: 'gave a Barrier to',
+  rift: 'opened a Rift on',
+  shadowstep: 'Shadowstepped behind',
+} as const;
 
 /** One line per notable event: deaths and broken walls always, skills when verbose. */
 export function formatLog(state: BattleState, verbose: boolean): string[] {
@@ -71,6 +86,10 @@ export function formatLog(state: BattleState, verbose: boolean): string[] {
       lines.push(`${time}  Combo: ${SIGNATURE_COMBOS.find((c) => c.id === e.combo)!.name}${e.acrossCards ? ' (across the chain)' : ''}`);
     } else if (e.type === 'ultimate') {
       lines.push(`${time}  ${e.finisher ? 'Finisher: Rally!' : 'Rally!'}`);
+    } else if (e.type === 'synergy') {
+      lines.push(`${time}  Synergy: ${synergyName(e.synergy)} (${SIDE_NAMES[e.side]})`);
+    } else if (e.type === 'interrupted') {
+      lines.push(`${time}  ${label(e.unitId)}'s Rift was interrupted (by ${label(e.byId)})`);
     } else if (e.type === 'reserveCalled') {
       lines.push(`${time}  ${label(e.unitId)} arrives from the reserves`);
     } else if (e.type === 'overtime') {

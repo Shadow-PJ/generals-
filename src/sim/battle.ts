@@ -1,17 +1,21 @@
 // The battle loop: create a battle from a setup, then advance it one fixed tick at a time.
 
 import { BATTLE_RULES } from '../data/battle';
-import { think, type Action, type SkillCast } from './behaviors';
+import { tauntIntent, think, type Action, type SkillCast } from './behaviors';
 import { applyInput, createCommand, updateCommand } from './command';
 import { performAttack, updateProjectiles } from './combat';
 import { isSpaceFree, moveUnitBy, separateUnits, stepAwayFrom, updateKnockbacks, walkToward } from './movement';
 import { advanceOrders, orderIntent, tickOrder } from './orders';
 import { overtimeStartTick } from './overtime';
 import { findUnit, livingUnits } from './queries';
+import { burnShoved, startRift, tickCast, updateZones } from './rift';
 import { createRng } from './rng';
-import { castBarrier, castMark, castShove } from './skills';
+import { castShadowstep } from './shadowstep';
+import { castBarrier, castMark, castShove, ironWallTaunts } from './skills';
+import { specFor } from './specs';
 import { createUnit } from './spawn';
-import { secondsToTicks } from './time';
+import { activeSynergies } from './synergies';
+import { secondsToTicks, TICKS_PER_SECOND } from './time';
 import {
   SIDES,
   type BattleInput,
@@ -27,15 +31,19 @@ import { rebuildNav } from './walls';
 export function createBattle(setup: BattleSetup): BattleState {
   const rng = createRng(setup.seed);
   const units: Unit[] = [];
+  const specs = { player: { ...setup.specs?.player }, enemy: { ...setup.specs?.enemy } };
+  const reserves = { player: [...(setup.reserves?.player ?? [])], enemy: [...(setup.reserves?.enemy ?? [])] };
 
   // Ids alternate between the sides (player, enemy, player, ...) so neither side always acts first.
   const count = Math.max(setup.player.length, setup.enemy.length);
   for (let i = 0; i < count; i++) {
     for (const side of SIDES) {
       const placement = setup[side][i];
-      if (placement) units.push(createUnit(units.length + 1, side, placement, rng));
+      if (placement) units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls)));
     }
   }
+  // The army each side brought, troops and reserves, switches its synergies on.
+  const army = (side: Side) => [...setup[side].map((t) => t.cls), ...reserves[side]];
 
   const walls: Wall[] = setup.map.walls.map((w, i) => {
     const hp = w.hp ?? BATTLE_RULES.walls.hp;
@@ -52,6 +60,11 @@ export function createBattle(setup: BattleSetup): BattleState {
     units,
     projectiles: [],
     nextProjectileId: 1,
+    zones: [],
+    nextZoneId: 1,
+    specs,
+    synergies: { player: activeSynergies(army('player'), specs.player), enemy: activeSynergies(army('enemy'), specs.enemy) },
+    synergiesSeen: { player: [], enemy: [] },
     startHp: {
       player: totalMaxHp(units, 'player'),
       enemy: totalMaxHp(units, 'enemy'),
@@ -59,10 +72,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     events: [],
     result: null,
     command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general),
-    reserves: {
-      player: [...(setup.reserves?.player ?? [])],
-      enemy: [...(setup.reserves?.enemy ?? [])],
-    },
+    reserves,
     tactical: setup.tactical ?? false,
     inputLog: [],
   };
@@ -93,12 +103,16 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
   for (const input of inputs) applyInput(state, input);
   advanceOrders(state);
   tickTimers(state);
+  ironWallTaunts(state);
 
-  // Decide: every unit looks at the same start-of-tick state. Card orders come before a troop's own ideas.
+  // Decide: every unit looks at the same start-of-tick state. A taunt comes first, then card
+  // orders, then a troop's own ideas. Shoved, stunned and casting troops do nothing; silenced
+  // ones use no skills.
   const intents = state.units.map((u) => {
-    if (!u.alive || u.knockback || u.stunTicks > 0) return null;
+    if (!u.alive || u.knockback || u.stunTicks > 0 || u.casting) return null;
     const own = think(state, u);
-    return orderIntent(state, u, own) ?? own;
+    const intent = tauntIntent(state, u) ?? orderIntent(state, u, own) ?? own;
+    return u.silencedTicks > 0 ? { ...intent, cast: null } : intent;
   });
 
   // Act, in id order: first every skill, while all units still stand where they decided,
@@ -113,8 +127,9 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
     if (intent && unit.alive) carryOut(state, unit, intent.action);
   });
 
-  updateKnockbacks(state);
+  for (const { unit, push } of updateKnockbacks(state)) burnShoved(state, unit, push);
   updateProjectiles(state);
+  updateZones(state);
   separateUnits(state);
   resolveDeaths(state);
   checkForEnd(state);
@@ -145,10 +160,24 @@ function tickTimers(state: BattleState): void {
     if (unit.mark && --unit.mark.ticksLeft <= 0) unit.mark = null;
     if (unit.barrier && --unit.barrier.ticksLeft <= 0) unit.barrier = null;
     if (unit.chased && --unit.chased.ticksLeft <= 0) unit.chased = null;
+    if (unit.slow && --unit.slow.ticksLeft <= 0) unit.slow = null;
+    if (unit.taunt && --unit.taunt.ticksLeft <= 0) unit.taunt = null;
     if (unit.stunTicks > 0) unit.stunTicks -= 1;
+    if (unit.silencedTicks > 0) unit.silencedTicks -= 1;
+    if (unit.invisibleTicks > 0) unit.invisibleTicks -= 1;
     if (unit.rallyTicks > 0) unit.rallyTicks -= 1;
+    if (unit.regen) tickRegen(unit);
+    tickCast(state, unit);
     tickOrder(unit);
   }
+}
+
+/** Mender: heals the regen's amount once a second while it lasts. */
+function tickRegen(unit: Unit): void {
+  const regen = unit.regen!;
+  regen.ticksLeft -= 1;
+  if (regen.ticksLeft % TICKS_PER_SECOND === 0) unit.hp = Math.min(unit.stats.maxHp, unit.hp + regen.amount);
+  if (regen.ticksLeft <= 0) unit.regen = null;
 }
 
 function castSkill(state: BattleState, unit: Unit, cast: SkillCast): void {
@@ -156,10 +185,15 @@ function castSkill(state: BattleState, unit: Unit, cast: SkillCast): void {
     castShove(state, unit);
     return;
   }
+  if (cast.skill === 'rift') {
+    startRift(unit, cast.at);
+    return;
+  }
   const target = findUnit(state, cast.targetId);
   if (!target?.alive) return;
   if (cast.skill === 'mark') castMark(state, unit, target);
-  else castBarrier(state, unit, target);
+  else if (cast.skill === 'barrier') castBarrier(state, unit, target);
+  else castShadowstep(state, unit, target);
 }
 
 function carryOut(state: BattleState, unit: Unit, action: Action): void {
@@ -196,6 +230,12 @@ function resolveDeaths(state: BattleState): void {
     unit.chased = null;
     unit.knockback = null;
     unit.stunTicks = 0;
+    unit.slow = null;
+    unit.taunt = null;
+    unit.silencedTicks = 0;
+    unit.invisibleTicks = 0;
+    unit.regen = null;
+    unit.casting = null;
     unit.path = [];
     unit.targetId = null;
     unit.orders = [];

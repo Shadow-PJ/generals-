@@ -1,10 +1,11 @@
-// The Combo Codex: the combos you have landed, with what they take and what they do. Combos you
+// The Combo Codex: the combos you have landed, with what they take and what they do, the
+// signature combos and the Finisher on the left, the troop synergies on the right. Entries you
 // haven't found yet stay hidden. Esc or Enter goes back.
 
 import Phaser from 'phaser';
-import { CODEX_ENTRY_IDS } from '../../data/combos';
+import { CODEX_ENTRY_IDS, type CodexEntryId } from '../../data/combos';
 import { COMMAND_RULES } from '../../data/command';
-import { codexEntry } from '../codex';
+import { codexEntry, isSynergy } from '../codex';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -12,7 +13,8 @@ import { foundCombos } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
-const ROW_H = 74;
+const ROW_H = 84;
+const COLUMN_W = (GAME_WIDTH - 48) / 2;
 
 export class CodexScene extends Phaser.Scene {
   private setup!: MatchSetup;
@@ -38,20 +40,26 @@ export class CodexScene extends Phaser.Scene {
       textStyle(12, TEXT.muted),
     );
 
-    CODEX_ENTRY_IDS.forEach((id, i) => {
-      const y = TOP_BAR_HEIGHT + 16 + i * ROW_H;
-      const known = found.includes(id);
-      const entry = codexEntry(id);
-      this.add.rectangle(16, y, GAME_WIDTH - 32, ROW_H - 10, known ? 0x1d2939 : 0x141a23).setOrigin(0).setStrokeStyle(1, known ? 0x50627c : 0x2a3444);
-      if (known) {
-        this.add.text(32, y + 10, entry.name, textStyle(16, TEXT.perfect, true));
-        this.add.text(260, y + 12, entry.stepsText, textStyle(13, TEXT.body));
-        this.add.text(32, y + 36, entry.bonusText, textStyle(13, TEXT.muted));
-      } else {
-        this.add.text(32, y + 10, '???', textStyle(16, TEXT.muted, true));
-        const hint = id === 'finisher' ? 'Something about your ultimate, at the end of a long chain (Rank IV).' : 'Two steps in a row, in one card or across a chain (Rank III).';
-        this.add.text(32, y + 36, `Not found yet. ${hint}`, textStyle(13, TEXT.muted));
-      }
+    const columns = [CODEX_ENTRY_IDS.filter((id) => !isSynergy(id)), CODEX_ENTRY_IDS.filter(isSynergy)];
+    this.add.text(16, TOP_BAR_HEIGHT + 4, 'SIGNATURE COMBOS AND THE FINISHER', textStyle(12, TEXT.muted, true));
+    this.add.text(32 + COLUMN_W, TOP_BAR_HEIGHT + 4, 'TROOP SYNERGIES (always on)', textStyle(12, TEXT.muted, true));
+    columns.forEach((ids, column) => {
+      const x = 16 + column * (COLUMN_W + 16);
+      ids.forEach((id, i) => {
+        const y = TOP_BAR_HEIGHT + 24 + i * ROW_H;
+        const known = found.includes(id);
+        const entry = codexEntry(id);
+        this.add.rectangle(x, y, COLUMN_W, ROW_H - 8, known ? 0x1d2939 : 0x141a23).setOrigin(0).setStrokeStyle(1, known ? 0x50627c : 0x2a3444);
+        const wrap = { wordWrap: { width: COLUMN_W - 24 } };
+        if (known) {
+          this.add.text(x + 12, y + 8, entry.name, textStyle(15, TEXT.perfect, true));
+          this.add.text(x + 12, y + 30, entry.stepsText, { ...textStyle(12, TEXT.body), ...wrap });
+          this.add.text(x + 12, y + 48, entry.bonusText, { ...textStyle(12, TEXT.muted), ...wrap });
+        } else {
+          this.add.text(x + 12, y + 8, '???', textStyle(15, TEXT.muted, true));
+          this.add.text(x + 12, y + 30, `Not found yet. ${hintFor(id)}`, { ...textStyle(12, TEXT.muted), ...wrap });
+        }
+      });
     });
 
     addButton(this, 16 + 70, GAME_HEIGHT - 34, '◀ Back  Esc', () => this.goBack(), 140, 32);
@@ -61,4 +69,10 @@ export class CodexScene extends Phaser.Scene {
   private goBack(): void {
     this.scene.start('Prep', this.setup);
   }
+}
+
+function hintFor(id: CodexEntryId): string {
+  if (id === 'finisher') return 'Something about your ultimate, at the end of a long chain (Rank IV).';
+  if (isSynergy(id)) return 'Two troop classes in your army, working together by themselves.';
+  return 'Two steps in a row, in one card or across a chain (Rank III).';
 }
