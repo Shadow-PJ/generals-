@@ -79,12 +79,12 @@ Owner checks: firing cards feels good, and a pip every 6 s is neither too slow n
 
 ### 2C. Desktop build
 
-- [ ] Electron app in `desktop/` that runs the same game build
-- [ ] A `src/platform` layer: saves, settings and files go through it, with a browser version and a desktop version
-- [ ] Saves as files in the player's app data folder, ready for Steam Cloud
-- [ ] Fullscreen and windowed modes, resolution scaling and a basic settings screen
-- [ ] GitHub Actions builds a Windows installer on every merge and attaches it to the run as a download
-- [ ] The browser build keeps deploying to GitHub Pages
+- [x] Electron app in `desktop/` that runs the same game build
+- [x] A `src/platform` layer: saves, settings and files go through it, with a browser version and a desktop version
+- [x] Saves as files in the player's app data folder, ready for Steam Cloud
+- [x] Fullscreen and windowed modes, resolution scaling and a basic settings screen
+- [x] GitHub Actions builds a Windows installer on every merge and attaches it to the run as a download
+- [x] The browser build keeps deploying to GitHub Pages
 
 Done when: the game installs and plays on Windows.
 

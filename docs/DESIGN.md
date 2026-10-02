@@ -316,7 +316,7 @@ Generals ships as a Windows desktop game on Steam first, then on the Epic Games 
 
 - **Desktop app:** the same TypeScript game wrapped in Electron, which bundles its own Chromium, so it runs the same on every PC and on Steam Deck.
 - **Small model:** ships inside the desktop app; the browser build downloads it on first use.
-- **Saves:** files in the player's app data folder, synced by Steam Cloud.
+- **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display settings (window size, fullscreen, resolution) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage.
 - **Steam Deck and controllers:** full controller support. Slots map to buttons, and the card builder works without a keyboard.
 - **Multiplayer:** runs through a small relay server of our own, so Steam, Epic and browser players can play each other. Epic requires multiplayer games to cross-play with other PC stores.
 - **Store features:** Steam achievements, cloud saves and rich presence; Epic achievements, which Epic requires.

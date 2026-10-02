@@ -1,10 +1,18 @@
 // Small UI pieces: text styles and buttons.
 
 import type Phaser from 'phaser';
+import { currentRenderScale } from './display';
 import { FONT, TEXT } from './theme';
 
 export function textStyle(size: number, color: string = TEXT.body, bold = false): Phaser.Types.GameObjects.Text.TextStyle {
-  return { fontFamily: FONT, fontSize: `${size}px`, color, fontStyle: bold ? 'bold' : 'normal' };
+  return {
+    fontFamily: FONT,
+    fontSize: `${size}px`,
+    color,
+    fontStyle: bold ? 'bold' : 'normal',
+    // Drawn at the render scale so text stays sharp when the camera zooms in.
+    resolution: currentRenderScale(),
+  };
 }
 
 export interface Button {
