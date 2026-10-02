@@ -96,7 +96,7 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
 
   // Decide: every unit looks at the same start-of-tick state. Card orders come before a troop's own ideas.
   const intents = state.units.map((u) => {
-    if (!u.alive || u.knockback) return null;
+    if (!u.alive || u.knockback || u.stunTicks > 0) return null;
     const own = think(state, u);
     return orderIntent(state, u, own) ?? own;
   });
@@ -144,6 +144,8 @@ function tickTimers(state: BattleState): void {
     if (unit.skillCooldown > 0) unit.skillCooldown -= 1;
     if (unit.mark && --unit.mark.ticksLeft <= 0) unit.mark = null;
     if (unit.barrier && --unit.barrier.ticksLeft <= 0) unit.barrier = null;
+    if (unit.chased && --unit.chased.ticksLeft <= 0) unit.chased = null;
+    if (unit.stunTicks > 0) unit.stunTicks -= 1;
     if (unit.rallyTicks > 0) unit.rallyTicks -= 1;
     tickOrder(unit);
   }
@@ -191,11 +193,14 @@ function resolveDeaths(state: BattleState): void {
     unit.hp = 0;
     unit.mark = null;
     unit.barrier = null;
+    unit.chased = null;
     unit.knockback = null;
+    unit.stunTicks = 0;
     unit.path = [];
     unit.targetId = null;
     unit.orders = [];
     unit.rallyTicks = 0;
+    unit.rallyBonus = 0;
     state.events.push({ tick: state.tick, type: 'death', unitId: unit.id, killerId: unit.lastHitBy });
   }
 }

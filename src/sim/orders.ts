@@ -1,11 +1,14 @@
 // Card steps become orders for the troops that carry them out. Each troop works through its
 // orders one after another ("Protect your Rangers, then Focus the Assassin"); a newer card
 // replaces the orders of the troops it names. With no orders left, a troop acts on its own.
+// A step that completes a signature combo carries the combo, which changes what it does.
 
+import { COMBO_BONUSES, type SignatureComboId } from '../data/combos';
 import { ORDER_RULES } from '../data/command';
 import type { Actors, Card, Place, Step, Target } from '../cards/types';
 import { clamp, distance, type Point } from './geometry';
 import { centerDistance, edgeDistance, findUnit, hpShare, livingAllies, livingEnemies, livingUnits, nearestTo } from './queries';
+import { isSpaceFree } from './movement';
 import { castBarrier, castMark, castShove, shoveTargets } from './skills';
 import { spawnReserve } from './spawn';
 import { secondsToTicks } from './time';
@@ -17,23 +20,87 @@ export interface CardTriggers {
   allyId: number | null;
 }
 
-/** Gives the card's steps to the troops it names. Call Reserve happens at once. */
-export function issueCard(state: BattleState, side: Side, card: Card, power: number, triggers: CardTriggers): void {
+/** A signature combo that the card's step `step` completes, with the step before it or the last card's. */
+export interface ComboAt {
+  combo: SignatureComboId;
+  step: number;
+  acrossCards: boolean;
+}
+
+/**
+ * Gives the card's steps to the troops it names; Call Reserve happens at once. `combos` says
+ * which steps complete a signature combo; `chainedReserves` are the reserves the last card of a
+ * chain called in, which an Ambush across the chain moves behind the focused enemy.
+ * Returns the reserves this card called in.
+ */
+export function issueCard(
+  state: BattleState,
+  side: Side,
+  card: Card,
+  power: number,
+  triggers: CardTriggers,
+  combos: readonly ComboAt[] = [],
+  chainedReserves: readonly number[] = [],
+): number[] {
+  const comboOf = (i: number) => combos.find((c) => c.step === i)?.combo ?? null;
+  const called: number[] = [];
   const queues = new Map<number, UnitOrder[]>();
-  for (const step of card.steps) {
+  card.steps.forEach((step, i) => {
+    // Ambush: the reserve arrives behind the enemy the next step focuses.
+    const ambush = comboOf(i) === 'ambush' ? focusTarget(state, side, card.steps[i], triggers) : undefined;
+    if (ambush) {
+      const reserves = combos.find((c) => c.step === i)!.acrossCards ? chainedReserves : called.slice(-1);
+      for (const id of reserves) {
+        const unit = findUnit(state, id);
+        if (unit?.alive) placeBehind(state, unit, ambush);
+      }
+    }
     if (step.action === 'callReserve') {
-      spawnReserve(state, side, step.reserve);
-      continue;
+      const unit = spawnReserve(state, side, step.reserve);
+      if (unit) called.push(unit.id);
+      return;
     }
     for (const unit of actorsOf(state, side, step.actors)) {
       const queue = queues.get(unit.id) ?? [];
-      queue.push(orderFor(step, power, triggers));
+      queue.push(orderFor(step, power, triggers, comboOf(i)));
       queues.set(unit.id, queue);
     }
-  }
+  });
   for (const [id, queue] of queues) {
     const unit = findUnit(state, id);
     if (unit) unit.orders = queue;
+  }
+  return called;
+}
+
+/** The enemy a Focus step aims at, seen from the middle of the side's army. */
+function focusTarget(state: BattleState, side: Side, step: Step | undefined, triggers: CardTriggers): Unit | undefined {
+  if (step?.action !== 'focus') return undefined;
+  const army = livingUnits(state, side);
+  if (army.length === 0) return undefined;
+  return resolveEnemy(state, side, centroid(army), step.target, triggers.enemyId);
+}
+
+/** Puts a troop just past the enemy, on the far side from its own army, wherever there is room. */
+function placeBehind(state: BattleState, unit: Unit, enemy: Unit): void {
+  const friends = livingUnits(state, unit.side).filter((u) => u.id !== unit.id);
+  const from = friends.length > 0 ? centroid(friends) : { x: unit.x, y: unit.y };
+  const d = distance(from.x, from.y, enemy.x, enemy.y);
+  const dx = d === 0 ? (unit.side === 'player' ? 1 : -1) : (enemy.x - from.x) / d;
+  const dy = d === 0 ? 0 : (enemy.y - from.y) / d;
+  const reach = enemy.stats.radius + unit.stats.radius + COMBO_BONUSES.ambush.behindDistance;
+  // Straight behind first, then a little to either side.
+  for (const turn of [0, 0.5, -0.5, 1, -1]) {
+    const rx = dx - dy * turn;
+    const ry = dy + dx * turn;
+    const len = Math.sqrt(rx * rx + ry * ry);
+    const spot = clampToMap(state, unit, enemy.x + (rx / len) * reach, enemy.y + (ry / len) * reach);
+    if (isSpaceFree(state, spot.x, spot.y, unit.stats.radius)) {
+      unit.x = spot.x;
+      unit.y = spot.y;
+      unit.path = [];
+      return;
+    }
   }
 }
 
@@ -44,13 +111,19 @@ function actorsOf(state: BattleState, side: Side, actors: Actors): Unit[] {
   return []; // Named veterans arrive in session 5D.
 }
 
-function orderFor(step: Exclude<Step, { action: 'callReserve' }>, power: number, triggers: CardTriggers): UnitOrder {
+function orderFor(
+  step: Exclude<Step, { action: 'callReserve' }>,
+  power: number,
+  triggers: CardTriggers,
+  combo: SignatureComboId | null,
+): UnitOrder {
   const base = {
     target: null as Target | null,
     place: null as Place | null,
     triggerEnemyId: triggers.enemyId,
     triggerAllyId: triggers.allyId,
     power,
+    combo,
     started: false,
     ticksLeft: 0,
     unitId: null,
@@ -108,7 +181,8 @@ function startOrder(state: BattleState, unit: Unit, order: UnitOrder): boolean {
   order.started = true;
   switch (order.kind) {
     case 'focus':
-      order.unitId = resolveEnemy(state, unit, order.target!, order.triggerEnemyId)?.id ?? null;
+      order.unitId = resolveEnemy(state, unit.side, unit, order.target!, order.triggerEnemyId)?.id ?? null;
+      if (order.combo === 'feignedRetreat') slowChasers(state, unit);
       return order.unitId !== null;
     case 'protect':
       order.unitId = resolveAlly(state, unit, order.target!, order.triggerAllyId)?.id ?? null;
@@ -125,9 +199,32 @@ function startOrder(state: BattleState, unit: Unit, order: UnitOrder): boolean {
     case 'hold':
       return true;
     case 'overcharge':
-      castOvercharge(state, unit, order.power);
+      if (order.combo === 'overload') {
+        castOvercharge(state, unit, order.power * COMBO_BONUSES.overload.powerMultiplier);
+        overloadCost(state, unit);
+      } else {
+        const stun = order.combo === 'hammerAndAnvil' ? secondsToTicks(COMBO_BONUSES.hammerAndAnvil.stunSeconds) : 0;
+        castOvercharge(state, unit, order.power, stun);
+      }
       return true;
   }
+}
+
+/** Feigned Retreat: enemies close behind the troop as it turns to fight are slowed and exposed. */
+function slowChasers(state: BattleState, unit: Unit): void {
+  const bonus = COMBO_BONUSES.feignedRetreat;
+  for (const enemy of livingEnemies(state, unit)) {
+    if (centerDistance(enemy, unit) > bonus.chaseRadius) continue;
+    enemy.chased = { ticksLeft: secondsToTicks(bonus.durationSeconds), slow: bonus.slow, damageTakenBonus: bonus.damageTakenBonus };
+  }
+}
+
+/** Overload's price: the troop loses a share of its max HP, but never its last point. */
+function overloadCost(state: BattleState, unit: Unit): void {
+  const amount = Math.min(unit.hp - 1, Math.round(unit.stats.maxHp * COMBO_BONUSES.overload.selfDamageShare));
+  if (amount <= 0) return;
+  unit.hp -= amount;
+  state.events.push({ tick: state.tick, type: 'damage', sourceId: unit.id, targetId: unit.id, amount, absorbed: 0, cause: 'overload' });
 }
 
 function startMove(state: BattleState, unit: Unit, order: UnitOrder): boolean {
@@ -225,10 +322,10 @@ function protectIntent(state: BattleState, unit: Unit, order: UnitOrder, base: I
 }
 
 /** Overcharge: the troop's skill fires now, ignoring its usual conditions, at the order's power. */
-function castOvercharge(state: BattleState, unit: Unit, power: number): void {
+function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks = 0): void {
   switch (unit.cls) {
     case 'vanguard':
-      if (shoveTargets(state, unit).length > 0) castShove(state, unit, power);
+      if (shoveTargets(state, unit).length > 0) castShove(state, unit, power, stunTicks);
       else unit.skillCooldown = 0;
       return;
     case 'ranger': {
@@ -252,18 +349,19 @@ function castOvercharge(state: BattleState, unit: Unit, power: number): void {
 
 // Choosing targets ---------------------------------------------------------------------------
 
-function resolveEnemy(state: BattleState, unit: Unit, target: Target, triggerId: number | null): Unit | undefined {
-  const enemies = livingEnemies(state, unit);
+/** The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army). */
+function resolveEnemy(state: BattleState, side: Side, from: Point, target: Target, triggerId: number | null): Unit | undefined {
+  const enemies = state.units.filter((u) => u.alive && u.side !== side);
   switch (target.kind) {
     case 'class':
-      return nearestTo(enemies.filter((e) => e.cls === target.cls), unit.x, unit.y);
+      return nearestTo(enemies.filter((e) => e.cls === target.cls), from.x, from.y);
     case 'nearest':
-      return nearestTo(enemies, unit.x, unit.y);
+      return nearestTo(enemies, from.x, from.y);
     case 'weakest':
       return weakest(enemies);
     case 'trigger': {
       const u = findUnit(state, triggerId);
-      return u?.alive && u.side !== unit.side ? u : undefined;
+      return u?.alive && u.side !== side ? u : undefined;
     }
     case 'named':
       return undefined;

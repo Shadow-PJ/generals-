@@ -35,9 +35,10 @@ export function shoveTargets(state: BattleState, vanguard: Unit): Unit[] {
 
 /**
  * Shove: pushes every nearby enemy straight away from the Vanguard and deals a little damage.
- * `power` above 1 (a Perfect Overcharge) pushes further and hits harder.
+ * `power` above 1 (a Perfect Overcharge) pushes further and hits harder; `stunTicks` (Hammer and
+ * Anvil) leaves them unable to act for a while after the push.
  */
-export function castShove(state: BattleState, vanguard: Unit, power = 1): void {
+export function castShove(state: BattleState, vanguard: Unit, power = 1, stunTicks = 0): void {
   const shove = UNIT_CLASSES.vanguard.shove;
   const targets = shoveTargets(state, vanguard);
   if (targets.length === 0) return;
@@ -49,6 +50,7 @@ export function castShove(state: BattleState, vanguard: Unit, power = 1): void {
     const nx = d === 0 ? (vanguard.side === 'player' ? 1 : -1) : (target.x - vanguard.x) / d;
     const ny = d === 0 ? 0 : (target.y - vanguard.y) / d;
     target.knockback = { dx: nx * perTick, dy: ny * perTick, ticksLeft: pushTicks };
+    if (stunTicks > 0) target.stunTicks = Math.max(target.stunTicks, pushTicks + stunTicks);
     dealDamage(state, vanguard.id, target, shove.damage * power, vanguard.stats.armorPierce, 'shove');
   }
   vanguard.skillCooldown = skillCooldownTicks('vanguard');

@@ -197,6 +197,6 @@ describe('Momentum and Rally', () => {
     expect(vanguard.hp).toBe(500 + Math.round(vanguard.stats.maxHp * ULTIMATES.rally.healShare));
     expect(vanguard.rallyTicks).toBe(secondsToTicks(ULTIMATES.rally.durationSeconds) - 1);
     expect(state.command.momentum).toBeLessThan(1);
-    expect(state.events).toContainEqual({ tick: 0, type: 'ultimate', side: 'player', name: 'rally' });
+    expect(state.events).toContainEqual({ tick: 0, type: 'ultimate', side: 'player', name: 'rally', link: 1, finisher: false });
   });
 });

@@ -1,16 +1,20 @@
 // Command pips, Momentum and card slots: when cards glow, rest, fire by themselves, and what
-// pressing a slot or the ultimate key does. Only your side has cards until enemy commanders (4D).
+// pressing a slot or the ultimate key does. Cards fired close together form a chain (cheaper,
+// more Momentum), steps in a row can make a signature combo, and the ultimate at the end of a
+// long chain is a Finisher. Only your side has cards until enemy commanders (4D).
 
+import { makesCombo } from '../cards/combos';
 import { cardCost } from '../cards/cost';
 import { applyPersonality } from '../cards/personality';
 import type { Card, Loadout } from '../cards/types';
 import { slotUnlockRank, validateCard } from '../cards/validator';
 import { CARD_RULES } from '../data/cards';
+import { COMBO_BONUSES, SIGNATURE_COMBOS } from '../data/combos';
 import { COMMAND_RULES, ULTIMATES } from '../data/command';
 import type { GeneralId } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
 import { checkCondition } from './conditions';
-import { issueCard } from './orders';
+import { issueCard, type ComboAt } from './orders';
 import { livingUnits } from './queries';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
 import type { BattleInput, BattleState, CommandState, Side, SlotState } from './types';
@@ -58,12 +62,14 @@ export function createCommand(
     pipProgress: 0,
     momentum: 0,
     slots,
+    chain: { links: 0, lastTick: 0, lastStep: null, lastReserveIds: [] },
   };
 }
 
 /** Pips, Momentum, rests and glows for one tick; Auto cards fire here. */
 export function updateCommand(state: BattleState): void {
   const command = state.command;
+  if (command.chain.links > 0 && !chainOpen(state)) command.chain = { links: 0, lastTick: 0, lastStep: null, lastReserveIds: [] };
   refillPips(state, command);
   command.momentum = Math.min(
     COMMAND_RULES.momentum.max,
@@ -118,7 +124,7 @@ function updateGlow(state: BattleState, command: CommandState, slot: SlotState):
 function shouldAutoFire(state: BattleState, command: CommandState, slot: SlotState): boolean {
   const card = slot.card;
   if (!card?.auto || !slot.glowing || slot.firedThisGlow || slot.restTicks > 0) return false;
-  if (command.pips < cardCost(card)) return false;
+  if (command.pips < chainedCost(state, card)) return false;
   if (!card.condition?.repeat) return slot.autoFires === 0;
   const gap = secondsToTicks(CARD_RULES.repeatMinSeconds);
   return slot.lastAutoTick === null || state.tick - slot.lastAutoTick >= gap;
@@ -135,8 +141,60 @@ export function slotReadiness(state: BattleState, index: number): SlotReadiness 
   if (slot.restTicks > 0) return 'resting';
   // A card with a condition can only be fired while it glows.
   if (slot.card.condition && !slot.glowing) return 'waiting';
-  if (state.command.pips < cardCost(slot.card)) return 'noPips';
+  if (state.command.pips < chainedCost(state, slot.card)) return 'noPips';
   return 'ready';
+}
+
+// Chains --------------------------------------------------------------------------------------
+
+/** True while the last link is recent enough for the next card to join the chain. */
+function chainOpen(state: BattleState): boolean {
+  const chain = state.command.chain;
+  return chain.links > 0 && state.tick - chain.lastTick <= secondsToTicks(COMMAND_RULES.chain.windowSeconds);
+}
+
+/** The link a card or the ultimate fired now would be: 1 on its own, 2 or more in a chain (from Rank III). */
+export function nextLink(state: BattleState): number {
+  if (!rankRules(state.command.rank).chains) return 1;
+  return chainOpen(state) ? state.command.chain.links + 1 : 1;
+}
+
+/** What a card costs fired now: each link after the first costs 1 less, down to 1. */
+export function chainedCost(state: BattleState, card: Card): number {
+  const cost = cardCost(card);
+  if (nextLink(state) === 1) return cost;
+  return Math.max(Math.min(cost, COMMAND_RULES.chain.minCost), cost - COMMAND_RULES.chain.linkDiscount);
+}
+
+/** The cost of the card in a slot if it were fired now, or null for an empty slot. */
+export function slotCost(state: BattleState, index: number): number | null {
+  const card = state.command.slots[index]?.card;
+  return card ? chainedCost(state, card) : null;
+}
+
+/** Ticks left for the next card to join the chain, or 0 when no chain is open. */
+export function chainTicksLeft(state: BattleState): number {
+  if (!chainOpen(state) || !rankRules(state.command.rank).chains) return 0;
+  return secondsToTicks(COMMAND_RULES.chain.windowSeconds) - (state.tick - state.command.chain.lastTick);
+}
+
+function addMomentum(command: CommandState, amount: number, link: number): void {
+  const multiplier = link > 1 ? COMMAND_RULES.momentum.chainMultiplier : 1;
+  command.momentum = Math.min(COMMAND_RULES.momentum.max, command.momentum + amount * multiplier);
+}
+
+/** The signature combos a card makes: with the last card of the chain, and between its own steps. */
+function combosOf(state: BattleState, card: Card, link: number): ComboAt[] {
+  if (!rankRules(state.command.rank).signatureCombos) return [];
+  const found: ComboAt[] = [];
+  const previous = link > 1 ? state.command.chain.lastStep : null;
+  const steps = previous ? [previous, ...card.steps] : card.steps;
+  for (let i = 0; i + 1 < steps.length; i++) {
+    const combo = SIGNATURE_COMBOS.find((c) => makesCombo(c, steps[i]!, steps[i + 1]!));
+    // `step` counts this card's steps: the pair's second step.
+    if (combo) found.push({ combo: combo.id, step: previous ? i : i + 1, acrossCards: previous !== null && i === 0 });
+  }
+  return found;
 }
 
 /** Applies a player input. Inputs stamped for another tick are ignored. */
@@ -154,7 +212,8 @@ function fireSlot(state: BattleState, index: number, auto: boolean): void {
   const command = state.command;
   const slot = command.slots[index]!;
   const card = slot.card!;
-  const cost = cardCost(card);
+  const link = nextLink(state);
+  const cost = chainedCost(state, card);
   // Perfect timing: a manual card fired while it glows. Tactical mode has none.
   const perfect = !auto && !!card.condition && slot.glowing && !state.tactical;
   command.pips -= cost;
@@ -166,26 +225,45 @@ function fireSlot(state: BattleState, index: number, auto: boolean): void {
   }
   if (perfect) {
     command.pips = Math.min(command.maxPips, command.pips + COMMAND_RULES.perfect.pipRefund);
-    command.momentum = Math.min(COMMAND_RULES.momentum.max, command.momentum + COMMAND_RULES.momentum.perfectGain);
+    addMomentum(command, COMMAND_RULES.momentum.perfectGain, link);
   }
-  state.events.push({ tick: state.tick, type: 'cardFired', side: command.side, slot: index, auto, perfect, cost });
+  if (link > 1) addMomentum(command, COMMAND_RULES.momentum.chainLinkGain, link);
+  state.events.push({ tick: state.tick, type: 'cardFired', side: command.side, slot: index, auto, perfect, cost, link });
+  const combos = combosOf(state, card, link);
+  for (const c of combos) {
+    addMomentum(command, COMBO_BONUSES.momentumGain, link);
+    state.events.push({ tick: state.tick, type: 'combo', side: command.side, combo: c.combo, acrossCards: c.acrossCards });
+  }
   const power = perfect ? 1 + COMMAND_RULES.perfect.effectBonus : 1;
-  issueCard(state, command.side, card, power, { enemyId: slot.triggerEnemyId, allyId: slot.triggerAllyId });
+  const triggers = { enemyId: slot.triggerEnemyId, allyId: slot.triggerAllyId };
+  const called = issueCard(state, command.side, card, power, triggers, combos, command.chain.lastReserveIds);
+  if (rankRules(command.rank).chains) {
+    command.chain = { links: link, lastTick: state.tick, lastStep: card.steps.at(-1) ?? null, lastReserveIds: called };
+  }
 }
 
 export function ultimateReady(state: BattleState): boolean {
   return state.command.momentum >= COMMAND_RULES.momentum.max;
 }
 
-/** The Captain's Rally: every troop heals and attacks faster for a few seconds. */
+/**
+ * The Captain's Rally: every troop heals and attacks faster for a few seconds. As the 3rd link of
+ * a chain or later (from Rank IV) it is a Finisher, and 50% stronger.
+ */
 function fireUltimate(state: BattleState): void {
   if (!ultimateReady(state)) return;
   const command = state.command;
+  const link = nextLink(state);
+  const finisher = rankRules(command.rank).finishers && link >= COMMAND_RULES.finisher.minLinks;
+  const power = finisher ? 1 + COMMAND_RULES.finisher.powerBonus : 1;
   const rally = ULTIMATES.rally;
   for (const unit of livingUnits(state, command.side)) {
-    unit.hp = Math.min(unit.stats.maxHp, unit.hp + Math.round(unit.stats.maxHp * rally.healShare));
+    unit.hp = Math.min(unit.stats.maxHp, unit.hp + Math.round(unit.stats.maxHp * rally.healShare * power));
     unit.rallyTicks = secondsToTicks(rally.durationSeconds);
+    unit.rallyBonus = rally.attackSpeedBonus * power;
   }
   command.momentum = 0;
-  state.events.push({ tick: state.tick, type: 'ultimate', side: command.side, name: 'rally' });
+  state.events.push({ tick: state.tick, type: 'ultimate', side: command.side, name: 'rally', link, finisher });
+  // The ultimate is a link too, but has no step to make a combo with.
+  if (rankRules(command.rank).chains) command.chain = { links: link, lastTick: state.tick, lastStep: null, lastReserveIds: [] };
 }

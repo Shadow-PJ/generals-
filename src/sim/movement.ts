@@ -42,9 +42,10 @@ export function moveUnitBy(state: BattleState, unit: Unit, dx: number, dy: numbe
   unit.y = to.y;
 }
 
-/** Distance a unit covers in one tick; a Perfect card order makes it faster. */
+/** Distance a unit covers in one tick; a Perfect card order makes it faster, Feigned Retreat slower. */
 export function stepLength(unit: Unit): number {
-  return (unit.stats.moveSpeed * orderPower(unit)) / TICKS_PER_SECOND;
+  const slow = unit.chased ? 1 - unit.chased.slow : 1;
+  return (unit.stats.moveSpeed * orderPower(unit) * slow) / TICKS_PER_SECOND;
 }
 
 /** The point the unit should walk toward right now to reach the goal, going around walls. */

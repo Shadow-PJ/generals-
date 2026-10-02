@@ -1,7 +1,8 @@
 // Battle state. Everything here is plain data: it can be copied, saved, hashed and
 // sent over the network, and the same state plus the same step always gives the same result.
 
-import type { Card, Loadout, Place, Target } from '../cards/types';
+import type { Card, Loadout, Place, Step, Target } from '../cards/types';
+import type { SignatureComboId } from '../data/combos';
 import type { TroopPlacement } from '../data/armies';
 import type { GeneralId } from '../data/generals';
 import type { MapData, Rect } from '../data/maps';
@@ -60,6 +61,14 @@ export interface Barrier {
   ticksLeft: number;
 }
 
+/** Feigned Retreat: an enemy that chased into it moves slower and takes more damage for a while. */
+export interface Chased {
+  ticksLeft: number;
+  /** Share of speed lost (0.5 = half speed). */
+  slow: number;
+  damageTakenBonus: number;
+}
+
 /** An order a card gave a troop. Troops carry out their orders one after another. */
 export interface UnitOrder {
   kind: 'focus' | 'move' | 'fallBack' | 'hold' | 'protect' | 'overcharge';
@@ -71,6 +80,8 @@ export interface UnitOrder {
   triggerAllyId: number | null;
   /** 1, or more after a Perfect timing: the troop hits harder and moves faster while it lasts. */
   power: number;
+  /** The signature combo this step completes, if any: it changes what the order does. */
+  combo: SignatureComboId | null;
   started: boolean;
   ticksLeft: number;
   /** The unit it is about: whom to focus or protect, or the ally to move to. */
@@ -98,8 +109,11 @@ export interface Unit {
   skillCooldown: number;
   mark: Mark | null;
   barrier: Barrier | null;
+  chased: Chased | null;
   /** A unit being shoved can't act. */
   knockback: Knockback | null;
+  /** Ticks left of a stun (Hammer and Anvil): a stunned unit can't act. */
+  stunTicks: number;
   lastHitBy: number | null;
   /** Path corners still to walk around walls; empty when the way is clear. */
   path: Point[];
@@ -107,8 +121,9 @@ export interface Unit {
   repathTick: number;
   /** Orders from cards, the current one first. With none, the troop acts on its own. */
   orders: UnitOrder[];
-  /** Ticks left of the Captain's Rally. */
+  /** Ticks left of the Captain's Rally, and how much faster it makes the unit attack. */
   rallyTicks: number;
+  rallyBonus: number;
 }
 
 export interface SlotState {
@@ -129,6 +144,18 @@ export interface SlotState {
   lastAutoTick: number | null;
 }
 
+/** Cards fired within a few seconds of each other (from Rank III). */
+export interface ChainState {
+  /** Links so far: 0 when no chain is open. The ultimate counts as a link. */
+  links: number;
+  /** When the last link was fired. */
+  lastTick: number;
+  /** The last step of the last card, for signature combos across the chain. */
+  lastStep: Step | null;
+  /** Reserves the last card called in, for an Ambush across the chain. */
+  lastReserveIds: number[];
+}
+
 /** Your side's Command pips, Momentum and card slots. */
 export interface CommandState {
   side: Side;
@@ -140,6 +167,7 @@ export interface CommandState {
   momentum: number;
   /** 0 to 3 the regular slots, 4 the Legendary slot. */
   slots: SlotState[];
+  chain: ChainState;
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out. */
@@ -164,7 +192,8 @@ export interface Projectile {
 }
 
 export type SkillName = 'shove' | 'mark' | 'barrier';
-export type DamageCause = 'attack' | 'shove';
+/** What dealt damage: a plain attack, a Shove, Overload's cost to the troop itself, or Iron Shell's reflection. */
+export type DamageCause = 'attack' | 'shove' | 'overload' | 'reflect';
 export type EndReason = 'eliminated' | 'timeout';
 export type Winner = Side | 'draw';
 
@@ -186,8 +215,11 @@ export type BattleEvent =
   | { tick: number; type: 'wallHit'; wallId: number; sourceId: number; amount: number }
   | { tick: number; type: 'wallBreak'; wallId: number; sourceId: number }
   | { tick: number; type: 'overtime' }
-  | { tick: number; type: 'cardFired'; side: Side; slot: number; auto: boolean; perfect: boolean; cost: number }
-  | { tick: number; type: 'ultimate'; side: Side; name: 'rally' }
+  /** `link`: 1 for a card on its own, 2 or more for a link in a chain. */
+  | { tick: number; type: 'cardFired'; side: Side; slot: number; auto: boolean; perfect: boolean; cost: number; link: number }
+  | { tick: number; type: 'ultimate'; side: Side; name: 'rally'; link: number; finisher: boolean }
+  /** A signature combo landed: inside one card, or across two cards of a chain. */
+  | { tick: number; type: 'combo'; side: Side; combo: SignatureComboId; acrossCards: boolean }
   | { tick: number; type: 'reserveCalled'; side: Side; unitId: number }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
 

@@ -25,12 +25,15 @@ export function createUnit(id: number, side: Side, placement: TroopPlacement, rn
     skillCooldown: initialSkillCooldownTicks(placement.cls),
     mark: null,
     barrier: null,
+    chased: null,
     knockback: null,
+    stunTicks: 0,
     lastHitBy: null,
     path: [],
     repathTick: 0,
     orders: [],
     rallyTicks: 0,
+    rallyBonus: 0,
   };
 }
 

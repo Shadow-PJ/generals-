@@ -1,5 +1,6 @@
 // Formatting for the headless battle runner: a short, readable log and a summary.
 
+import { SIGNATURE_COMBOS } from '../src/data/combos';
 import { UNIT_CLASSES } from '../src/data/units';
 import { formatBattleTime, type BattleState, type Side, type Unit } from '../src/sim';
 
@@ -64,9 +65,12 @@ export function formatLog(state: BattleState, verbose: boolean): string[] {
     if (e.type === 'death') {
       lines.push(`${time}  ${label(e.unitId)} fell (by ${label(e.killerId)})`);
     } else if (e.type === 'cardFired') {
-      lines.push(`${time}  Card in slot ${e.slot + 1} fired${e.perfect ? ' (Perfect timing)' : e.auto ? ' (Auto)' : ''}`);
+      const link = e.link > 1 ? `, chain link ${e.link}` : '';
+      lines.push(`${time}  Card in slot ${e.slot + 1} fired${e.perfect ? ' (Perfect timing)' : e.auto ? ' (Auto)' : ''}${link}`);
+    } else if (e.type === 'combo') {
+      lines.push(`${time}  Combo: ${SIGNATURE_COMBOS.find((c) => c.id === e.combo)!.name}${e.acrossCards ? ' (across the chain)' : ''}`);
     } else if (e.type === 'ultimate') {
-      lines.push(`${time}  Rally!`);
+      lines.push(`${time}  ${e.finisher ? 'Finisher: Rally!' : 'Rally!'}`);
     } else if (e.type === 'reserveCalled') {
       lines.push(`${time}  ${label(e.unitId)} arrives from the reserves`);
     } else if (e.type === 'overtime') {

@@ -2,7 +2,17 @@
 
 export { createBattle, runBattle, stepBattle } from './battle';
 export { overtimeMultiplier } from './overtime';
-export { inComeback, LEGENDARY_SLOT, SLOT_COUNT, slotReadiness, ultimateReady, type SlotReadiness } from './command';
+export {
+  chainTicksLeft,
+  inComeback,
+  LEGENDARY_SLOT,
+  nextLink,
+  SLOT_COUNT,
+  slotCost,
+  slotReadiness,
+  ultimateReady,
+  type SlotReadiness,
+} from './command';
 export { TICKS_PER_SECOND, formatBattleTime, secondsToTicks, ticksToSeconds } from './time';
 export { otherSide, SIDES } from './types';
 export type {
