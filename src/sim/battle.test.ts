@@ -126,13 +126,16 @@ describe('determinism', () => {
   });
 });
 
+/** 60 full battles take about 2 s here and 3 s on the Windows runner, more when it is busy: give them room. */
+const MANY_BATTLES_MS = 30_000;
+
 describe('fairness', () => {
   it("doesn't favor either side in a mirror match", () => {
     const wins = { player: 0, enemy: 0, draw: 0 };
     for (let seed = 0; seed < 60; seed++) wins[runBattle(presetBattle(seed)).result!.winner] += 1;
     expect(wins.player).toBeLessThanOrEqual(39);
     expect(wins.enemy).toBeLessThanOrEqual(39);
-  });
+  }, MANY_BATTLES_MS);
 
   it('is an exact mirror when there is no randomness left to break the tie', () => {
     // With equal first-attack timers and no damage spread, mirrored armies must stay mirrored.
