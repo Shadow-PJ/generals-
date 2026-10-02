@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED } from '../src/data/armies';
-import { TRAINING_FIELD } from '../src/data/maps';
+import { OPEN_FIELD } from '../src/data/maps';
 import { runBattle } from '../src/sim';
 import { formatReport, parseSimArgs } from './simReport';
 
@@ -20,7 +20,7 @@ describe('headless runner options', () => {
 });
 
 describe('headless runner report', () => {
-  const state = runBattle({ seed: 42, map: TRAINING_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED });
+  const state = runBattle({ seed: 42, map: OPEN_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED });
 
   it('prints the winner, the deaths and a line per unit', () => {
     const report = formatReport(state, false);

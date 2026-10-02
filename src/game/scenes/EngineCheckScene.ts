@@ -3,7 +3,7 @@
 
 import Phaser from 'phaser';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED } from '../../data/armies';
-import { TRAINING_FIELD } from '../../data/maps';
+import { OPEN_FIELD } from '../../data/maps';
 import { formatBattleTime, runBattle, type BattleResult } from '../../sim';
 
 const SEED = 42;
@@ -14,7 +14,7 @@ export class EngineCheckScene extends Phaser.Scene {
   }
 
   create(): void {
-    const state = runBattle({ seed: SEED, map: TRAINING_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED });
+    const state = runBattle({ seed: SEED, map: OPEN_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED });
     const { width, height } = this.scale;
 
     this.add
