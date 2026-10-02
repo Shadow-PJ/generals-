@@ -23,16 +23,20 @@ export interface MapData {
   deployZones: { player: Rect; enemy: Rect };
 }
 
-// A plain field with two pillars in the middle, for testing the engine.
-// The real open-field map arrives with the renderer in session 1B.
-export const TRAINING_FIELD: MapData = {
-  id: 'training-field',
-  name: 'Training Field',
+// An open field: two pillars in the middle and a low wall on each flank of each side.
+// It is a mirror image left to right, so neither side starts with better cover.
+export const OPEN_FIELD: MapData = {
+  id: 'open-field',
+  name: 'Open Field',
   width: 960,
   height: 540,
   walls: [
-    { x: 450, y: 110, w: 60, h: 100 },
-    { x: 450, y: 330, w: 60, h: 100 },
+    { x: 455, y: 110, w: 50, h: 100 },
+    { x: 455, y: 330, w: 50, h: 100 },
+    { x: 330, y: 60, w: 24, h: 90 },
+    { x: 330, y: 390, w: 24, h: 90 },
+    { x: 606, y: 60, w: 24, h: 90 },
+    { x: 606, y: 390, w: 24, h: 90 },
   ],
   deployZones: {
     player: { x: 40, y: 40, w: 260, h: 460 },

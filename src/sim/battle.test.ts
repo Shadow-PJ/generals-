@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED } from '../data/armies';
 import { BATTLE_RULES } from '../data/battle';
-import { TRAINING_FIELD } from '../data/maps';
+import { OPEN_FIELD } from '../data/maps';
 import { UNIT_CLASSES } from '../data/units';
 import { createBattle, runBattle, stepBattle } from './battle';
 import { battleWith, openMap } from './testing/fixtures';
@@ -9,7 +9,7 @@ import { secondsToTicks } from './time';
 import type { BattleSetup } from './types';
 
 function presetBattle(seed: number): BattleSetup {
-  return { seed, map: TRAINING_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED };
+  return { seed, map: OPEN_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED };
 }
 
 describe('creating a battle', () => {
@@ -148,7 +148,7 @@ describe('fairness', () => {
       const p = state.units[2 * k]!;
       const e = state.units[2 * k + 1]!;
       expect(p.hp).toBe(e.hp);
-      expect(p.x).toBeCloseTo(TRAINING_FIELD.width - e.x, 3);
+      expect(p.x).toBeCloseTo(OPEN_FIELD.width - e.x, 3);
       expect(p.y).toBeCloseTo(e.y, 3);
     }
   });

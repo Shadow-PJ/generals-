@@ -1,7 +1,7 @@
 // Preset armies: which troops each side brings and where they stand at the start.
 
 import type { UnitClass } from './units';
-import { TRAINING_FIELD } from './maps';
+import { OPEN_FIELD } from './maps';
 
 export interface TroopPlacement {
   cls: UnitClass;
@@ -18,8 +18,8 @@ export const STARTER_ARMY: TroopPlacement[] = [
   { cls: 'guardian', x: 180, y: 270 },
 ];
 
-/** The same army facing the other way, standing in the enemy's deploy zone of the Training Field. */
+/** The same army facing the other way, in the enemy's deploy zone of the Open Field. It is the preset enemy on the prep screen. */
 export const STARTER_ARMY_MIRRORED: TroopPlacement[] = STARTER_ARMY.map((t) => ({
   ...t,
-  x: TRAINING_FIELD.width - t.x,
+  x: OPEN_FIELD.width - t.x,
 }));
