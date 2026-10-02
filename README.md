@@ -16,7 +16,7 @@ Place your troops and press Enter. Write your orders: type them in plain English
 
 Your General reads every card in their own way: the Warlord turns retreats into counter-attacks, the Engineer adds a Hold before every Move, the Hive Mother keeps orders short and simple, the Strategist suggests a better moment, and the Conductor reorders steps into combos. Until you can recruit them, pick one with the General (debug) switch at the top of the orders screen.
 
-On the troop screen, Esc opens Settings: fullscreen or windowed, window size, and resolution. F11 switches fullscreen on any screen.
+On the troop screen, Esc opens Settings: fullscreen or windowed, window size, resolution, and order reading. Orders are read by a rule parser; under Order reading you can also switch on a small model that runs on your computer and reads free-form orders (it downloads once, about 400 MB). F11 switches fullscreen on any screen.
 
 ## Running it
 
@@ -28,6 +28,9 @@ npm run dev                 # local dev server
 npm test                    # all tests
 npm run build               # type check and production build
 npm run sim -- --seed 42    # run one battle headless and print the result (add --verbose for skill uses)
+npm run dataset             # write 5,000 generated sentence and card pairs to tools/dataset/out/
+npm run eval                # rule parser accuracy on the held-out natural orders, with every failure
+npx tsx tools/eval/model/run.ts --model qwen2.5-0.5b --isolated   # the small model, in headless Chromium
 npm run desktop             # build and open the desktop app (Electron)
 npm run desktop:installer   # build the Windows installer into release/ (run it on Windows)
 ```

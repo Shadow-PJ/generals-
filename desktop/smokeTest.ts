@@ -2,17 +2,22 @@
 // after installing it. `Generals.exe --smoke-test=play` writes an order into slot 1 and starts
 // a battle; `--smoke-test=reopen` starts the app again and checks the card is still in slot 1.
 // This is the owner check from docs/PLAN.md (install, play, close, reopen), done by a script.
+// `--smoke-test=model --smoke-model=<id>` switches on the small order model, waits for it to
+// download, and has it read a few free-form orders, timing each.
 
 import type { BrowserWindow } from 'electron';
 import { appendFileSync } from 'node:fs';
 
-export type SmokeMode = 'play' | 'reopen';
+export type SmokeMode = 'play' | 'reopen' | 'model';
 
 const ORDER = 'Everyone focus their Ranger';
 const READY_TIMEOUT_MS = 30_000;
 const SAVE_TIMEOUT_MS = 5_000;
 const SCREEN_CHANGE_MS = 800;
 const BATTLE_WATCH_MS = 4_000;
+const MODEL_READY_TIMEOUT_MS = 480_000;
+/** Orders the rule parser can't read, so the model has to. */
+const FREE_FORM_ORDERS = ['yo team just chill where u are for a sec', 'snipers deal with their caster', 'when their rogue jumps in, healers keep the archers alive'];
 
 function option(argv: readonly string[], name: string): string | null {
   const prefix = `--${name}=`;
@@ -21,7 +26,12 @@ function option(argv: readonly string[], name: string): string | null {
 
 export function smokeTestMode(argv: readonly string[]): SmokeMode | null {
   const mode = option(argv, 'smoke-test');
-  return mode === 'play' || mode === 'reopen' ? mode : null;
+  return mode === 'play' || mode === 'reopen' || mode === 'model' ? mode : null;
+}
+
+/** Which order model the model test switches on. */
+export function smokeModel(argv: readonly string[]): string | null {
+  return option(argv, 'smoke-model');
 }
 
 /** Writes progress to stdout and to the file given by --smoke-log, since a Windows app has no console. */
@@ -79,6 +89,13 @@ export async function runSmokeTest(options: {
     await page<boolean>(`typeof window.generalsDesktop === 'object' && typeof require === 'undefined' && typeof process === 'undefined'`),
     'the game sees the desktop bridge and not Node',
   );
+  check(await page<boolean>('crossOriginIsolated'), 'the page is cross-origin isolated, so the order model can use several threads');
+
+  if (mode === 'model') {
+    passed &&= await testModel(page, check, log);
+    check(errors.length === 0, `no errors in the game${errors.length ? `: ${errors.join(' | ')}` : ''}`);
+    return passed;
+  }
 
   await wait(SCREEN_CHANGE_MS);
   await press('Enter'); // troops -> orders
@@ -110,4 +127,40 @@ export async function runSmokeTest(options: {
   );
   check(errors.length === 0, `no errors in the game${errors.length ? `: ${errors.join(' | ')}` : ''}`);
   return passed;
+}
+
+type ModelState = { status: string; progress?: number; threads?: number; error?: string };
+type Reading = { ok: boolean; by: string; card: string; ms: number };
+
+/** Waits for the order model through the game's test hook, then has it read a few orders. */
+async function testModel(
+  page: <T>(code: string) => Promise<T>,
+  check: (ok: boolean, what: string) => void,
+  log: (line: string) => void,
+): Promise<boolean> {
+  const hook = await page<boolean>(`typeof window.__smoke === 'object'`);
+  check(hook, 'the game exposes its test hook');
+  if (!hook) return false;
+  const start = Date.now();
+  let state: ModelState = { status: 'off' };
+  let lastLog = 0;
+  while (Date.now() - start < MODEL_READY_TIMEOUT_MS) {
+    state = await page<ModelState>('window.__smoke.modelState()');
+    if (state.status === 'ready' || state.status === 'failed') break;
+    if (Date.now() - lastLog > 30_000) {
+      lastLog = Date.now();
+      log(`      model ${state.status} ${Math.round((state.progress ?? 0) * 100)}%`);
+    }
+    await wait(1000);
+  }
+  check(state.status === 'ready', `the order model downloaded and started (${state.status}${state.error ? `: ${state.error}` : ''}) in ${((Date.now() - start) / 1000).toFixed(0)} s on ${state.threads ?? 0} threads`);
+  if (state.status !== 'ready') return false;
+  let allByModel = true;
+  for (const text of FREE_FORM_ORDERS) {
+    const reading = await page<Reading>(`window.__smoke.translate(${JSON.stringify(text)})`);
+    log(`      "${text}" -> ${reading.card} [${reading.by}, ${(reading.ms / 1000).toFixed(1)} s]`);
+    allByModel &&= reading.by === 'model' && reading.ok;
+  }
+  check(allByModel, 'the model read every free-form order into a card');
+  return allByModel;
 }

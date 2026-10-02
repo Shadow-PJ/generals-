@@ -20,10 +20,15 @@ export interface Settings {
   /** The window's size as a multiple of the base size; null picks the largest that fits the screen. */
   windowScale: number | null;
   resolution: Resolution;
+  /**
+   * Which small model reads orders the rule parser can't, by id (src/platform/models.ts), or
+   * null for the rule parser alone. Off by default: the model is a download of several hundred MB.
+   */
+  orderModel: string | null;
 }
 
 export function defaultSettings(): Settings {
-  return { version: SETTINGS_VERSION, fullscreen: false, windowScale: null, resolution: 'auto' };
+  return { version: SETTINGS_VERSION, fullscreen: false, windowScale: null, resolution: 'auto', orderModel: null };
 }
 
 export function writeSettings(settings: Settings): string {
@@ -47,5 +52,6 @@ export function readSettings(text: string | null): Settings {
     settings.windowScale = saved.windowScale;
   }
   if ((RESOLUTIONS as readonly unknown[]).includes(saved.resolution)) settings.resolution = saved.resolution as Resolution;
+  if (typeof saved.orderModel === 'string' && saved.orderModel.length <= 40) settings.orderModel = saved.orderModel;
   return settings;
 }

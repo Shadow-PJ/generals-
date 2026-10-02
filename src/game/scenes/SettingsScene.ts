@@ -2,9 +2,11 @@
 // ↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. The mouse works too.
 
 import Phaser from 'phaser';
+import { ORDER_MODELS } from '../../platform';
 import { RESOLUTIONS, type Resolution } from '../../save/settings';
 import { currentRenderScale, fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
+import { orderModelState, syncOrderModel, type ModelState } from '../orderModel';
 import type { MatchSetup } from '../match';
 import {
   availableWindowScales,
@@ -40,6 +42,7 @@ export class SettingsScene extends Phaser.Scene {
   private ui!: Phaser.GameObjects.Container;
   private shownFullscreen = false;
   private shownScale = 1;
+  private shownModel = '';
 
   constructor() {
     super('Settings');
@@ -72,7 +75,14 @@ export class SettingsScene extends Phaser.Scene {
     // Fullscreen can change from outside this screen (F11, or Esc in a browser), and the
     // resolution follows the window size; redraw when either moves.
     const display = currentPlatform().display;
-    if (display.isFullscreen() !== this.shownFullscreen || currentRenderScale() !== this.shownScale) this.render();
+    // The model's download progress also moves on its own.
+    if (
+      display.isFullscreen() !== this.shownFullscreen ||
+      currentRenderScale() !== this.shownScale ||
+      JSON.stringify(orderModelState()) !== this.shownModel
+    ) {
+      this.render();
+    }
   }
 
   private rows(): Row[] {
@@ -112,6 +122,18 @@ export class SettingsScene extends Phaser.Scene {
       change: (step) => {
         const i = (RESOLUTIONS.indexOf(settings.resolution) + step + RESOLUTIONS.length) % RESOLUTIONS.length;
         this.act(changeSettings({ resolution: RESOLUTIONS[i]! }), () => this.game.events.emit('settings-changed'));
+      },
+    });
+
+    const modelIds: (string | null)[] = [null, ...ORDER_MODELS.map((m) => m.id)];
+    const model = ORDER_MODELS.find((m) => m.id === settings.orderModel);
+    rows.push({
+      label: 'Order reading',
+      value: model ? `Parser + ${model.name}` : 'Rule parser only',
+      note: modelNote(orderModelState(), model?.sizeMb ?? Math.max(...ORDER_MODELS.map((m) => m.sizeMb))),
+      change: (step) => {
+        const i = (modelIds.indexOf(settings.orderModel) + step + modelIds.length) % modelIds.length;
+        this.act(changeSettings({ orderModel: modelIds[i]! }), syncOrderModel);
       },
     });
 
@@ -166,6 +188,7 @@ export class SettingsScene extends Phaser.Scene {
   private render(): void {
     this.shownFullscreen = currentPlatform().display.isFullscreen();
     this.shownScale = currentRenderScale();
+    this.shownModel = JSON.stringify(orderModelState());
     this.ui.removeAll(true);
     this.rows().forEach((r, i) => {
       const y = ROWS_Y + i * ROW_H;
@@ -198,6 +221,19 @@ export class SettingsScene extends Phaser.Scene {
       }
       this.ui.add(this.add.text(ROWS_X, y + 30, r.note, { ...textStyle(12, TEXT.muted), wordWrap: { width: GAME_WIDTH - 2 * ROWS_X } }));
     });
+  }
+}
+
+function modelNote(state: ModelState, sizeMb: number): string {
+  switch (state.status) {
+    case 'off':
+      return `The rule parser reads simple orders at once. A small model on this computer can read free-form ones; it downloads once (about ${sizeMb} MB).`;
+    case 'loading':
+      return `Getting ${state.name} ready: ${Math.round(state.progress * 100)}%. The rule parser reads your orders meanwhile.`;
+    case 'ready':
+      return `${state.name} is ready (${state.threads} thread${state.threads === 1 ? '' : 's'}). It reads the orders the rule parser can't.`;
+    case 'failed':
+      return `${state.name} didn't start (${state.error}). The rule parser still reads your orders.`;
   }
 }
 

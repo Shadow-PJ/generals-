@@ -6,16 +6,18 @@
 import Phaser from 'phaser';
 import { cardCost } from '../../cards/cost';
 import { describeCard, describeCondition } from '../../cards/describe';
-import { parseOrder } from '../../cards/parser';
+import { translateOrder } from '../../cards/translator';
 import { applyPersonality, type Reading } from '../../cards/personality';
 import { generalReply, reply, replyToVerdict } from '../../cards/replies';
 import type { Card } from '../../cards/types';
 import { slotUnlockRank, validateCard } from '../../cards/validator';
+import { TRANSLATOR_RULES } from '../../data/cards';
 import { GENERAL_IDS, GENERALS } from '../../data/generals';
 import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
 import { builderRows, newDraft, type BuilderRow } from '../cardBuilder';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
+import { orderModelState, orderModelTranslator } from '../orderModel';
 import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
 import { remember, savedSetup } from '../session';
@@ -45,6 +47,8 @@ export class OrdersScene extends Phaser.Scene {
   private status = { text: '', color: TEXT.muted as string };
   private ui!: Phaser.GameObjects.Container;
   private orderInput!: HTMLInputElement;
+  /** True while an order is being translated, so Enter twice doesn't start a second one. */
+  private translating = false;
 
   constructor() {
     super('Orders');
@@ -88,7 +92,7 @@ export class OrdersScene extends Phaser.Scene {
     });
     this.add.dom(PANEL_X + 54, 96, this.orderInput).setOrigin(0, 0.5);
     this.orderInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') this.translate();
+      if (event.key === 'Enter') void this.translate();
       if (event.key === 'Escape') this.orderInput.blur();
       event.stopPropagation();
     });
@@ -97,7 +101,7 @@ export class OrdersScene extends Phaser.Scene {
       this.row = TEXT_ROW;
       this.render();
     });
-    addButton(this, GAME_WIDTH - 66, 96, 'Translate  ⏎', () => this.translate(), 100, 28);
+    addButton(this, GAME_WIDTH - 66, 96, 'Translate  ⏎', () => void this.translate(), 100, 28);
 
     addButton(this, SLOT_X + 72, GAME_HEIGHT - 34, '◀ Troops  Esc', () => this.backToTroops(), 140, 32);
     addButton(this, SLOT_X + 224, GAME_HEIGHT - 34, 'Start battle  B', () => this.startBattle(), 150, 32);
@@ -191,16 +195,31 @@ export class OrdersScene extends Phaser.Scene {
     this.orderInput.value = this.draft.text ?? '';
   }
 
-  private translate(): void {
+  /** Reads the typed order: the rule parser first, the small model (when on) for what it can't read. */
+  private async translate(): Promise<void> {
+    if (this.translating) return;
     const text = this.orderInput.value;
-    const result = parseOrder(text);
+    const slot = this.slot;
+    const model = orderModelTranslator();
+    this.translating = true;
+    if (model) {
+      this.status = { text: 'Reading your order…', color: TEXT.muted };
+      this.render();
+    }
+    const result = await translateOrder(text, model, TRANSLATOR_RULES.modelTimeoutSeconds * 1000);
+    this.translating = false;
+    // The player may have left the screen or switched slots while the model was thinking.
+    if (!this.scene.isActive() || slot !== this.slot) return;
     if (result.ok) {
       this.draft = result.card;
-      this.status = { text: `Read as a card. Enter saves it to slot ${this.slot + 1}.`, color: TEXT.muted };
+      const by = result.by === 'model' ? ' by the small model' : '';
+      this.status = { text: `Read as a card${by}. Enter saves it to slot ${this.slot + 1}.`, color: TEXT.muted };
       this.orderInput.blur();
       this.row = FIRST_MENU_ROW;
     } else {
-      this.status = { text: `${reply('notUnderstood')}  (${result.error})`, color: TEXT.defeat };
+      const loading = orderModelState();
+      const why = result.note ?? (loading.status === 'loading' ? `The small model is still loading (${Math.round(loading.progress * 100)}%).` : '');
+      this.status = { text: `${reply('notUnderstood')}  (${result.error}) ${why}`.trim(), color: TEXT.defeat };
     }
     this.render();
   }
@@ -332,6 +351,8 @@ export class OrdersScene extends Phaser.Scene {
       this.add.text(PANEL_X, 120, `Slot ${this.slot + 1}:  ${describeCard(card)}`, {
         ...textStyle(14, TEXT.title, true),
         wordWrap: { width: GAME_WIDTH - PANEL_X - 16 },
+        // Long cards are spelled out in full in the menus below.
+        maxLines: 2,
       }),
     );
     const cost = cardCost(card);

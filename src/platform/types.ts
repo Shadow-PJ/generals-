@@ -2,6 +2,8 @@
 // desktop app now; Steam and Epic later) provides one Platform, and game code never reaches
 // past it to Electron, the file system or a store.
 
+import type { LoadOptions, LocalModel } from './model';
+
 /**
  * The files the game keeps. Everything under `saves/` is your progress and is meant to sync
  * between computers (Steam Cloud); `settings.json` is about this computer's screen and stays here.
@@ -42,4 +44,9 @@ export interface Platform {
   quit: (() => void) | null;
   /** Called once the first screen is drawn; the desktop app shows its window then. */
   ready(): void;
+  /**
+   * Starts the small order-reading model. Both builds download it on first use for now; in
+   * session 3C the desktop app loads the copy it ships with instead.
+   */
+  loadModel(url: string, options?: LoadOptions): Promise<LocalModel>;
 }

@@ -19,7 +19,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { DesktopInfo } from '../src/platform/bridge.js';
 import { DataFiles } from './dataFiles.js';
-import { runSmokeTest, smokeLog, smokeTestMode, type SmokeMode } from './smokeTest.js';
+import { runSmokeTest, smokeLog, smokeModel, smokeTestMode, type SmokeMode } from './smokeTest.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** The game build (`npm run build` output). In the installed app it sits inside app.asar. */
@@ -48,14 +48,24 @@ const gameReady = new Promise<void>((resolve) => {
   markReady = resolve;
 });
 
-function serveGame(request: Request): Promise<Response> | Response {
+/**
+ * Serves the game build. The page is cross-origin isolated (these two headers), which lets the
+ * small order-reading model use several CPU threads; GitHub Pages can't send them, so the
+ * browser build runs it on one.
+ */
+const ISOLATION_HEADERS = { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'credentialless' };
+
+async function serveGame(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const file = path.resolve(GAME_FOLDER, decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html');
   const inside = path.relative(GAME_FOLDER, file);
   if (url.host !== 'game' || inside === '' || inside.startsWith('..') || path.isAbsolute(inside)) {
     return new Response('Not found', { status: 404 });
   }
-  return net.fetch(pathToFileURL(file).toString());
+  const response = await net.fetch(pathToFileURL(file).toString());
+  const headers = new Headers(response.headers);
+  for (const [name, value] of Object.entries(ISOLATION_HEADERS)) headers.set(name, value);
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }
 
 function fromGame(event: IpcMainInvokeEvent | IpcMainEvent): boolean {
@@ -115,7 +125,8 @@ function listenToGame(files: DataFiles, savesFolder: string): void {
   });
 }
 
-function createWindow(): BrowserWindow {
+/** `query` is added to the page address; smoke tests use it to switch on the game's test hook. */
+function createWindow(query = ''): BrowserWindow {
   const window = new BrowserWindow({
     ...BASE,
     useContentSize: true,
@@ -146,13 +157,13 @@ function createWindow(): BrowserWindow {
     });
   }
   setTimeout(show, SHOW_ANYWAY_MS);
-  void window.loadURL(`${GAME_ORIGIN}/index.html`);
+  void window.loadURL(`${GAME_ORIGIN}/index.html${query}`);
   return window;
 }
 
 const smokeMode = smokeTestMode(process.argv);
-/** A smoke test that hasn't finished in this time has failed. */
-const SMOKE_TEST_LIMIT_MS = 120_000;
+/** A smoke test that hasn't finished in this time has failed; the model test includes a download. */
+const SMOKE_TEST_LIMIT_MS = smokeMode === 'model' ? 600_000 : 120_000;
 
 // One copy of the game at a time, so two windows can't write the same save.
 if (!app.requestSingleInstanceLock()) {
@@ -166,13 +177,16 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.on('window-all-closed', () => (smokeMode ? app.exit(1) : app.quit()));
 
-  void app.whenReady().then(() => {
+  void app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     const dataFolder = app.getPath('userData');
     const files = new DataFiles(dataFolder);
     protocol.handle('app', serveGame);
     listenToGame(files, path.join(dataFolder, 'saves'));
-    win = createWindow();
+    const model = smokeModel(process.argv);
+    // The model test switches the order model on, as a player would in Settings.
+    if (smokeMode === 'model' && model) await files.write('settings.json', JSON.stringify({ orderModel: model }));
+    win = createWindow(smokeMode ? '?smoke' : '');
     if (smokeMode) startSmokeTest(smokeMode, win, files, dataFolder);
   });
 }
