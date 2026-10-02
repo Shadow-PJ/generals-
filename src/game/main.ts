@@ -2,6 +2,7 @@
 
 import Phaser from 'phaser';
 import { BattleScene } from './scenes/BattleScene';
+import { OrdersScene } from './scenes/OrdersScene';
 import { PrepScene } from './scenes/PrepScene';
 import { ResultScene } from './scenes/ResultScene';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from './theme';
@@ -13,5 +14,7 @@ new Phaser.Game({
   height: GAME_HEIGHT,
   backgroundColor: COLORS.background,
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-  scene: [PrepScene, BattleScene, ResultScene],
+  // The order text box on the Orders screen is a real HTML input laid over the canvas.
+  dom: { createContainer: true },
+  scene: [PrepScene, OrdersScene, BattleScene, ResultScene],
 });

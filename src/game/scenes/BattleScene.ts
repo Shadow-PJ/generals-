@@ -2,7 +2,7 @@
 // This scene only reads the battle state; the engine alone changes it.
 
 import Phaser from 'phaser';
-import { STARTER_ARMY_MIRRORED, type TroopPlacement } from '../../data/armies';
+import { STARTER_ARMY_MIRRORED } from '../../data/armies';
 import { OPEN_FIELD } from '../../data/maps';
 import { UNIT_CLASSES } from '../../data/units';
 import {
@@ -25,11 +25,11 @@ import {
 } from '../battleClock';
 import { drawBar, drawBarrier, drawBody, drawField, drawMark, drawWall } from '../draw';
 import { InputLayer } from '../InputLayer';
+import type { MatchSetup } from '../match';
 import { COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle, type Button } from '../ui';
 
-export interface BattleData {
-  placement: TroopPlacement[];
+export interface BattleData extends MatchSetup {
   seed: number;
 }
 

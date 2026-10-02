@@ -10,7 +10,7 @@ A 2D top-down strategy game. Armies fight on their own; before a battle you writ
 
 In the browser: https://shadow-pj.github.io/generals-/ (updated on every merge to `main`).
 
-Place your troops, press Enter, and watch them fight. Space pauses and F switches between 1x and 2x speed.
+Place your troops and press Enter. Write your orders: type them in plain English or build them from the menus, and save them to your card slots. Press B to start the battle. Space pauses and F switches between 1x and 2x speed.
 
 ## Running it
 

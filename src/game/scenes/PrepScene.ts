@@ -2,13 +2,15 @@
 // Drag a troop with the mouse, or pick one with Tab and move it with the arrow keys.
 
 import Phaser from 'phaser';
+import { emptyLoadout } from '../../cards/types';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED, type TroopPlacement } from '../../data/armies';
+import { DEBUG_DEFAULT_RANK, type RankNumber } from '../../data/ranks';
 import { OPEN_FIELD } from '../../data/maps';
 import { UNIT_CLASSES } from '../../data/units';
 import { placementProblem } from '../../sim';
 import { drawBody, drawField, drawWall, drawZone } from '../draw';
 import { InputLayer } from '../InputLayer';
-import { newSeed } from '../seed';
+import type { MatchSetup } from '../match';
 import { COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
@@ -17,11 +19,9 @@ const KEYBOARD_MOVE_SPEED = 220;
 /** How close to a troop a click must land to pick it up. */
 const PICK_SLACK = 8;
 
-export interface PrepData {
-  placement?: TroopPlacement[];
-}
 
 export class PrepScene extends Phaser.Scene {
+  private setup!: MatchSetup;
   private placement: TroopPlacement[] = [];
   private selected = 0;
   private drag: { index: number; x: number; y: number } | null = null;
@@ -33,8 +33,13 @@ export class PrepScene extends Phaser.Scene {
     super('Prep');
   }
 
-  init(data: PrepData): void {
-    this.placement = (data.placement ?? STARTER_ARMY).map((t) => ({ ...t }));
+  init(data: Partial<MatchSetup>): void {
+    this.setup = {
+      placement: data.placement ?? STARTER_ARMY,
+      loadout: data.loadout ?? emptyLoadout(),
+      rank: data.rank ?? (this.registry.get('rank') as RankNumber | undefined) ?? DEBUG_DEFAULT_RANK,
+    };
+    this.placement = this.setup.placement.map((t) => ({ ...t }));
     this.selected = 0;
     this.drag = null;
   }
@@ -45,10 +50,10 @@ export class PrepScene extends Phaser.Scene {
     this.add.text(
       16,
       38,
-      'Drag a troop, or pick one with Tab and move it with the arrow keys. Enter starts the battle.',
+      'Drag a troop, or pick one with Tab and move it with the arrow keys. Enter: next, write your orders.',
       textStyle(13),
     );
-    addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Start battle  ⏎', () => this.startBattle(), 150, 34);
+    addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
 
     const world = this.add.container(0, TOP_BAR_HEIGHT);
     const field = this.add.graphics();
@@ -64,9 +69,9 @@ export class PrepScene extends Phaser.Scene {
     world.add([field, this.graphics, this.label]);
 
     this.actions = new InputLayer(this)
-      .on('nextUnit', () => this.cycleSelection(1))
-      .on('prevUnit', () => this.cycleSelection(-1))
-      .on('confirm', () => this.startBattle());
+      .on('next', () => this.cycleSelection(1))
+      .on('prev', () => this.cycleSelection(-1))
+      .on('confirm', () => this.toOrders());
 
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.x, p.y - TOP_BAR_HEIGHT));
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
@@ -158,8 +163,8 @@ export class PrepScene extends Phaser.Scene {
     this.label.setText(UNIT_CLASSES[selected.cls].name).setPosition(labelX, labelY - r - 9);
   }
 
-  private startBattle(): void {
+  private toOrders(): void {
     this.drop();
-    this.scene.start('Battle', { placement: this.placement, seed: newSeed() });
+    this.scene.start('Orders', { ...this.setup, placement: this.placement });
   }
 }

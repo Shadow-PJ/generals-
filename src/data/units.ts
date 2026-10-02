@@ -2,7 +2,21 @@
 // Times are in seconds and distances in world units (the map is 960 x 540);
 // the battle engine converts seconds to ticks.
 
+/** Every troop class in the design. Orders can name all five; Invoker and Assassin join the battle in 4B. */
+export const TROOP_CLASSES = ['vanguard', 'ranger', 'guardian', 'invoker', 'assassin'] as const;
+export type TroopClass = (typeof TROOP_CLASSES)[number];
+
+/** The classes the battle engine can field so far. */
 export type UnitClass = 'vanguard' | 'ranger' | 'guardian';
+export const UNIT_CLASS_LIST: readonly UnitClass[] = ['vanguard', 'ranger', 'guardian'];
+
+export const TROOP_NAMES: Record<TroopClass, { one: string; many: string }> = {
+  vanguard: { one: 'Vanguard', many: 'Vanguards' },
+  ranger: { one: 'Ranger', many: 'Rangers' },
+  guardian: { one: 'Guardian', many: 'Guardians' },
+  invoker: { one: 'Invoker', many: 'Invokers' },
+  assassin: { one: 'Assassin', many: 'Assassins' },
+};
 
 export interface UnitStats {
   maxHp: number;

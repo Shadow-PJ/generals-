@@ -12,6 +12,8 @@ export class InputLayer {
   private readonly keyboard: Phaser.Input.Keyboard.KeyboardPlugin | null;
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
+    // Keys typed into a text box belong to the text box.
+    if (isTextField(event.target)) return;
     const action = actionForKey(event.code, event.shiftKey);
     if (!action) return;
     // Keep Tab, Space and the arrows from moving browser focus or scrolling the page.
@@ -24,10 +26,10 @@ export class InputLayer {
   private readonly onKeyUp = (event: KeyboardEvent): void => {
     const action = actionForKey(event.code, event.shiftKey);
     if (action) this.held.delete(action);
-    // Releasing Shift before Tab must not leave 'nextUnit' held.
+    // Releasing Shift before Tab must not leave 'next' held.
     if (event.code === 'Tab') {
-      this.held.delete('nextUnit');
-      this.held.delete('prevUnit');
+      this.held.delete('next');
+      this.held.delete('prev');
     }
   };
 
@@ -55,4 +57,8 @@ export class InputLayer {
     this.listeners.clear();
     this.held.clear();
   }
+}
+
+function isTextField(target: EventTarget | null): boolean {
+  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
 }
