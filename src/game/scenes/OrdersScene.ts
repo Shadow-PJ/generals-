@@ -18,6 +18,7 @@ import { builderRows, newDraft, type BuilderRow } from '../cardBuilder';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { orderModelState, orderModelTranslator } from '../orderModel';
+import { orderReaderTranslator } from '../orderReader';
 import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
 import { remember, savedSetup } from '../session';
@@ -195,7 +196,7 @@ export class OrdersScene extends Phaser.Scene {
     this.orderInput.value = this.draft.text ?? '';
   }
 
-  /** Reads the typed order: the rule parser first, the small model (when on) for what it can't read. */
+  /** Reads the typed order: the rule parser first, then the order reader, then the small model (when on). */
   private async translate(): Promise<void> {
     if (this.translating) return;
     const text = this.orderInput.value;
@@ -206,14 +207,18 @@ export class OrdersScene extends Phaser.Scene {
       this.status = { text: 'Reading your order…', color: TEXT.muted };
       this.render();
     }
-    const result = await translateOrder(text, model, TRANSLATOR_RULES.modelTimeoutSeconds * 1000);
+    const result = await translateOrder(text, [orderReaderTranslator, model], TRANSLATOR_RULES.modelTimeoutSeconds * 1000);
     this.translating = false;
     // The player may have left the screen or switched slots while the model was thinking.
     if (!this.scene.isActive() || slot !== this.slot) return;
     if (result.ok) {
       this.draft = result.card;
-      const by = result.by === 'model' ? ' by the small model' : '';
-      this.status = { text: `Read as a card${by}. Enter saves it to slot ${this.slot + 1}.`, color: TEXT.muted };
+      // The reader and the model read free-form words, so ask the player to check the card.
+      const how =
+        result.by === 'parser'
+          ? 'Read as a card.'
+          : `Read as a card by the ${result.by === 'model' ? 'small model' : 'order reader'}: check it says what you meant.`;
+      this.status = { text: `${how} Enter saves it to slot ${this.slot + 1}.`, color: TEXT.muted };
       this.orderInput.blur();
       this.row = FIRST_MENU_ROW;
     } else {

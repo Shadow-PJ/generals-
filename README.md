@@ -16,7 +16,7 @@ Place your troops and press Enter. Write your orders: type them in plain English
 
 Your General reads every card in their own way: the Warlord turns retreats into counter-attacks, the Engineer adds a Hold before every Move, the Hive Mother keeps orders short and simple, the Strategist suggests a better moment, and the Conductor reorders steps into combos. Until you can recruit them, pick one with the General (debug) switch at the top of the orders screen.
 
-On the troop screen, Esc opens Settings: fullscreen or windowed, window size, resolution, and order reading. Orders are read by a rule parser; under Order reading you can also switch on a small model that runs on your computer and reads free-form orders (it downloads once, about 400 MB). F11 switches fullscreen on any screen.
+Orders are read by a rule parser, and what it can't read by the order reader, a small model trained for this game that runs on your computer, at once and offline (`docs/model-eval-3c.md`). It reads slang, typos and long orders, and says so when it isn't sure rather than guess. On the troop screen, Esc opens Settings: fullscreen or windowed, window size, resolution, and order reading, where you can also switch on an experimental language model for what the other two can't read (it downloads once, about 400 MB, and is slow). F11 switches fullscreen on any screen.
 
 ## Running it
 
@@ -29,8 +29,10 @@ npm test                    # all tests
 npm run build               # type check and production build
 npm run sim -- --seed 42    # run one battle headless and print the result (add --verbose for skill uses)
 npm run dataset             # write 5,000 generated sentence and card pairs to tools/dataset/out/
-npm run eval                # rule parser accuracy on the held-out natural orders, with every failure
-npx tsx tools/eval/model/run.ts --model qwen2.5-0.5b --isolated   # the small model, in headless Chromium
+npm run eval                # parser and order reader accuracy on the held-out orders, with every failure
+npm run eval -- --set fresh # the same on fresh.txt, orders written before the reader existed
+npm run train:reader        # train the order reader from generated orders into models/order-reader.json
+npx tsx tools/eval/model/run.ts --model qwen2.5-0.5b --isolated   # the experimental language model, in headless Chromium
 npm run desktop             # build and open the desktop app (Electron)
 npm run desktop:installer   # build the Windows installer into release/ (run it on Windows)
 ```

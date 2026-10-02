@@ -129,7 +129,7 @@ export class SettingsScene extends Phaser.Scene {
     const model = ORDER_MODELS.find((m) => m.id === settings.orderModel);
     rows.push({
       label: 'Order reading',
-      value: model ? `Parser + ${model.name}` : 'Rule parser only',
+      value: model ? `Parser, reader + ${model.name}` : 'Parser and order reader',
       note: modelNote(orderModelState(), model?.sizeMb ?? Math.max(...ORDER_MODELS.map((m) => m.sizeMb))),
       change: (step) => {
         const i = (modelIds.indexOf(settings.orderModel) + step + modelIds.length) % modelIds.length;
@@ -227,15 +227,15 @@ export class SettingsScene extends Phaser.Scene {
 function modelNote(state: ModelState, sizeMb: number): string {
   switch (state.status) {
     case 'off':
-      return `The rule parser reads simple orders at once. Experimental: a small model on this computer for free-form orders (downloads once, about ${sizeMb} MB; slow, and often wrong until it is trained).`;
+      return `The rule parser and the order reader read your orders at once, on this computer. Experimental: add a language model for what they can't read (downloads once, about ${sizeMb} MB; slow, and often wrong).`;
     case 'loading':
-      return `Getting ${state.name} ready: ${Math.round(state.progress * 100)}%. The rule parser reads your orders meanwhile.`;
+      return `Getting ${state.name} ready: ${Math.round(state.progress * 100)}%. The parser and reader read your orders meanwhile.`;
     case 'warming':
-      return `${state.name} is reading its instructions (only the first time it starts). The rule parser reads your orders meanwhile.`;
+      return `${state.name} is reading its instructions (only the first time it starts). The parser and reader read your orders meanwhile.`;
     case 'ready':
-      return `${state.name} is ready (${state.threads} thread${state.threads === 1 ? '' : 's'}). It reads the orders the rule parser can't.`;
+      return `${state.name} is ready (${state.threads} thread${state.threads === 1 ? '' : 's'}). It reads the orders the parser and reader can't.`;
     case 'failed':
-      return `${state.name} didn't start (${state.error}). The rule parser still reads your orders.`;
+      return `${state.name} didn't start (${state.error}). The parser and reader still read your orders.`;
   }
 }
 

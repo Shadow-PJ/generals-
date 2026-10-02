@@ -86,12 +86,12 @@ A Rank III loadout with the Strategist:
 Every order passes through four steps, and only the translator may use AI. Nothing in the pipeline needs a paid API, so the game costs nothing to play.
 
 1. **You write:** text, voice, or card-builder blocks.
-2. **Translator:** the rule parser or the small model; literal only.
+2. **Translator:** the rule parser, then the small model for what the parser can't read; literal only.
 3. **Validator:** checks rank, steps and cost. A rejected card goes back to you with "We haven't trained for that yet."
 4. **Personality:** the General's rules edit the card.
 5. **Card and reply:** the card is saved to a slot, with a template reply line.
 
-**Translator.** Turns your words into a card, literally. It never improves your order: a weak order makes a weak card, and that is part of the skill. The rule parser handles card-builder blocks and simple sentences; a small model on the player's computer handles free-form sentences. Both produce the same card format.
+**Translator.** Turns your words into a card, literally. It never improves your order: a weak order makes a weak card, and that is part of the skill. The rule parser handles card-builder blocks and simple sentences; a small model on the player's computer handles free-form sentences. Both produce the same card format. The small model is an intent-and-slots reader: it tags each word with its part of the card (condition, step, troops, action, target), and fixed code assembles the card from those parts, so it can't invent a condition or a step that isn't in the words. When it isn't sure, it says it didn't catch the order rather than guessing.
 
 **Validator.** Checks the card against your Command Rank: unlocked actions, number of steps, kind of condition, and total cost against your max pips. An illegal card is rejected and the General answers "We haven't trained for that yet." Even a buggy or over-clever model can't break balance.
 
@@ -325,12 +325,12 @@ Beat a General and they join you, and you learn their Legendary action: you can 
 Generals ships as a Windows desktop game on Steam first, then on the Epic Games Store. A browser build stays online as the quick test build.
 
 - **Desktop app:** the same TypeScript game wrapped in Electron, which bundles its own Chromium, so it runs the same on every PC and on Steam Deck.
-- **Small model:** ships inside the desktop app; the browser build downloads it on first use.
+- **Small model:** the order reader is about 1 MB of weights (270 KB compressed), so it ships inside both builds as an ordinary game file, loaded in the background when the game starts. It needs no download, no GPU and no internet.
 - **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display settings (window size, fullscreen, resolution) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage.
 - **Steam Deck and controllers:** full controller support. Slots map to buttons, and the card builder works without a keyboard.
 - **Multiplayer:** runs through a small relay server of our own, so Steam, Epic and browser players can play each other. Epic requires multiplayer games to cross-play with other PC stores.
 - **Store features:** Steam achievements, cloud saves and rich presence; Epic achievements, which Epic requires.
-- **AI disclosure:** Steam asks about AI-made content that players see. Generals' live AI is the small model that turns orders into cards. Its guardrails are the fixed card format, the validator and pre-written replies, so it never writes free text for players. AI tools used only to write the code don't need disclosing; any AI-made art or sound would be disclosed.
+- **AI disclosure:** Steam asks about AI-made content that players see. Generals' live AI is the order reader, a small model trained for this game on generated orders, that turns orders into cards. It only ever picks parts of a card (it can't write text), and its guardrails are the fixed card format, the validator and pre-written replies, so it never writes free text for players. The optional experimental language model in Settings is held to the same card format. AI tools used only to write the code don't need disclosing; any AI-made art or sound would be disclosed.
 
 Store fees and launch timing are in phase 7 of `docs/PLAN.md`.
 
@@ -363,7 +363,7 @@ Seven phases, each one or more Claude Code cloud sessions that end in a branch t
 3. **Personalities and the small model:** personality rules and reply lines for each General, then the small model in stages, stopping once it is good enough:
    1. An existing small open model with a few examples, its output forced into the card format.
    2. If it still makes mistakes, fine-tune it on generated examples: a script combines actions, targets and conditions, and Claude rewrites them into natural phrasings.
-   3. Or a tiny intent-and-slots model instead, which tags the parts of a sentence rather than writing text.
+   3. Or a tiny intent-and-slots model instead, which tags the parts of a sentence rather than writing text. **Chosen after the 3B test:** the existing models read 3–12% of orders exactly and took 10–40 s each, so 3C builds the intent-and-slots reader instead of a fine-tune.
 
    Voice input comes last.
 4. **Combos and content:** chains, signature combos and finishers; all 5 classes and specializations; the 6 Generals with mana twists; troop synergies; the 5 region maps.

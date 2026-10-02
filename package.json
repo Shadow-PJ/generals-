@@ -20,7 +20,8 @@
     "desktop": "npm run build && npm run desktop:compile && electron .",
     "desktop:installer": "npm run build && npm run desktop:compile && electron-builder --win --config desktop/electron-builder.yml --publish never",
     "dataset": "tsx tools/dataset/generate.ts",
-    "eval": "tsx tools/eval/eval.ts"
+    "eval": "tsx tools/eval/eval.ts",
+    "train:reader": "tsx tools/reader/train.ts"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

@@ -405,19 +405,22 @@ function parseCallReserve(c: Cursor): Step | undefined {
 
 /** "him" and "her" must point at a unit named by the condition, on the right side. */
 function checkPronouns(card: Card, word: string): void {
+  if (!pronounsFit(card)) fail(`Who is "${word}"? Start the order with a condition that names them.`);
+}
+
+/** Whether every step aimed at "him" or "her" has a condition naming such a unit: an enemy for Focus, an ally otherwise. */
+export function pronounsFit(card: Card): boolean {
   const triggers = card.condition?.triggers ?? [];
   const hasEnemy = triggers.some((t) => t.kind === 'enemyReachesBackline' || t.kind === 'enemiesGrouped');
   const hasAlly = triggers.some((t) => t.kind === 'allyBelowHp');
-  for (const step of card.steps) {
+  return card.steps.every((step) => {
     const enemyRef = step.action === 'focus' && step.target.kind === 'trigger';
     const allyRef =
       (step.action === 'protect' && step.target.kind === 'trigger') ||
       (step.action === 'fallBack' && step.to?.kind === 'trigger') ||
       (step.action === 'move' && step.to.kind === 'ally' && step.to.ally.kind === 'trigger');
-    if ((enemyRef && !hasEnemy) || (allyRef && !hasAlly)) {
-      fail(`Who is "${word}"? Start the order with a condition that names them.`);
-    }
-  }
+    return !(enemyRef && !hasEnemy) && !(allyRef && !hasAlly);
+  });
 }
 
 function capitalize(s: string): string {

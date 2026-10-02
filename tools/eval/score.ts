@@ -50,6 +50,11 @@ export function score(outcomes: readonly Outcome[]): Score {
   };
 }
 
+/** "0.21 ms" for quick things, "9500 ms" for slow ones. */
+export function milliseconds(ms: number): string {
+  return ms < 10 ? `${ms.toFixed(2)} ms` : `${ms.toFixed(0)} ms`;
+}
+
 export function percent(x: number): string {
   return `${(x * 100).toFixed(1)}%`;
 }
@@ -67,7 +72,7 @@ export function reportSection(title: string, outcomes: readonly Outcome[]): stri
   return [
     `### ${title}`,
     '',
-    `Accuracy: **${percent(s.accuracy)}** (${s.correct} of ${s.total} exact cards). Of the misses, ${s.wrong} gave a wrong card and ${s.failures.length - s.wrong} gave no card. Time per order: median ${s.medianMs.toFixed(0)} ms, 90th percentile ${s.p90Ms.toFixed(0)} ms.`,
+    `Accuracy: **${percent(s.accuracy)}** (${s.correct} of ${s.total} exact cards). Of the misses, ${s.wrong} gave a wrong card and ${s.failures.length - s.wrong} gave no card. Time per order: median ${milliseconds(s.medianMs)}, 90th percentile ${milliseconds(s.p90Ms)}.`,
     '',
     s.failures.length ? `<details><summary>All ${s.failures.length} failures</summary>\n\n${failureLines(s.failures).join('\n')}\n\n</details>` : 'No failures.',
     '',

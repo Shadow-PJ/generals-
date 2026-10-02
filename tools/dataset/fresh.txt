@@ -1,0 +1,229 @@
+# Fresh orders for the final test of the order reader (session 3C), written by hand by Claude
+# before the reader was built. Nothing trains on these, and nothing was tuned to them: they are
+# only read by the eval, to see how the reader does on orders it has never met. Many of the
+# groups are kinds of card that natural.txt doesn't have. Two orders that turned out to repeat
+# natural.txt word for word were swapped for new ones during 3C.
+#
+# Same format and conventions as natural.txt:
+#   - "== <order>" starts a group; the rule parser's card for that order is the expected card
+#   - a step with no subject is done by everyone
+#   - "him", "her", "it" and "them" after a condition mean the unit that set it off
+#   - hurt and wounded = 50% HP, in trouble = 40%, low and weak = 30%; "group up" = 3 enemies
+
+== Everyone focus enemy Invokers
+everybody burn down their mage
+target the enemy caster asap
+kill the wizard before he casts again
+all of you go for their invokers
+focus mage plz
+take the wizard out
+everyone hit there mage
+foucs the invoker
+go kill their spellcaster
+
+== Rangers, focus enemy Vanguards
+rangers shoot their tank
+archers target the enemy vanguard
+rangers, take down the tank
+snipers hit their frontline
+have the rangers focus their tanks
+my archers should kill the vanguard
+rangers burn the tank down
+rangrs focus the tank
+rangers go after the enemy tank
+
+== Guardians, focus the nearest enemy
+guardians attack the closest enemy
+healers hit whoever is nearest
+have the medics attack the nearest one
+guardians fight the closest guy
+support, attack the nearest enemy
+gaurdians attack nearest
+healers engage whatever is closest
+my guardians should hit the closest target
+medics, go for the nearest enemy
+
+== Everyone move to my Vanguard
+everyone go to the tank
+all units move to our vanguard
+everybody head over to the tank
+get next to my vanguard
+move to the vanguard
+everyone, go stand by our tank
+all of you head to my vangaurd
+everyone walk over to the vanguard
+
+== Guardians, fall back
+healers retreat
+guardians pull back
+medics, get out of there
+have the guardians fall back
+guardians back off
+support retreat now
+gaurdians fall back
+healers disengage
+my guardians should retreat
+guardians run back
+
+== Rangers, move behind the enemy
+rangers flank them
+archers get behind enemy lines
+rangers sneak behind their lines
+send the rangers around the back
+rangers go around them
+snipers flank
+have the archers get behind the enemy
+rangers circle around behind them
+rangrs flank
+
+== Overcharge the Rangers, then focus enemy Invokers
+rangers use mark then everyone kill the mage
+rangers mark, then focus the caster
+overcharge the archers then go for their wizard
+use mark then kill their invoker
+rangers pop your skill, then everyone hit the mage
+archers ability then focus mage
+rangers use your skill and then take out the caster
+overchage rangers then focus invoker
+
+== When their Invoker reaches my backline, guardians protect my Rangers
+when the mage dives, healers protect the archers
+if their caster gets to our backline, guardians cover the rangers
+when their wizard jumps our back line, guardians shield the rangers
+guardians protect the rangers if the mage dives
+when the invoker dives in, medics keep the rangers safe
+once their mage reaches the backline, have the guardians guard the rangers
+when mage dives guardians protect rangers
+if the enemy caster breaks into our backline, healers defend the archers
+
+== When my Vanguard drops below 50%, guardians protect her
+when my tank gets hurt, healers protect her
+if the vanguard drops under half, guardians cover her
+when my vanguard is at 50%, guardians shield them
+guardians protect her when my tank drops below 50 percent
+if our tank is wounded, have the medics protect her
+when vanguard below 50 guardians protect her
+once my tank hits half hp, healers keep her alive
+when my vangaurd is hurt, guardians defend her
+
+== When 2 or more enemies are close together, focus them
+when two enemies group up, focus them
+if 2 of them bunch up, kill them
+when two or more enemies stack, everyone hit them
+when 2 enemies clump, attack them
+if two enemies are near each other, focus them
+when 2+ enemies cluster, burn them down
+focus them when two of them group up
+
+== When their ultimate is charging, Vanguards move forward
+when their ult is charging, tanks push up
+if the enemy ultimate is ready, vanguards advance
+when they're about to ult, vanguards move up
+vanguards push forward when their ult is coming
+when ult charging vanguards advance
+once their ultimate is almost up, have the tanks move forward
+when the enemy charges their ult, vanguards go forward
+if their ulti is up, vanguards step forward
+
+== Every time any ally drops below 50%, guardians protect them
+whenever anyone gets hurt, healers protect them
+every time an ally drops under half, guardians cover them
+each time one of my troops is wounded, guardians shield them
+whenever an ally is at 50%, medics protect them
+any time someone falls below 50 percent, guardians keep them alive
+every time ally below 50 guardians protect them
+whenever a unit drops under half hp, have the healers look after it
+each time any ally is hurt, gaurdians protect them
+
+== Call the reserve Ranger, then Rangers move forward
+bring in the reserve archer then rangers push up
+call in a ranger from reserves, then rangers advance
+send in the backup ranger and then the rangers move up
+call the reserve ranger, rangers move forward
+reinforce with a ranger then archers advance
+get the reserve sniper in, then rangers go forward
+call reserve ranger then rangers advance
+
+== Vanguards hold, then Rangers focus the weakest enemy
+tanks hold the line, then archers pick off the weakest
+vanguards stand your ground and then rangers finish the low hp one
+vanguards hold position, rangers kill the weakest enemy
+tanks stay put then rangers focus lowest hp
+have the vanguards hold, then the rangers snipe whoever is weakest
+vanguards dig in, rangers go for the most hurt enemy
+vanguards hold then rangers focus weakest
+frontline holds, archers finish off the weakest
+
+== When their Assassin dives, Guardians fall back to the Vanguard
+when the assassin dives, healers retreat to the tank
+if their rogue jumps our backline, guardians fall back to the vanguard
+when the assassin comes in, medics run back to the tank
+guardians pull back to the vanguard when their assassin dives
+when assassin dives guardians fall back to vanguard
+once their assassin reaches our backline, have the healers hide behind the tank
+when the enemy assassin dives, support retreat towards our vanguard
+when the assasin dives healers fallback to the tank
+
+== When my Guardian drops below 30%, everyone protect my Guardian
+when my healer is low, everyone protect the healer
+if our medic gets low, protect the guardian
+when my guardian is weak, everybody cover the healer
+protect the healer when my guardian drops below 30%
+when guardian below 30 protect guardian
+if my healer falls under 30 percent, all units guard my healer
+once the healer hits 30% hp, everyone keep the healer alive
+
+== Focus enemy Rangers, then focus the nearest enemy
+kill their archers then whoever is closest
+take out the ranger first, then attack the nearest
+focus ranger then nearest
+everyone kill the sniper, then hit the closest enemy
+shoot their rangers and then go for the closest one
+drop the archer, after that attack the nearest enemy
+ranger first then closest
+
+== Hold the line
+everybody freeze
+nobody move
+hold right there
+keep your positions
+hold here
+dig in everyone
+stay in position
+hold ur ground
+just wait there
+
+== Protect the weakest ally
+protect whoever is hurt the most
+cover our weakest unit
+keep our weakest unit alive
+everyone guard the lowest hp ally
+help whoever is low
+save the weakest troop
+shield whoever is lowest
+
+== Overcharge the Guardians
+healers pop barrier
+guardians, barrier up
+medics use your skill now
+cast barrier healers
+guardians activate your ability
+support use ur skill
+
+== When 3 or more enemies are close together, overcharge the Rangers
+when they bunch up, rangers mark them
+if 3 enemies group up, archers use your skill
+when they clump together, overcharge the rangers
+rangers use mark when enemies group up
+when three of them stack up, rangers pop skill
+once they're all bunched, have the rangers use mark
+when enemies cluster rangers overcharge
+
+== Move forward, then hold
+advance then hold
+push up and then hold the line
+move up a bit then stay put
+go forward, then stand your ground
+step forward then dont move
+push forward, after that hold position
+advance and hold
