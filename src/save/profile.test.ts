@@ -19,6 +19,7 @@ function saved(): Profile {
   profile.rank = 5;
   profile.tactical = true;
   profile.general = 'warlord';
+  profile.codex = ['feignedRetreat', 'finisher'];
   return profile;
 }
 
@@ -31,6 +32,14 @@ describe('the saved profile', () => {
     expect(profile.rank).toBe(DEBUG_DEFAULT_RANK);
     expect(profile.tactical).toBe(false);
     expect(profile.general).toBe('captain');
+    expect(profile.codex).toEqual([]);
+  });
+
+  it('keeps only real Combo Codex entries, once each, in Codex order; older saves have none', () => {
+    const text = JSON.stringify({ ...saved(), codex: ['finisher', 'madeUp', 'ironShell', 'ironShell', 7] });
+    expect(readProfile(text).codex).toEqual(['ironShell', 'finisher']);
+    const { codex: _codex, ...older } = saved();
+    expect(readProfile(JSON.stringify(older)).codex).toEqual([]);
   });
 
   it('comes back exactly as it was written', () => {

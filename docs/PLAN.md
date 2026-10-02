@@ -140,11 +140,11 @@ Goal: everything that happens inside one battle, playable in a skirmish mode.
 
 ### 4A. Combos
 
-- [ ] Chains: a 3 s window, 1 pip off per link (minimum 1), double Momentum, a chain counter on screen
-- [ ] The 5 signature combos, working across a chain and inside one card
-- [ ] Finishers: the ultimate as the last link of a 3+ chain gets +50% power
-- [ ] Combo Codex screen that fills in as combos are found
-- [ ] Combo events written to the battle event log, for Battle IQ later
+- [x] Chains: a 3 s window, 1 pip off per link (minimum 1), double Momentum, a chain counter on screen
+- [x] The 5 signature combos, working across a chain and inside one card
+- [x] Finishers: the ultimate as the last link of a 3+ chain gets +50% power
+- [x] Combo Codex screen that fills in as combos are found
+- [x] Combo events written to the battle event log, for Battle IQ later
 
 ### 4B. Invoker, Assassin and specializations
 

@@ -7,16 +7,20 @@ import { cardCost } from '../../cards/cost';
 import { shortCard } from '../../cards/describe';
 import { STARTER_ARMY_MIRRORED, STARTER_RESERVES } from '../../data/armies';
 import { COMMAND_RULES } from '../../data/command';
+import type { CodexEntryId } from '../../data/combos';
 import { GENERALS } from '../../data/generals';
 import { OPEN_FIELD } from '../../data/maps';
-import { RANKS } from '../../data/ranks';
+import { rankRules, RANKS } from '../../data/ranks';
 import { UNIT_CLASSES } from '../../data/units';
 import {
+  chainTicksLeft,
   createBattle,
   LEGENDARY_SLOT,
+  nextLink,
   overtimeMultiplier,
   secondsToTicks,
   SLOT_COUNT,
+  slotCost,
   slotReadiness,
   stepBattle,
   TICKS_PER_SECOND,
@@ -36,10 +40,12 @@ import {
   type BattleClock,
 } from '../battleClock';
 import { SLOT_ACTIONS } from '../bindings';
-import { drawBar, drawBarrier, drawBody, drawField, drawMark, drawWall } from '../draw';
+import { codexEntry } from '../codex';
+import { drawBar, drawBarrier, drawBody, drawChased, drawField, drawMark, drawStun, drawWall } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
+import { recordCombo } from '../session';
 import { threats } from '../threats';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle, type Button } from '../ui';
@@ -100,6 +106,8 @@ export class BattleScene extends Phaser.Scene {
   private slotTexts: SlotTexts[] = [];
   private pipsText!: Phaser.GameObjects.Text;
   private ultimateText!: Phaser.GameObjects.Text;
+  private chainText!: Phaser.GameObjects.Text;
+  private chainBar!: Phaser.GameObjects.Graphics;
   private threatTexts = new Map<number, Phaser.GameObjects.Text>();
 
   constructor() {
@@ -155,6 +163,8 @@ export class BattleScene extends Phaser.Scene {
     };
 
     this.createBottomBar();
+    this.chainBar = this.add.graphics();
+    this.chainText = this.add.text(GAME_WIDTH - 16, BOTTOM_BAR_Y - 30, '', textStyle(22, TEXT.combo, true)).setOrigin(1, 0);
 
     const input = new InputLayer(this)
       .on('pause', () => togglePause(this.clock))
@@ -234,10 +244,14 @@ export class BattleScene extends Phaser.Scene {
       } else if (e.type === 'cardFired' && e.side === 'player') {
         this.slotFlashUntil.set(e.slot, time + 450);
         const x = 16 + e.slot * (SLOT_W + SLOT_GAP) + SLOT_W / 2;
-        const label = e.perfect ? 'PERFECT!' : e.auto ? 'Auto' : 'Go!';
-        this.screenPopup(x, SLOT_Y - 6, label, e.perfect ? TEXT.perfect : TEXT.body, e.perfect ? 18 : 13);
+        const label = (e.perfect ? 'PERFECT!' : e.auto ? 'Auto' : 'Go!') + (e.link > 1 ? `  x${e.link}` : '');
+        this.screenPopup(x, SLOT_Y - 6, label, e.perfect ? TEXT.perfect : e.link > 1 ? TEXT.combo : TEXT.body, e.perfect || e.link > 1 ? 18 : 13);
+      } else if (e.type === 'combo' && e.side === 'player') {
+        const entry = codexEntry(e.combo);
+        this.comboBanner(`${entry.name.toUpperCase()}!`, entry.bonusText, this.found(e.combo));
       } else if (e.type === 'ultimate') {
-        this.banner('RALLY!', TEXT.perfect, 'Every troop heals and attacks faster');
+        if (e.finisher) this.comboBanner('FINISHER: RALLY!', 'Every troop heals and attacks faster, 50% stronger', this.found('finisher'));
+        else this.banner('RALLY!', TEXT.perfect, 'Every troop heals and attacks faster');
       } else if (e.type === 'reserveCalled') {
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 26, 'Reserve arrives!', '#bfe0ff');
@@ -272,6 +286,8 @@ export class BattleScene extends Phaser.Scene {
       if (u.rallyTicks > 0) g.lineStyle(2, COLORS.glow, 0.7).strokeCircle(at.x, at.y, r + 9);
       drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash });
       if (u.mark) drawMark(g, at.x, at.y, r);
+      if (u.chased) drawChased(g, at.x, at.y, r);
+      if (u.stunTicks > 0 && !u.knockback) drawStun(g, at.x, at.y, r, time);
       drawBar(g, at.x, at.y - r - 9, 26, u.hp / u.stats.maxHp);
       // A small white dot: this troop is carrying out a card order.
       const order = u.orders[0];
@@ -296,6 +312,24 @@ export class BattleScene extends Phaser.Scene {
     this.drawThreats(blend);
     this.drawTopBar();
     this.drawBottomBar(time);
+    this.drawChain();
+  }
+
+  /** The chain counter, x2, x3 ..., over the right end of the slot bar, with the time left to add a link. */
+  private drawChain(): void {
+    const g = this.chainBar.clear();
+    const left = this.state.result ? 0 : chainTicksLeft(this.state);
+    const links = this.state.command.chain.links;
+    if (left <= 0 || links < 1) {
+      this.chainText.setText('');
+      return;
+    }
+    const seconds = COMMAND_RULES.chain.windowSeconds;
+    this.chainText.setText(links >= 2 ? `CHAIN x${links}` : `Chain open: next card within ${seconds} s`).setFontSize(links >= 2 ? 22 : 13);
+    const width = 150;
+    const share = left / secondsToTicks(COMMAND_RULES.chain.windowSeconds);
+    g.fillStyle(COLORS.hpBack, 0.9).fillRect(GAME_WIDTH - 16 - width, BOTTOM_BAR_Y - 6, width, 4);
+    g.fillStyle(COLORS.chased, 1).fillRect(GAME_WIDTH - 16 - width, BOTTOM_BAR_Y - 6, width * share, 4);
   }
 
   /** Threat Readout: "Ranger falls in ~3 s" over troops about to fall. */
@@ -405,6 +439,9 @@ export class BattleScene extends Phaser.Scene {
         g.fillStyle(0x000000, 0.45).fillRect(x, SLOT_Y, SLOT_W, SLOT_H);
         g.fillStyle(COLORS.pip, 0.8).fillRect(x, SLOT_Y + SLOT_H - 3, SLOT_W * (1 - slot.restTicks / total), 3);
       }
+      const cost = slotCost(this.state, i);
+      const discounted = cost !== null && slot.card !== null && cost < cardCost(slot.card);
+      texts.cost.setText(cost === null ? '' : '●'.repeat(cost)).setColor(discounted ? TEXT.victory : '#7dd3fc');
       texts.key.setAlpha(dim ? 0.4 : 1);
       texts.card.setAlpha(readiness === 'ready' ? 1 : 0.6);
       texts.status.setText(this.slotStatus(i, readiness)).setColor(readiness === 'ready' ? TEXT.victory : TEXT.muted);
@@ -427,7 +464,9 @@ export class BattleScene extends Phaser.Scene {
     g.fillStyle(COLORS.hpBack, 1).fillRect(PANEL_X, SLOT_Y + 55, width, 6);
     g.fillStyle(COLORS.momentum, share >= 1 ? pulse : 1).fillRect(PANEL_X, SLOT_Y + 55, width * Math.min(1, share), 6);
     const ready = ultimateReady(this.state);
-    this.ultimateText.setText(ready ? 'U: RALLY ready!' : `U: Rally  ${Math.floor(share * 100)}%`).setColor(ready ? TEXT.perfect : TEXT.muted);
+    const finisher = ready && rankRules(command.rank).finishers && nextLink(this.state) >= COMMAND_RULES.finisher.minLinks;
+    const label = finisher ? 'U: FINISHER now!' : ready ? 'U: RALLY ready!' : `U: Rally  ${Math.floor(share * 100)}%`;
+    this.ultimateText.setText(label).setColor(finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
   }
 
   private slotStatus(index: number, readiness: ReturnType<typeof slotReadiness>): string {
@@ -445,8 +484,10 @@ export class BattleScene extends Phaser.Scene {
         return `${auto}Resting ${Math.ceil(slot.restTicks / TICKS_PER_SECOND)} s`;
       case 'waiting':
         return `${auto}Waits for its moment`;
-      case 'noPips':
-        return `${auto}Needs ${cardCost(slot.card!)} pips`;
+      case 'noPips': {
+        const cost = slotCost(this.state, index) ?? 0;
+        return `${auto}Needs ${cost} pip${cost === 1 ? '' : 's'}`;
+      }
       case 'ready':
         return slot.glowing ? `${auto}NOW! Perfect timing` : `${auto}Ready`;
     }
@@ -465,6 +506,26 @@ export class BattleScene extends Phaser.Scene {
   private screenPopup(x: number, y: number, text: string, color: string, size: number): void {
     const label = this.add.text(x, y, text, textStyle(size, color, true)).setOrigin(0.5, 1);
     this.tweens.add({ targets: label, y: y - 22, alpha: 0, duration: 1000, onComplete: () => label.destroy() });
+  }
+
+  /** Adds a combo to your Codex; true if it is new there. A failed save just leaves it for next time. */
+  private found(id: CodexEntryId): boolean {
+    const saving = recordCombo(id);
+    void saving?.catch(() => undefined);
+    return saving !== null;
+  }
+
+  /** A combo's name over the battlefield, with what it does, and a note when it is new to your Codex. */
+  private comboBanner(title: string, subtitle: string, isNew: boolean): void {
+    const cx = OPEN_FIELD.width / 2;
+    const y = OPEN_FIELD.height - 120;
+    const items = [
+      this.add.text(cx, y, title, textStyle(30, TEXT.combo, true)).setOrigin(0.5),
+      this.add.text(cx, y + 28, subtitle, textStyle(13, TEXT.body)).setOrigin(0.5),
+    ];
+    if (isNew) items.push(this.add.text(cx, y + 48, 'New in your Combo Codex!', textStyle(13, TEXT.perfect, true)).setOrigin(0.5));
+    this.world.add(items);
+    this.tweens.add({ targets: items, alpha: 0, delay: 1400, duration: 700, onComplete: () => items.forEach((t) => t.destroy()) });
   }
 
   /** Big text across the middle of the battlefield. */

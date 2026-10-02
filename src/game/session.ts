@@ -3,6 +3,7 @@
 // rank change, so closing the game at any moment keeps them.
 
 import { windowScales, type FileName, type Platform } from '../platform';
+import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { newProfile, PROFILE_FILE, PROFILE_VERSION, readProfile, writeProfile, type Profile } from '../save/profile';
 import { defaultSettings, readSettings, SETTINGS_FILE, writeSettings, type Settings } from '../save/settings';
 import type { MatchSetup } from './match';
@@ -46,7 +47,20 @@ export function remember(setup: MatchSetup): Promise<void> {
     rank: setup.rank,
     tactical: setup.tactical,
     general: setup.general,
+    codex: profile.codex,
   };
+  return write(PROFILE_FILE, writeProfile(profile));
+}
+
+/** The combos you have found so far, in Codex order. */
+export function foundCombos(): CodexEntryId[] {
+  return [...profile.codex];
+}
+
+/** Adds a combo to the Codex and saves it; null when it was already there. */
+export function recordCombo(id: CodexEntryId): Promise<void> | null {
+  if (profile.codex.includes(id)) return null;
+  profile = { ...profile, codex: CODEX_ENTRY_IDS.filter((e) => e === id || profile.codex.includes(e)) };
   return write(PROFILE_FILE, writeProfile(profile));
 }
 

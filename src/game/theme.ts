@@ -34,6 +34,8 @@ export const COLORS = {
   glow: 0xfacc15,
   pip: 0x7dd3fc,
   momentum: 0xf59e0b,
+  chased: 0xc4b5fd,
+  stun: 0xfde047,
 } as const;
 
 export const TEXT = {
@@ -45,4 +47,5 @@ export const TEXT = {
   overtime: '#fb923c',
   perfect: '#fde047',
   threat: '#fca5a5',
+  combo: '#c4b5fd',
 } as const;
