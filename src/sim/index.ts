@@ -14,6 +14,7 @@ export {
   type SlotReadiness,
 } from './command';
 export { TICKS_PER_SECOND, formatBattleTime, secondsToTicks, ticksToSeconds } from './time';
+export { activeSynergies } from './synergies';
 export { otherSide, SIDES } from './types';
 export type {
   BattleEvent,
@@ -30,5 +31,6 @@ export type {
   Unit,
   Wall,
   Winner,
+  Zone,
 } from './types';
 export { isArmyPlaced, placementProblem, type PlacementProblem } from './placement';

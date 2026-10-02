@@ -1,15 +1,18 @@
-// Your saved progress: the cards in your slots, where your troops stand, your rank, Tactical
-// mode, your General and the combos you have found. It is plain JSON in saves/profile.json. Reading is forgiving: anything missing
-// or damaged falls back to the default, so a bad file never stops the game from starting.
+// Your saved progress: the cards in your slots, your troops and where they stand, your rank,
+// Tactical mode, your General and the combos you have found. It is plain JSON in
+// saves/profile.json. Reading is forgiving: anything missing or damaged falls back to the
+// default, so a bad file never stops the game from starting.
 // Phase 5 grows this into the full save with migrations; `version` is there for that.
 
 import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
-import { STARTER_ARMY, type TroopPlacement } from '../data/armies';
+import { ENEMY_ARMIES, RESERVE_COUNT, STARTER_ARMY, STARTER_RESERVES, type EnemyArmy, type TroopPlacement } from '../data/armies';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { OPEN_FIELD } from '../data/maps';
 import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
 import { DEBUG_DEFAULT_RANK, RANKS, type RankNumber } from '../data/ranks';
+import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
+import { TROOP_CLASSES, type UnitClass } from '../data/units';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
 
@@ -26,6 +29,10 @@ export interface Profile {
   general: GeneralId;
   /** Combos you have landed at least once, for the Combo Codex. Older saves have none yet. */
   codex: CodexEntryId[];
+  /** Your reserves, specializations and the enemy's army, from the debug Troops screen. Older saves have the starter ones. */
+  reserves: UnitClass[];
+  specs: SpecChoice;
+  enemyArmy: EnemyArmy;
 }
 
 export function newProfile(): Profile {
@@ -37,6 +44,9 @@ export function newProfile(): Profile {
     tactical: false,
     general: STARTING_GENERAL,
     codex: [],
+    reserves: [...STARTER_RESERVES],
+    specs: {},
+    enemyArmy: 'starter',
   };
 }
 
@@ -62,7 +72,29 @@ export function readProfile(text: string | null): Profile {
   if (typeof saved.tactical === 'boolean') profile.tactical = saved.tactical;
   if ((GENERAL_IDS as readonly unknown[]).includes(saved.general)) profile.general = saved.general as GeneralId;
   if (Array.isArray(saved.codex)) profile.codex = CODEX_ENTRY_IDS.filter((id) => (saved.codex as unknown[]).includes(id));
+  profile.reserves = readReserves(saved.reserves) ?? profile.reserves;
+  profile.specs = readSpecs(saved.specs);
+  if ((ENEMY_ARMIES as readonly unknown[]).includes(saved.enemyArmy)) profile.enemyArmy = saved.enemyArmy as EnemyArmy;
   return profile;
+}
+
+function isClass(value: unknown): value is UnitClass {
+  return (TROOP_CLASSES as readonly unknown[]).includes(value);
+}
+
+function readReserves(value: unknown): UnitClass[] | null {
+  return Array.isArray(value) && value.length === RESERVE_COUNT && value.every(isClass) ? [...value] : null;
+}
+
+/** The specializations that belong to their class; the rest are dropped. */
+function readSpecs(value: unknown): SpecChoice {
+  const specs: SpecChoice = {};
+  if (typeof value !== 'object' || value === null) return specs;
+  for (const cls of TROOP_CLASSES) {
+    const id = (value as Record<string, unknown>)[cls];
+    if (typeof id === 'string' && SPECIALIZATIONS[id as SpecializationId]?.cls === cls) specs[cls] = id as SpecializationId;
+  }
+  return specs;
 }
 
 function readLoadout(value: unknown): Loadout {
@@ -75,16 +107,15 @@ function readLoadout(value: unknown): Loadout {
   return loadout;
 }
 
-/** Your troops as saved, if it is the same army and every troop still stands somewhere it may. */
+/** Your troops as saved, if there are 5 of real classes and every one still stands somewhere it may. */
 function readPlacement(value: unknown): TroopPlacement[] | null {
   if (!Array.isArray(value) || value.length !== STARTER_ARMY.length) return null;
   const placement: TroopPlacement[] = [];
-  for (const [i, t] of value.entries()) {
+  for (const t of value) {
     if (typeof t !== 'object' || t === null) return null;
     const { cls, x, y } = t as Record<string, unknown>;
-    const expected = STARTER_ARMY[i]!.cls;
-    if (cls !== expected || !Number.isFinite(x) || !Number.isFinite(y)) return null;
-    placement.push({ cls: expected, x: x as number, y: y as number });
+    if (!isClass(cls) || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+    placement.push({ cls, x: x as number, y: y as number });
   }
   return isArmyPlaced(OPEN_FIELD, 'player', placement) ? placement : null;
 }

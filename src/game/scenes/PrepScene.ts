@@ -2,16 +2,19 @@
 // Drag a troop with the mouse, or pick one with Tab and move it with the arrow keys.
 
 import Phaser from 'phaser';
-import { STARTER_ARMY_MIRRORED, STARTER_RESERVES, type TroopPlacement } from '../../data/armies';
+import type { TroopPlacement } from '../../data/armies';
 import { OPEN_FIELD } from '../../data/maps';
+import { SPECIALIZATIONS } from '../../data/specializations';
+import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
 import { placementProblem } from '../../sim';
-import { drawBody, drawField, drawWall, drawZone } from '../draw';
+import { CLASS_LEGEND, drawBody, drawField, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { remember, savedSetup } from '../session';
 import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { enemyArmyOf, yourSynergies } from '../troops';
 import { addButton, textStyle } from '../ui';
 
 /** How fast the arrow keys move a troop, in world units per second. */
@@ -44,13 +47,13 @@ export class PrepScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'PLACE YOUR TROOPS', textStyle(18, TEXT.title, true));
-    this.add.text(250, 13, '■ Vanguard   ▲ Ranger   ● Guardian', textStyle(13, TEXT.muted));
     this.add.text(
       16,
       38,
-      'Drag a troop, or pick one with Tab and move it with the arrow keys. Enter: write orders.',
+      'Drag troops, or pick one with Tab and the arrow keys.',
       textStyle(13),
     );
+    addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Troops  T', () => this.toTroops(), 112, 34);
     addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
     addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.toSettings(), 140, 34);
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
@@ -61,7 +64,7 @@ export class PrepScene extends Phaser.Scene {
     drawZone(field, OPEN_FIELD.deployZones.player, 'player', 1);
     drawZone(field, OPEN_FIELD.deployZones.enemy, 'enemy', 0.6);
     for (const wall of OPEN_FIELD.walls) drawWall(field, wall);
-    for (const t of STARTER_ARMY_MIRRORED) {
+    for (const t of enemyArmyOf(this.setup).placement) {
       drawBody(field, t.cls, 'enemy', t.x, t.y, UNIT_CLASSES[t.cls].stats.radius, t.x - 100, t.y, { alpha: 0.85 });
     }
     this.graphics = this.add.graphics();
@@ -71,24 +74,39 @@ export class PrepScene extends Phaser.Scene {
     // Your 3 reserves wait off the field until a Call Reserve card brings them in.
     this.add.text(16, BOTTOM_BAR_Y + 16, 'RESERVES', textStyle(12, TEXT.muted, true));
     const reserves = this.add.graphics();
-    STARTER_RESERVES.forEach((cls, i) => {
+    this.setup.reserves.forEach((cls, i) => {
       const x = 120 + i * 120;
-      drawBody(reserves, cls, 'player', x, BOTTOM_BAR_Y + 24, UNIT_CLASSES[cls].stats.radius, x + 100, 0);
+      drawBody(reserves, cls, 'player', x, BOTTOM_BAR_Y + 24, UNIT_CLASSES[cls].stats.radius, x + 100, BOTTOM_BAR_Y + 24);
       this.add.text(x + 22, BOTTOM_BAR_Y + 16, UNIT_CLASSES[cls].name, textStyle(12));
     });
     this.add.text(
       16,
       BOTTOM_BAR_Y + 52,
-      'They join the battle at your edge of the map when you fire a Call Reserve card (Rank III).',
+      'They join at your edge of the map when you fire a Call Reserve card (Rank III).',
       textStyle(12, TEXT.muted),
     );
+    this.add.text(16, BOTTOM_BAR_Y + 76, CLASS_LEGEND, textStyle(12, TEXT.muted));
+    // What the army you brought switches on by itself, and the specializations you picked.
+    const synergies = yourSynergies(this.setup).map((id) => SYNERGIES.find((s) => s.id === id)!.name);
+    const specs = Object.values(this.setup.specs).map((id) => SPECIALIZATIONS[id].name);
+    this.add.text(520, BOTTOM_BAR_Y + 16, 'SYNERGIES', textStyle(12, TEXT.muted, true));
+    this.add.text(610, BOTTOM_BAR_Y + 16, synergies.length > 0 ? synergies.join(', ') : 'None', {
+      ...textStyle(12, TEXT.combo),
+      wordWrap: { width: GAME_WIDTH - 626 },
+    });
+    this.add.text(520, BOTTOM_BAR_Y + 52, 'SPECIALIZED', textStyle(12, TEXT.muted, true));
+    this.add.text(610, BOTTOM_BAR_Y + 52, specs.length > 0 ? specs.join(', ') : 'None (Troops screen: T)', {
+      ...textStyle(12),
+      wordWrap: { width: GAME_WIDTH - 626 },
+    });
 
     this.actions = new InputLayer(this)
       .on('next', () => this.cycleSelection(1))
       .on('prev', () => this.cycleSelection(-1))
       .on('confirm', () => this.toOrders())
       .on('back', () => this.toSettings())
-      .on('codex', () => this.toCodex());
+      .on('codex', () => this.toCodex())
+      .on('troops', () => this.toTroops());
 
     // World coordinates, so dragging works at any render scale.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.worldX, p.worldY - TOP_BAR_HEIGHT));
@@ -191,6 +209,11 @@ export class PrepScene extends Phaser.Scene {
   private toCodex(): void {
     this.drop();
     this.scene.start('Codex', { ...this.setup, placement: this.placement });
+  }
+
+  private toTroops(): void {
+    this.drop();
+    this.scene.start('Troops', { ...this.setup, placement: this.placement });
   }
 
   private toSettings(): void {

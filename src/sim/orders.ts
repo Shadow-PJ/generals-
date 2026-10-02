@@ -5,11 +5,24 @@
 
 import { COMBO_BONUSES, type SignatureComboId } from '../data/combos';
 import { ORDER_RULES } from '../data/command';
+import { UNIT_CLASSES } from '../data/units';
 import type { Actors, Card, Place, Step, Target } from '../cards/types';
 import { clamp, distance, type Point } from './geometry';
-import { centerDistance, edgeDistance, findUnit, hpShare, livingAllies, livingEnemies, livingUnits, nearestTo } from './queries';
+import {
+  centerDistance,
+  edgeDistance,
+  findUnit,
+  hpShare,
+  livingAllies,
+  livingEnemies,
+  livingUnits,
+  nearestTo,
+  visibleEnemies,
+} from './queries';
 import { isSpaceFree } from './movement';
-import { castBarrier, castMark, castShove, shoveTargets } from './skills';
+import { openRift, riftSpot } from './rift';
+import { castShadowstep, choosePrey } from './shadowstep';
+import { castBarrier, castMark, castShove, shoveTargets, skillCooldownTicks } from './skills';
 import { spawnReserve } from './spawn';
 import { secondsToTicks } from './time';
 import type { BattleState, Side, Unit, UnitOrder } from './types';
@@ -282,8 +295,9 @@ export function orderIntent(state: BattleState, unit: Unit, base: Intent): Inten
   if (!order?.started) return null;
   switch (order.kind) {
     case 'focus': {
+      // An invisible target can't be chased; the troop acts on its own until it shows again.
       const target = findUnit(state, order.unitId);
-      if (!target?.alive) return null;
+      if (!target?.alive || target.invisibleTicks > 0) return null;
       return { action: attackOrApproach(unit, target), cast: base.cast };
     }
     case 'move':
@@ -293,7 +307,7 @@ export function orderIntent(state: BattleState, unit: Unit, base: Intent): Inten
       return { action: { kind: 'walk', to: goal, targetId: order.unitId }, cast: null };
     }
     case 'hold': {
-      const inReach = livingEnemies(state, unit).filter((e) => edgeDistance(unit, e) <= unit.stats.range);
+      const inReach = visibleEnemies(state, unit).filter((e) => edgeDistance(unit, e) <= unit.stats.range);
       const target = nearestTo(inReach, unit.x, unit.y);
       return { action: target ? { kind: 'attack', targetId: target.id } : { kind: 'hold' }, cast: base.cast };
     }
@@ -312,7 +326,7 @@ function protectIntent(state: BattleState, unit: Unit, order: UnitOrder, base: I
   if (unit.cls === 'guardian' && unit.skillCooldown <= 0 && !ward.barrier && ward.id !== unit.id) {
     cast = { skill: 'barrier', targetId: ward.id };
   }
-  const threat = nearestTo(livingEnemies(state, unit), ward.x, ward.y);
+  const threat = nearestTo(visibleEnemies(state, unit), ward.x, ward.y);
   if (threat && edgeDistance(unit, threat) <= unit.stats.range) {
     return { action: { kind: 'attack', targetId: threat.id }, cast };
   }
@@ -321,15 +335,20 @@ function protectIntent(state: BattleState, unit: Unit, order: UnitOrder, base: I
   return { action: { kind: 'walk', to: spot, targetId: ward.id }, cast };
 }
 
-/** Overcharge: the troop's skill fires now, ignoring its usual conditions, at the order's power. */
+/**
+ * Overcharge: the troop's skill fires now, ignoring its usual conditions, at the order's power.
+ * An Invoker's Rift opens at once, with no cast; an Assassin Shadowsteps to its prey at any
+ * distance. A silenced troop can't.
+ */
 function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks = 0): void {
+  if (unit.silencedTicks > 0) return;
   switch (unit.cls) {
     case 'vanguard':
       if (shoveTargets(state, unit).length > 0) castShove(state, unit, power, stunTicks);
       else unit.skillCooldown = 0;
       return;
     case 'ranger': {
-      const inReach = livingEnemies(state, unit).filter((e) => edgeDistance(unit, e) <= unit.stats.range);
+      const inReach = visibleEnemies(state, unit).filter((e) => edgeDistance(unit, e) <= unit.stats.range);
       const target = findUnit(state, unit.targetId);
       const pick = target?.alive && inReach.includes(target) ? target : nearestTo(inReach, unit.x, unit.y);
       if (pick) castMark(state, unit, pick, power);
@@ -338,10 +357,23 @@ function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks
     }
     case 'guardian': {
       const allies = livingAllies(state, unit);
-      const inRange = allies.filter((a) => centerDistance(unit, a) <= 200);
+      const inRange = allies.filter((a) => centerDistance(unit, a) <= UNIT_CLASSES.guardian.barrier.range);
       const ward = inRange.filter((a) => !a.barrier).sort((a, b) => hpShare(a) - hpShare(b) || a.id - b.id)[0];
       if (ward) castBarrier(state, unit, ward, power);
       else unit.skillCooldown = 0;
+      return;
+    }
+    case 'invoker': {
+      const spot = riftSpot(state, unit, Infinity, 1);
+      unit.casting = null;
+      if (spot) openRift(state, unit, spot, power);
+      unit.skillCooldown = spot ? skillCooldownTicks('invoker') : 0;
+      return;
+    }
+    case 'assassin': {
+      const current = findUnit(state, unit.targetId);
+      const target = current?.alive && current.side !== unit.side && current.invisibleTicks <= 0 ? current : choosePrey(state, unit);
+      if (!target || !castShadowstep(state, unit, target, power)) unit.skillCooldown = 0;
       return;
     }
   }
@@ -349,9 +381,9 @@ function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks
 
 // Choosing targets ---------------------------------------------------------------------------
 
-/** The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army). */
+/** The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army). Invisible enemies can't be named. */
 function resolveEnemy(state: BattleState, side: Side, from: Point, target: Target, triggerId: number | null): Unit | undefined {
-  const enemies = state.units.filter((u) => u.alive && u.side !== side);
+  const enemies = state.units.filter((u) => u.alive && u.side !== side && u.invisibleTicks <= 0);
   switch (target.kind) {
     case 'class':
       return nearestTo(enemies.filter((e) => e.cls === target.cls), from.x, from.y);
@@ -361,7 +393,7 @@ function resolveEnemy(state: BattleState, side: Side, from: Point, target: Targe
       return weakest(enemies);
     case 'trigger': {
       const u = findUnit(state, triggerId);
-      return u?.alive && u.side !== side ? u : undefined;
+      return u?.alive && u.side !== side && u.invisibleTicks <= 0 ? u : undefined;
     }
     case 'named':
       return undefined;

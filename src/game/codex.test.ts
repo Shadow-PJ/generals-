@@ -14,10 +14,12 @@ describe('the Combo Codex', () => {
     expect(codexFinds(events)).toEqual(['feignedRetreat', 'ironShell']);
     expect(codexFinds([{ tick: 1, type: 'ultimate', side: 'player', name: 'rally', link: 3, finisher: true }])).toEqual(['finisher']);
     expect(codexFinds([{ tick: 1, type: 'combo', side: 'enemy', combo: 'ambush', acrossCards: false }])).toEqual([]);
+    expect(codexFinds([{ tick: 1, type: 'synergy', side: 'player', synergy: 'ironWall' }])).toEqual(['ironWall']);
+    expect(codexFinds([{ tick: 1, type: 'synergy', side: 'enemy', synergy: 'ironWall' }])).toEqual([]);
   });
 
   it('has a name, steps and bonus for every entry', () => {
-    expect(CODEX_ENTRY_IDS).toHaveLength(6);
+    expect(CODEX_ENTRY_IDS).toHaveLength(11);
     for (const id of CODEX_ENTRY_IDS) {
       const entry = codexEntry(id);
       expect(entry.name.length, id).toBeGreaterThan(3);

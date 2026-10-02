@@ -1,20 +1,29 @@
 // Creating troops: the armies at the start, and reserves called in during the battle.
 
 import type { TroopPlacement } from '../data/armies';
+import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
 import { isSpaceFree } from './movement';
 import { nextInt, type RngState } from './rng';
 import { initialSkillCooldownTicks } from './skills';
+import { specFor, specStats } from './specs';
 import { attackIntervalTicks } from './time';
 import type { BattleState, Side, Unit } from './types';
 
-export function createUnit(id: number, side: Side, placement: TroopPlacement, rng: RngState): Unit {
-  const stats = { ...UNIT_CLASSES[placement.cls].stats };
+export function createUnit(
+  id: number,
+  side: Side,
+  placement: TroopPlacement,
+  rng: RngState,
+  spec: SpecializationId | null = null,
+): Unit {
+  const stats = specStats(UNIT_CLASSES[placement.cls].stats, spec);
   return {
     id,
     side,
     cls: placement.cls,
     stats,
+    spec,
     x: placement.x,
     y: placement.y,
     hp: stats.maxHp,
@@ -28,6 +37,12 @@ export function createUnit(id: number, side: Side, placement: TroopPlacement, rn
     chased: null,
     knockback: null,
     stunTicks: 0,
+    slow: null,
+    taunt: null,
+    silencedTicks: 0,
+    invisibleTicks: 0,
+    regen: null,
+    casting: null,
     lastHitBy: null,
     path: [],
     repathTick: 0,
@@ -67,7 +82,7 @@ export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | n
   if (y === null) y = midY;
 
   waiting.splice(index, 1);
-  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng);
+  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng, specFor(state.specs[side], chosen));
   state.units.push(unit);
   state.startHp[side] += unit.stats.maxHp;
   state.events.push({ tick: state.tick, type: 'reserveCalled', side, unitId: unit.id });

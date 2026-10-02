@@ -5,12 +5,12 @@
 import Phaser from 'phaser';
 import { cardCost } from '../../cards/cost';
 import { shortCard } from '../../cards/describe';
-import { STARTER_ARMY_MIRRORED, STARTER_RESERVES } from '../../data/armies';
 import { COMMAND_RULES } from '../../data/command';
 import type { CodexEntryId } from '../../data/combos';
 import { GENERALS } from '../../data/generals';
 import { OPEN_FIELD } from '../../data/maps';
 import { rankRules, RANKS } from '../../data/ranks';
+import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
 import {
   chainTicksLeft,
@@ -41,12 +41,27 @@ import {
 } from '../battleClock';
 import { SLOT_ACTIONS } from '../bindings';
 import { codexEntry } from '../codex';
-import { drawBar, drawBarrier, drawBody, drawChased, drawField, drawMark, drawStun, drawWall } from '../draw';
+import {
+  drawBar,
+  drawBarrier,
+  drawBody,
+  drawCasting,
+  drawChased,
+  drawField,
+  drawMark,
+  drawRift,
+  drawSilenced,
+  drawSlowed,
+  drawStun,
+  drawTaunted,
+  drawWall,
+} from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { recordCombo } from '../session';
 import { threats } from '../threats';
+import { enemyArmyOf } from '../troops';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle, type Button } from '../ui';
 
@@ -56,10 +71,12 @@ export interface BattleData extends MatchSetup {
 
 /** How long a troop flashes white after a hit, in milliseconds. */
 const HIT_FLASH_MS = 120;
+/** How long a combo banner stays before the next one may show, in milliseconds. */
+const COMBO_BANNER_MS = 2000;
 /** Pause between the last blow and the result screen, in milliseconds. */
 const RESULT_DELAY_MS = 1400;
 
-const SKILL_LABELS = { shove: 'Shove!', mark: 'Mark', barrier: 'Barrier' } as const;
+const SKILL_LABELS = { shove: 'Shove!', mark: 'Mark', barrier: 'Barrier', rift: 'Rift!', shadowstep: 'Shadowstep!' } as const;
 
 const SLOT_W = 136;
 const SLOT_H = 80;
@@ -93,6 +110,8 @@ export class BattleScene extends Phaser.Scene {
   private slotFlashUntil = new Map<number, number>();
   private eventCursor = 0;
   private ended = false;
+  /** When the combo banner showing now is gone, so the next one waits its turn instead of overlapping. */
+  private bannerFreeAt = 0;
 
   private world!: Phaser.GameObjects.Container;
   private wallsLayer!: Phaser.GameObjects.Graphics;
@@ -116,16 +135,18 @@ export class BattleScene extends Phaser.Scene {
 
   init(data: BattleData): void {
     this.setup = data;
+    const enemy = enemyArmyOf(data);
     this.state = createBattle({
       seed: data.seed,
       map: OPEN_FIELD,
       player: data.placement,
-      enemy: STARTER_ARMY_MIRRORED,
+      enemy: enemy.placement,
       loadout: data.loadout,
       rank: data.rank,
-      reserves: { player: [...STARTER_RESERVES], enemy: [] },
+      reserves: { player: [...data.reserves], enemy: enemy.reserves },
       tactical: data.tactical,
       general: data.general,
+      specs: { player: data.specs, enemy: enemy.specs },
     });
     this.clock = createClock();
     this.pending = [];
@@ -136,6 +157,7 @@ export class BattleScene extends Phaser.Scene {
     this.slotTexts = [];
     this.eventCursor = 0;
     this.ended = false;
+    this.bannerFreeAt = 0;
   }
 
   create(): void {
@@ -230,6 +252,14 @@ export class BattleScene extends Phaser.Scene {
       const e = events[this.eventCursor]!;
       if (e.type === 'damage' && e.amount + e.absorbed > 0) {
         this.flashUntil.set(e.targetId, time + HIT_FLASH_MS);
+        const unit = e.cause === 'execute' ? this.unit(e.targetId) : undefined;
+        if (unit) this.popup(unit.x, unit.y - 34, 'Executed!', TEXT.threat);
+      } else if (e.type === 'interrupted') {
+        const unit = this.unit(e.unitId);
+        if (unit) this.popup(unit.x, unit.y - 26, 'Interrupted!', TEXT.overtime);
+      } else if (e.type === 'synergy') {
+        const synergy = SYNERGIES.find((s) => s.id === e.synergy)!;
+        if (e.side === 'player') this.comboBanner(`${synergy.name.toUpperCase()}!`, synergy.bonusText, this.found(e.synergy));
       } else if (e.type === 'skill') {
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 26, SKILL_LABELS[e.skill], unit.side === 'player' ? '#bfe0ff' : '#ffc9c0');
@@ -268,7 +298,11 @@ export class BattleScene extends Phaser.Scene {
     for (const wall of this.state.walls) drawWall(walls, wall);
 
     const g = this.unitsLayer.clear();
-    // Fallen troops first, so the living are drawn on top.
+    // Rifts lie on the ground, under everyone.
+    const riftTicks = secondsToTicks(UNIT_CLASSES.invoker.rift.durationSeconds);
+    const pulseTicks = secondsToTicks(UNIT_CLASSES.invoker.rift.pulseSeconds);
+    for (const zone of this.state.zones) drawRift(g, zone, zone.ticksLeft / riftTicks, Math.max(0, zone.pulseIn / pulseTicks - 0.5) * 2);
+    // Fallen troops next, so the living are drawn on top.
     for (const u of this.state.units) {
       if (u.alive) continue;
       const r = u.stats.radius * 0.6;
@@ -282,11 +316,21 @@ export class BattleScene extends Phaser.Scene {
       const r = u.stats.radius;
       const face = this.facing(u, at);
       const flash = Math.max(0, ((this.flashUntil.get(u.id) ?? 0) - time) / HIT_FLASH_MS);
+      // Invisible troops (Shadow Escort) show as a faint outline: yours a little clearer.
+      const alpha = u.invisibleTicks > 0 ? (u.side === 'player' ? 0.35 : 0.15) : 1;
+      if (u.slow) drawSlowed(g, at.x, at.y, r);
       if (u.barrier) drawBarrier(g, at.x, at.y, r, u.barrier.amount / UNIT_CLASSES.guardian.barrier.amount);
       if (u.rallyTicks > 0) g.lineStyle(2, COLORS.glow, 0.7).strokeCircle(at.x, at.y, r + 9);
-      drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash });
+      const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
+      if (taunter?.alive) drawTaunted(g, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
+      drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash, alpha });
+      if (u.casting) {
+        const total = secondsToTicks(UNIT_CLASSES.invoker.rift.castSeconds);
+        drawCasting(g, at.x, at.y, r, u.casting, 1 - u.casting.ticksLeft / total);
+      }
       if (u.mark) drawMark(g, at.x, at.y, r);
       if (u.chased) drawChased(g, at.x, at.y, r);
+      if (u.silencedTicks > 0) drawSilenced(g, at.x, at.y, r);
       if (u.stunTicks > 0 && !u.knockback) drawStun(g, at.x, at.y, r, time);
       drawBar(g, at.x, at.y - r - 9, 26, u.hp / u.stats.maxHp);
       // A small white dot: this troop is carrying out a card order.
@@ -350,7 +394,7 @@ export class BattleScene extends Phaser.Scene {
     }
   }
 
-  /** Rangers point at what they are shooting; otherwise troops face the enemy's side. */
+  /** Rangers and Assassins point at what they are after; otherwise troops face the enemy's side. */
   private facing(u: Unit, at: Point): Point {
     const target = this.unit(u.targetId);
     if (target && target.side !== u.side) return { x: target.x, y: target.y };
@@ -515,8 +559,16 @@ export class BattleScene extends Phaser.Scene {
     return saving !== null;
   }
 
-  /** A combo's name over the battlefield, with what it does, and a note when it is new to your Codex. */
+  /** A combo's name over the battlefield, with what it does, and a note when it is new to your Codex. Banners take turns. */
   private comboBanner(title: string, subtitle: string, isNew: boolean): void {
+    const now = this.time.now;
+    const wait = Math.max(0, this.bannerFreeAt - now);
+    this.bannerFreeAt = now + wait + COMBO_BANNER_MS;
+    if (wait > 0) this.time.delayedCall(wait, () => this.showComboBanner(title, subtitle, isNew));
+    else this.showComboBanner(title, subtitle, isNew);
+  }
+
+  private showComboBanner(title: string, subtitle: string, isNew: boolean): void {
     const cx = OPEN_FIELD.width / 2;
     const y = OPEN_FIELD.height - 120;
     const items = [

@@ -1,10 +1,11 @@
-// Drawing the battlefield with plain shapes: the field, walls and troops.
-// Vanguards are squares, Rangers triangles and Guardians circles; blue is you, red the enemy.
+// Drawing the battlefield with plain shapes: the field, walls, troops and Rifts.
+// Vanguards are squares, Rangers triangles, Guardians circles with a cross, Invokers diamonds
+// and Assassins darts; blue is you, red the enemy.
 
 import type Phaser from 'phaser';
 import type { MapData, Rect } from '../data/maps';
 import type { UnitClass } from '../data/units';
-import type { Side } from '../sim';
+import type { Side, Zone } from '../sim';
 import { COLORS } from './theme';
 
 type Graphics = Phaser.GameObjects.Graphics;
@@ -56,7 +57,10 @@ export interface BodyStyle {
   flash?: number;
 }
 
-/** A troop's body. Rangers point toward (faceX, faceY). */
+/** The class legend shown on the Prep screen, with the shape each class is drawn as. */
+export const CLASS_LEGEND = '■ Vanguard   ▲ Ranger   ⊕ Guardian   ◆ Invoker   ➤ Assassin';
+
+/** A troop's body. Rangers and Assassins point toward (faceX, faceY). */
 export function drawBody(
   g: Graphics,
   cls: UnitClass,
@@ -74,12 +78,27 @@ export function drawBody(
   const paint = (color: number, a: number) => {
     fill(color, a);
     outline();
+    const len = Math.hypot(faceX - x, faceY - y) || 1;
+    const dx = (faceX - x) / len;
+    const dy = (faceY - y) / len;
     if (cls === 'vanguard') {
       g.fillRoundedRect(x - r, y - r, r * 2, r * 2, 3).strokeRoundedRect(x - r, y - r, r * 2, r * 2, 3);
+    } else if (cls === 'invoker') {
+      const d = r * 1.25;
+      polygon(g, [
+        { x, y: y - d },
+        { x: x + d, y },
+        { x, y: y + d },
+        { x: x - d, y },
+      ]);
+    } else if (cls === 'assassin') {
+      // A dart: a long tip toward the target and a notch at the back.
+      const tip = { x: x + dx * r * 1.5, y: y + dy * r * 1.5 };
+      const left = { x: x - dx * r - dy * r, y: y - dy * r + dx * r };
+      const notch = { x: x - dx * r * 0.3, y: y - dy * r * 0.3 };
+      const right = { x: x - dx * r + dy * r, y: y - dy * r - dx * r };
+      polygon(g, [tip, left, notch, right]);
     } else if (cls === 'ranger') {
-      const len = Math.hypot(faceX - x, faceY - y) || 1;
-      const dx = (faceX - x) / len;
-      const dy = (faceY - y) / len;
       const tip = { x: x + dx * r * 1.3, y: y + dy * r * 1.3 };
       const left = { x: x - dx * r * 0.8 - dy * r, y: y - dy * r * 0.8 + dx * r };
       const right = { x: x - dx * r * 0.8 + dy * r, y: y - dy * r * 0.8 - dx * r };
@@ -93,8 +112,25 @@ export function drawBody(
   if (cls === 'guardian') {
     g.lineStyle(2, COLORS.sideDark[side], alpha);
     g.lineBetween(x - r * 0.5, y, x + r * 0.5, y).lineBetween(x, y - r * 0.5, x, y + r * 0.5);
+  } else if (cls === 'invoker') {
+    g.fillStyle(COLORS.sideDark[side], alpha).fillCircle(x, y, r * 0.3);
   }
   if (style.flash && style.flash > 0) paint(0xffffff, style.flash * 0.8);
+}
+
+/** Fills a shape whose corners all see the first one (a fan of triangles), then outlines it. */
+function polygon(g: Graphics, points: readonly { x: number; y: number }[]): void {
+  const [first] = points;
+  if (!first) return;
+  for (let i = 1; i + 1 < points.length; i++) {
+    const a = points[i]!;
+    const b = points[i + 1]!;
+    g.fillTriangle(first.x, first.y, a.x, a.y, b.x, b.y);
+  }
+  points.forEach((p, i) => {
+    const next = points[(i + 1) % points.length]!;
+    g.lineBetween(p.x, p.y, next.x, next.y);
+  });
 }
 
 /** A small bar centered on x, filled to `share` (0 to 1), green to red. */
@@ -106,7 +142,39 @@ export function drawBar(g: Graphics, x: number, y: number, width: number, share:
 
 /** A Barrier: a glowing ring, thicker while it has more left. */
 export function drawBarrier(g: Graphics, x: number, y: number, r: number, share: number): void {
-  g.lineStyle(1 + 3 * share, COLORS.barrier, 0.85).strokeCircle(x, y, r + 5);
+  g.lineStyle(1 + 3 * Math.min(1.5, share), COLORS.barrier, 0.85).strokeCircle(x, y, r + 5);
+}
+
+/** A Rift on the ground, in its element's color, fading as it runs out; it flares on each pulse. */
+export function drawRift(g: Graphics, zone: Zone, share: number, flare: number): void {
+  const color = COLORS.rift[zone.element];
+  g.fillStyle(color, 0.12 + 0.12 * share + 0.15 * flare).fillCircle(zone.x, zone.y, zone.radius);
+  g.lineStyle(2, color, 0.5 + 0.4 * share).strokeCircle(zone.x, zone.y, zone.radius);
+  g.lineStyle(1, COLORS.side[zone.side], 0.6).strokeCircle(zone.x, zone.y, zone.radius - 4);
+}
+
+/** An Invoker casting: a ring that closes as the cast nears its end, and a line to where the Rift will open. */
+export function drawCasting(g: Graphics, x: number, y: number, r: number, at: { x: number; y: number }, progress: number): void {
+  g.lineStyle(1, COLORS.rift.arcane, 0.5).lineBetween(x, y, at.x, at.y);
+  g.lineStyle(1, COLORS.rift.arcane, 0.5).strokeCircle(at.x, at.y, 8);
+  g.lineStyle(3, COLORS.rift.arcane, 0.95);
+  g.beginPath().arc(x, y, r + 7, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2).strokePath();
+}
+
+/** Silenced (Saboteur): a slashed circle over the head. */
+export function drawSilenced(g: Graphics, x: number, y: number, r: number): void {
+  const cy = y - r - 16;
+  g.lineStyle(2, COLORS.silenced, 0.95).strokeCircle(x + r + 4, cy, 5).lineBetween(x + r, cy + 4, x + r + 8, cy - 4);
+}
+
+/** Slowed (frost): a pale blue ring at the feet. */
+export function drawSlowed(g: Graphics, x: number, y: number, r: number): void {
+  g.lineStyle(2, COLORS.rift.frost, 0.85).strokeEllipse(x, y + r * 0.6, r * 2.4, r * 0.9);
+}
+
+/** Taunted (Warden, Iron Wall): a red line to the troop it must attack. */
+export function drawTaunted(g: Graphics, x: number, y: number, to: { x: number; y: number }): void {
+  g.lineStyle(1, COLORS.taunt, 0.55).lineBetween(x, y, to.x, to.y);
 }
 
 /** Chased (Feigned Retreat): a broken violet ring, slowed and taking more damage. */

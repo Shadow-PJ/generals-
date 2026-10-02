@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseOrder } from '../cards/parser';
 import type { Card } from '../cards/types';
-import { STARTER_ARMY } from '../data/armies';
+import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
 import { DEBUG_DEFAULT_RANK } from '../data/ranks';
 import { newProfile, readProfile, writeProfile, type Profile } from './profile';
 
@@ -19,7 +19,11 @@ function saved(): Profile {
   profile.rank = 5;
   profile.tactical = true;
   profile.general = 'warlord';
-  profile.codex = ['feignedRetreat', 'finisher'];
+  profile.codex = ['feignedRetreat', 'finisher', 'ironWall'];
+  profile.placement[1] = { cls: 'assassin', x: 260, y: 320 };
+  profile.reserves = ['invoker', 'assassin', 'guardian'];
+  profile.specs = { vanguard: 'bulwark', invoker: 'pyromancer' };
+  profile.enemyArmy = 'mirror';
   return profile;
 }
 
@@ -33,6 +37,22 @@ describe('the saved profile', () => {
     expect(profile.tactical).toBe(false);
     expect(profile.general).toBe('captain');
     expect(profile.codex).toEqual([]);
+    expect(profile.reserves).toEqual(STARTER_RESERVES);
+    expect(profile.specs).toEqual({});
+    expect(profile.enemyArmy).toBe('starter');
+  });
+
+  it('keeps only reserves of real classes, specializations of the right class and a known enemy army', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.reserves = ['invoker', 'dragon', 'guardian'];
+    data.specs = { vanguard: 'sniper', ranger: 'sniper', mage: 'pyromancer', guardian: 7 };
+    data.enemyArmy = 'everyone';
+    const profile = readProfile(JSON.stringify(data));
+    expect(profile.reserves).toEqual(STARTER_RESERVES);
+    expect(profile.specs).toEqual({ ranger: 'sniper' });
+    expect(profile.enemyArmy).toBe('starter');
+    const { reserves: _r, specs: _s, enemyArmy: _e, ...older } = saved();
+    expect(readProfile(JSON.stringify(older))).toMatchObject({ reserves: STARTER_RESERVES, specs: {}, enemyArmy: 'starter' });
   });
 
   it('keeps only real Combo Codex entries, once each, in Codex order; older saves have none', () => {
@@ -76,8 +96,11 @@ describe('the saved profile', () => {
     expect(readProfile(JSON.stringify(data)).placement).toEqual(STARTER_ARMY);
     data.placement = data.placement.slice(0, 3);
     expect(readProfile(JSON.stringify(data)).placement).toEqual(STARTER_ARMY);
-    data.placement = STARTER_ARMY.map((t) => ({ ...t, cls: 'ranger' }));
+    data.placement = STARTER_ARMY.map((t) => ({ ...t, cls: 'dragon' }));
     expect(readProfile(JSON.stringify(data)).placement).toEqual(STARTER_ARMY);
+    // Any 5 real classes will do: the debug Troops screen picks them.
+    data.placement = STARTER_ARMY.map((t) => ({ ...t, cls: 'invoker' }));
+    expect(readProfile(JSON.stringify(data)).placement).toEqual(data.placement);
   });
 
   it('keeps a card the current rank does not allow; the validator decides when it is used', () => {

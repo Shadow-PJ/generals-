@@ -36,6 +36,10 @@ export const COLORS = {
   momentum: 0xf59e0b,
   chased: 0xc4b5fd,
   stun: 0xfde047,
+  /** Rifts by element: plain, fire (Pyromancer), frost (Frostcaller). */
+  rift: { arcane: 0xa78bfa, fire: 0xfb923c, frost: 0x7dd3fc },
+  silenced: 0xf0abfc,
+  taunt: 0xf87171,
 } as const;
 
 export const TEXT = {

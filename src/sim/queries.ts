@@ -11,6 +11,11 @@ export function livingEnemies(state: BattleState, unit: Unit): Unit[] {
   return state.units.filter((u) => u.alive && u.side !== unit.side);
 }
 
+/** Living enemies the unit can pick as a target: all but the invisible ones. */
+export function visibleEnemies(state: BattleState, unit: Unit): Unit[] {
+  return state.units.filter((u) => u.alive && u.side !== unit.side && u.invisibleTicks <= 0);
+}
+
 /** Living units on the same side, not counting the unit itself. */
 export function livingAllies(state: BattleState, unit: Unit): Unit[] {
   return state.units.filter((u) => u.alive && u.side === unit.side && u.id !== unit.id);

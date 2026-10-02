@@ -34,8 +34,8 @@ export function currentPlatform(): Platform {
 
 /** Your troops, cards, rank, Tactical mode and General as last saved. */
 export function savedSetup(): MatchSetup {
-  const { placement, loadout, rank, tactical, general } = structuredClone(profile);
-  return { placement, loadout, rank, tactical, general };
+  const { placement, loadout, rank, tactical, general, reserves, specs, enemyArmy } = structuredClone(profile);
+  return { placement, loadout, rank, tactical, general, reserves, specs, enemyArmy };
 }
 
 /** Saves your troops, cards, rank, Tactical mode and General. Resolves once the file is written. */
@@ -48,6 +48,9 @@ export function remember(setup: MatchSetup): Promise<void> {
     tactical: setup.tactical,
     general: setup.general,
     codex: profile.codex,
+    reserves: [...setup.reserves],
+    specs: { ...setup.specs },
+    enemyArmy: setup.enemyArmy,
   };
   return write(PROFILE_FILE, writeProfile(profile));
 }

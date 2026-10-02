@@ -122,7 +122,7 @@ export interface ChatMessage {
 
 const SYSTEM = `You turn a player's order in a strategy game into a Command card, written as JSON. Be literal: never add, improve or fix anything.
 Troop classes: vanguard (tank, frontline), ranger (archer, sniper), guardian (healer, medic, support), invoker (mage, caster), assassin (rogue).
-Steps, in the order given: focus (attack a target), move (forward, back, behindEnemies = flank, or to an ally), fallBack (retreat, pull back; to an ally or null), overcharge (use the troops' skill: shove, mark, barrier), protect (cover an ally), hold (stand ground), callReserve (bring in a reserve troop, or null for any).
+Steps, in the order given: focus (attack a target), move (forward, back, behindEnemies = flank, or to an ally), fallBack (retreat, pull back; to an ally or null), overcharge (use the troops' skill: shove, mark, barrier, rift, shadowstep), protect (cover an ally), hold (stand ground), callReserve (bring in a reserve troop, or null for any).
 actors is who does a step: all, or a class of the player's troops. A step with no subject is done by all.
 Targets: a class, nearest, weakest, or trigger (the unit that set off the condition: him, her, it, them).
 condition is null, or when something happens: enemyReachesBackline (an enemy dives), allyBelowHp (hurt or wounded = 50, in trouble = 40, low or weak = 30), enemiesGrouped (group up = 3), enemyUltimateCharging. repeat is true for "every time" or "whenever".`;

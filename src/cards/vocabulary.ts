@@ -159,7 +159,15 @@ export const OVERCHARGE_VERBS = [
   'use ability', 'fire your skill', 'fire your skills', 'pop your skill', 'pop skills', 'unleash',
 ];
 /** Skill names that mean "Overcharge" for the class that owns the skill. */
-export const SKILL_VERBS: Record<string, TroopClass> = { shove: 'vanguard' };
+export const SKILL_VERBS: Record<string, TroopClass> = {
+  shove: 'vanguard',
+  rift: 'invoker',
+  'open a rift': 'invoker',
+  'cast a rift': 'invoker',
+  'cast rift': 'invoker',
+  shadowstep: 'assassin',
+  'shadow step': 'assassin',
+};
 export const SKILL_OBJECTS = ['them', 'them back', 'back', 'the enemy', 'the enemy back'];
 
 export const RESERVE_VERBS = ['call in', 'call', 'bring in', 'bring', 'send in', 'send', 'summon', 'deploy'];

@@ -5,8 +5,9 @@ import { BATTLE_RULES } from '../data/battle';
 import { circleOverlapsRect, distance, type Point } from './geometry';
 import { findPath, isLineClear } from './navigation';
 import { orderPower } from './queries';
+import { speedFactor } from './status';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
-import type { BattleState, Unit } from './types';
+import type { BattleState, Knockback, Unit } from './types';
 
 /** True if a body of this radius fits at (x, y): inside the map and touching no standing wall. */
 export function isSpaceFree(state: BattleState, x: number, y: number, radius: number): boolean {
@@ -42,10 +43,9 @@ export function moveUnitBy(state: BattleState, unit: Unit, dx: number, dy: numbe
   unit.y = to.y;
 }
 
-/** Distance a unit covers in one tick; a Perfect card order makes it faster, Feigned Retreat slower. */
+/** Distance a unit covers in one tick; a Perfect card order makes it faster, slows and Feigned Retreat slower. */
 export function stepLength(unit: Unit): number {
-  const slow = unit.chased ? 1 - unit.chased.slow : 1;
-  return (unit.stats.moveSpeed * orderPower(unit) * slow) / TICKS_PER_SECOND;
+  return (unit.stats.moveSpeed * orderPower(unit) * speedFactor(unit)) / TICKS_PER_SECOND;
 }
 
 /** The point the unit should walk toward right now to reach the goal, going around walls. */
@@ -82,14 +82,18 @@ export function stepAwayFrom(unit: Unit, from: Point): Point | null {
   return { x: ((unit.x - from.x) / d) * step, y: ((unit.y - from.y) / d) * step };
 }
 
-/** Moves shoved units along their push; walls stop them. */
-export function updateKnockbacks(state: BattleState): void {
+/** Moves shoved units along their push; walls stop them. Returns each unit pushed this tick, with its push. */
+export function updateKnockbacks(state: BattleState): { unit: Unit; push: Knockback }[] {
+  const pushed: { unit: Unit; push: Knockback }[] = [];
   for (const unit of state.units) {
     if (!unit.alive || !unit.knockback) continue;
-    moveUnitBy(state, unit, unit.knockback.dx, unit.knockback.dy);
-    unit.knockback.ticksLeft -= 1;
-    if (unit.knockback.ticksLeft <= 0) unit.knockback = null;
+    const push = unit.knockback;
+    moveUnitBy(state, unit, push.dx, push.dy);
+    pushed.push({ unit, push });
+    push.ticksLeft -= 1;
+    if (push.ticksLeft <= 0) unit.knockback = null;
   }
+  return pushed;
 }
 
 /**
