@@ -1,10 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    "lib": [
+      "ES2022"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noUnusedLocals": true,
@@ -15,5 +19,12 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["tools", "vite.config.ts", "desktop/**/*.test.ts"]
+  "include": [
+    "tools",
+    "vite.config.ts",
+    "desktop/**/*.test.ts"
+  ],
+  "exclude": [
+    "tools/eval/model/page.ts"
+  ]
 }
