@@ -1,0 +1,60 @@
+# Measures the small order-reading models in a real browser (headless Chromium, the same engine
+# as the desktop app): accuracy on the held-out test orders, speed and download size. Runs on a
+# push that changes the model setup, its prompt or the test orders (it takes about half an hour,
+# so not on every push), and on demand from the Actions tab. The reports are on each run's
+# summary page and attached as downloads.
+name: Model eval
+
+on:
+  push:
+    paths:
+      - 'tools/eval/**'
+      - 'tools/dataset/natural.txt'
+      - 'src/cards/modelFormat.ts'
+      - 'src/platform/model.ts'
+      - 'src/platform/models.ts'
+  workflow_dispatch:
+
+concurrency:
+  group: model-eval-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    strategy:
+      fail-fast: false
+      matrix:
+        model: [qwen2.5-0.5b, smollm2-360m]
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Download the model once
+        run: |
+          url=$(npx tsx -e "import { ORDER_MODELS } from './src/platform/models'; console.log(ORDER_MODELS.find((m) => m.id === '${{ matrix.model }}')!.url)")
+          echo "Downloading $url"
+          curl -fL --retry 3 -o "$RUNNER_TEMP/model.gguf" "$url"
+          ls -la "$RUNNER_TEMP/model.gguf"
+      - name: Desktop app (all threads, cross-origin isolated), test orders for up to 45 minutes
+        timeout-minutes: 60
+        run: npx tsx tools/eval/model/run.ts --model ${{ matrix.model }} --model-file "$RUNNER_TEMP/model.gguf" --threads 0 --isolated --minutes 45 --out report-desktop.md
+      - name: Browser build (1 thread), test orders for up to 12 minutes, for speed
+        if: always()
+        timeout-minutes: 25
+        run: npx tsx tools/eval/model/run.ts --model ${{ matrix.model }} --model-file "$RUNNER_TEMP/model.gguf" --threads 1 --limit 40 --minutes 12 --out report-browser.md
+      - name: Summary
+        if: always()
+        run: cat report-desktop.md report-browser.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-eval-${{ matrix.model }}
+          path: report-*.md

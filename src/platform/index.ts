@@ -6,6 +6,8 @@ import { createBrowserPlatform } from './browser';
 import { createDesktopPlatform } from './desktop';
 import type { Platform } from './types';
 
+export type { ChatTurn, LoadOptions, LocalModel } from './model';
+export { ORDER_MODELS, type ModelChoice } from './models';
 export type { Display, FileName, Files, Platform } from './types';
 export { windowScales } from './windowSizes';
 

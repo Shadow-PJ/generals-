@@ -1,6 +1,7 @@
 // The browser build: files live in the browser's local storage, fullscreen uses the
 // Fullscreen API, and the window size is the browser's business.
 
+import { loadLocalModel } from './model';
 import type { Display, FileName, Files, Platform } from './types';
 
 const KEY_PREFIX = 'generals/';
@@ -67,5 +68,6 @@ export function createBrowserPlatform(): Platform {
     openSaveFolder: null,
     quit: null,
     ready() {},
+    loadModel: loadLocalModel,
   };
 }

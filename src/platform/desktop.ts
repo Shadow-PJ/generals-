@@ -3,6 +3,7 @@
 // (on Windows, %APPDATA%\Generals), where Steam Cloud can pick up the saves.
 
 import type { DesktopBridge } from './bridge';
+import { loadLocalModel } from './model';
 import type { Platform } from './types';
 
 export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Platform> {
@@ -42,5 +43,7 @@ export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Plat
       shown = true;
       bridge.ready();
     },
+    // The app's page is cross-origin isolated, so the model can use several threads.
+    loadModel: loadLocalModel,
   };
 }

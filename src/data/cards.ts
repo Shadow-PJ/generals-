@@ -33,6 +33,11 @@ export const CARD_RULES = {
   builderGroupedChoices: [3, 4, 5],
 } as const;
 
+export const TRANSLATOR_RULES = {
+  /** If the small model hasn't read an order by then, the rule parser's answer is used. */
+  modelTimeoutSeconds: 20,
+} as const;
+
 /** What words like "hurt" or "low" mean as an HP threshold, in percent. */
 export const HURT_WORDS: Readonly<Record<string, number>> = {
   hurt: 50,
