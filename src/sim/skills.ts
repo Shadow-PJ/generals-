@@ -33,20 +33,23 @@ export function shoveTargets(state: BattleState, vanguard: Unit): Unit[] {
   return livingEnemies(state, vanguard).filter((e) => edgeDistance(vanguard, e) <= range);
 }
 
-/** Shove: pushes every nearby enemy straight away from the Vanguard and deals a little damage. */
-export function castShove(state: BattleState, vanguard: Unit): void {
+/**
+ * Shove: pushes every nearby enemy straight away from the Vanguard and deals a little damage.
+ * `power` above 1 (a Perfect Overcharge) pushes further and hits harder.
+ */
+export function castShove(state: BattleState, vanguard: Unit, power = 1): void {
   const shove = UNIT_CLASSES.vanguard.shove;
   const targets = shoveTargets(state, vanguard);
   if (targets.length === 0) return;
   const pushTicks = Math.max(1, secondsToTicks(shove.pushSeconds));
-  const perTick = shove.pushDistance / pushTicks;
+  const perTick = (shove.pushDistance * power) / pushTicks;
   for (const target of targets) {
     const d = distance(vanguard.x, vanguard.y, target.x, target.y);
     // Two units on the same spot: push toward the enemy's side of the map.
     const nx = d === 0 ? (vanguard.side === 'player' ? 1 : -1) : (target.x - vanguard.x) / d;
     const ny = d === 0 ? 0 : (target.y - vanguard.y) / d;
     target.knockback = { dx: nx * perTick, dy: ny * perTick, ticksLeft: pushTicks };
-    dealDamage(state, vanguard.id, target, shove.damage, vanguard.stats.armorPierce, 'shove');
+    dealDamage(state, vanguard.id, target, shove.damage * power, vanguard.stats.armorPierce, 'shove');
   }
   vanguard.skillCooldown = skillCooldownTicks('vanguard');
   state.events.push({
@@ -58,18 +61,18 @@ export function castShove(state: BattleState, vanguard: Unit): void {
   });
 }
 
-/** Mark: the target takes extra damage from every source for a while. */
-export function castMark(state: BattleState, ranger: Unit, target: Unit): void {
+/** Mark: the target takes extra damage from every source for a while (longer with more `power`). */
+export function castMark(state: BattleState, ranger: Unit, target: Unit, power = 1): void {
   const mark = UNIT_CLASSES.ranger.mark;
-  target.mark = { ticksLeft: secondsToTicks(mark.durationSeconds), damageTakenBonus: mark.damageTakenBonus };
+  target.mark = { ticksLeft: secondsToTicks(mark.durationSeconds * power), damageTakenBonus: mark.damageTakenBonus };
   ranger.skillCooldown = skillCooldownTicks('ranger');
   state.events.push({ tick: state.tick, type: 'skill', unitId: ranger.id, skill: 'mark', targetIds: [target.id] });
 }
 
 /** Barrier: shields one ally; the shield soaks damage before HP until it breaks or runs out. */
-export function castBarrier(state: BattleState, guardian: Unit, target: Unit): void {
+export function castBarrier(state: BattleState, guardian: Unit, target: Unit, power = 1): void {
   const barrier = UNIT_CLASSES.guardian.barrier;
-  target.barrier = { amount: barrier.amount, ticksLeft: secondsToTicks(barrier.durationSeconds) };
+  target.barrier = { amount: Math.round(barrier.amount * power), ticksLeft: secondsToTicks(barrier.durationSeconds) };
   guardian.skillCooldown = skillCooldownTicks('guardian');
   state.events.push({ tick: state.tick, type: 'skill', unitId: guardian.id, skill: 'barrier', targetIds: [target.id] });
 }

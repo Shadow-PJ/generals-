@@ -3,7 +3,7 @@
 
 import Phaser from 'phaser';
 import { emptyLoadout } from '../../cards/types';
-import { STARTER_ARMY, STARTER_ARMY_MIRRORED, type TroopPlacement } from '../../data/armies';
+import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES, type TroopPlacement } from '../../data/armies';
 import { DEBUG_DEFAULT_RANK, type RankNumber } from '../../data/ranks';
 import { OPEN_FIELD } from '../../data/maps';
 import { UNIT_CLASSES } from '../../data/units';
@@ -11,7 +11,7 @@ import { placementProblem } from '../../sim';
 import { drawBody, drawField, drawWall, drawZone } from '../draw';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
-import { COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
 /** How fast the arrow keys move a troop, in world units per second. */
@@ -38,6 +38,7 @@ export class PrepScene extends Phaser.Scene {
       placement: data.placement ?? STARTER_ARMY,
       loadout: data.loadout ?? emptyLoadout(),
       rank: data.rank ?? (this.registry.get('rank') as RankNumber | undefined) ?? DEBUG_DEFAULT_RANK,
+      tactical: data.tactical ?? (this.registry.get('tactical') as boolean | undefined) ?? false,
     };
     this.placement = this.setup.placement.map((t) => ({ ...t }));
     this.selected = 0;
@@ -67,6 +68,21 @@ export class PrepScene extends Phaser.Scene {
     this.graphics = this.add.graphics();
     this.label = this.add.text(0, 0, '', textStyle(12, TEXT.title)).setOrigin(0.5, 1);
     world.add([field, this.graphics, this.label]);
+
+    // Your 3 reserves wait off the field until a Call Reserve card brings them in.
+    this.add.text(16, BOTTOM_BAR_Y + 16, 'RESERVES', textStyle(12, TEXT.muted, true));
+    const reserves = this.add.graphics();
+    STARTER_RESERVES.forEach((cls, i) => {
+      const x = 120 + i * 120;
+      drawBody(reserves, cls, 'player', x, BOTTOM_BAR_Y + 24, UNIT_CLASSES[cls].stats.radius, x + 100, 0);
+      this.add.text(x + 22, BOTTOM_BAR_Y + 16, UNIT_CLASSES[cls].name, textStyle(12));
+    });
+    this.add.text(
+      16,
+      BOTTOM_BAR_Y + 52,
+      'They join the battle at your edge of the map when you fire a Call Reserve card (Rank III).',
+      textStyle(12, TEXT.muted),
+    );
 
     this.actions = new InputLayer(this)
       .on('next', () => this.cycleSelection(1))

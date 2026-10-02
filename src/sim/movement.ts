@@ -4,6 +4,7 @@
 import { BATTLE_RULES } from '../data/battle';
 import { circleOverlapsRect, distance, type Point } from './geometry';
 import { findPath, isLineClear } from './navigation';
+import { orderPower } from './queries';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
 import type { BattleState, Unit } from './types';
 
@@ -41,9 +42,9 @@ export function moveUnitBy(state: BattleState, unit: Unit, dx: number, dy: numbe
   unit.y = to.y;
 }
 
-/** Distance a unit covers in one tick. */
+/** Distance a unit covers in one tick; a Perfect card order makes it faster. */
 export function stepLength(unit: Unit): number {
-  return unit.stats.moveSpeed / TICKS_PER_SECOND;
+  return (unit.stats.moveSpeed * orderPower(unit)) / TICKS_PER_SECOND;
 }
 
 /** The point the unit should walk toward right now to reach the goal, going around walls. */

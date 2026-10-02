@@ -63,15 +63,15 @@ Done when: parser and validator tests pass, and cards save to slots.
 
 ### 2B. Cards in battle
 
-- [ ] Slot bar: keys 1 to 4, key 5 for the Legendary slot (locked for now), U for the ultimate
-- [ ] Slots glow when their condition is met and rest 8 s after firing
-- [ ] Command pips: start at 2, +1 every 6 s, max set by rank, double refill after losing half your troops
-- [ ] Perfect timing: a manual card fired during its glow gets +25% effect and 1 pip back
-- [ ] Momentum bar and the Captain's ultimate, Rally
-- [ ] 3 reserve troops and Call Reserve
-- [ ] Threat Readout warnings over units
-- [ ] Tactical mode setting that pauses every 10 s
-- [ ] Every key press is logged by tick, so a seed plus its input log replays the same battle
+- [x] Slot bar: keys 1 to 4, key 5 for the Legendary slot (locked for now), U for the ultimate
+- [x] Slots glow when their condition is met and rest 8 s after firing
+- [x] Command pips: start at 2, +1 every 6 s, max set by rank, double refill after losing half your troops
+- [x] Perfect timing: a manual card fired during its glow gets +25% effect and 1 pip back
+- [x] Momentum bar and the Captain's ultimate, Rally
+- [x] 3 reserve troops and Call Reserve
+- [x] Threat Readout warnings over units
+- [x] Tactical mode setting that pauses every 10 s
+- [x] Every key press is logged by tick, so a seed plus its input log replays the same battle
 
 Done when: you can win a battle with cards, and the replay test passes.
 

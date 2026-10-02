@@ -1,6 +1,5 @@
 // What each key does, as named actions. Screens listen for actions, never for keys, so a
 // controller layout can map onto the same actions in session 6C.
-// Keys 1 to 5 and U stay free for the card slots and the ultimate (session 2B).
 
 export type InputAction =
   | 'confirm'
@@ -14,7 +13,16 @@ export type InputAction =
   | 'up'
   | 'down'
   | 'left'
-  | 'right';
+  | 'right'
+  | 'slot1'
+  | 'slot2'
+  | 'slot3'
+  | 'slot4'
+  | 'slot5'
+  | 'ultimate';
+
+/** The card slot actions, in slot order. */
+export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
 
 /** Keyboard keys for each action, as KeyboardEvent.code values. */
 export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>> = {
@@ -30,6 +38,12 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   down: ['ArrowDown', 'KeyS'],
   left: ['ArrowLeft', 'KeyA'],
   right: ['ArrowRight', 'KeyD'],
+  slot1: ['Digit1', 'Numpad1'],
+  slot2: ['Digit2', 'Numpad2'],
+  slot3: ['Digit3', 'Numpad3'],
+  slot4: ['Digit4', 'Numpad4'],
+  slot5: ['Digit5', 'Numpad5'],
+  ultimate: ['KeyU'],
 };
 
 const ACTION_BY_CODE = new Map<string, InputAction>();

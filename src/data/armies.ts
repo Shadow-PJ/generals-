@@ -23,3 +23,6 @@ export const STARTER_ARMY_MIRRORED: TroopPlacement[] = STARTER_ARMY.map((t) => (
   ...t,
   x: OPEN_FIELD.width - t.x,
 }));
+
+/** Your 3 reserve troops, called in by a Call Reserve card. They arrive at your edge of the map. */
+export const STARTER_RESERVES: UnitClass[] = ['vanguard', 'ranger', 'guardian'];

@@ -15,7 +15,7 @@ import { builderRows, cycleRow, newDraft, type BuilderRow } from '../cardBuilder
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
-import { COLORS, FONT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
 const SLOT_COUNT = 4;
@@ -25,10 +25,11 @@ const SLOT_H = 84;
 const PANEL_X = 332;
 const ROWS_Y = 214;
 const ROW_H = 20;
-/** Fixed rows above the card's menus: the rank switch and the typed order. */
+/** Fixed rows above the card's menus: the rank switch, Tactical mode and the typed order. */
 const RANK_ROW = 0;
-const TEXT_ROW = 1;
-const FIRST_MENU_ROW = 2;
+const TACTICAL_ROW = 1;
+const TEXT_ROW = 2;
+const FIRST_MENU_ROW = 3;
 
 export class OrdersScene extends Phaser.Scene {
   private setup!: MatchSetup;
@@ -50,6 +51,7 @@ export class OrdersScene extends Phaser.Scene {
       placement: data.placement ?? STARTER_ARMY.map((t) => ({ ...t })),
       loadout: data.loadout ?? emptyLoadout(),
       rank,
+      tactical: data.tactical ?? (this.registry.get('tactical') as boolean | undefined) ?? false,
     };
     this.drafts = this.setup.loadout.slots.map((card) => (card ? structuredClone(card) : newDraft()));
     this.slot = 0;
@@ -63,7 +65,7 @@ export class OrdersScene extends Phaser.Scene {
     this.add.text(
       16,
       38,
-      'Type an order, or build it below: ↑↓ pick a line, ←→ change it. Enter saves to the slot, Tab switches slots.',
+      '↑↓ pick a line, ←→ change it, Enter saves to the slot, Tab switches slots.',
       textStyle(12, TEXT.muted),
     );
 
@@ -97,10 +99,10 @@ export class OrdersScene extends Phaser.Scene {
     });
     addButton(this, GAME_WIDTH - 66, 96, 'Translate  ⏎', () => this.translate(), 100, 28);
 
-    addButton(this, SLOT_X + 72, 576, '◀ Troops  Esc', () => this.backToTroops(), 140, 32);
-    addButton(this, SLOT_X + 224, 576, 'Start battle  B', () => this.startBattle(), 150, 32);
-    addButton(this, GAME_WIDTH - 236, 576, 'Save to slot  ⏎', () => this.save(), 150, 32);
-    addButton(this, GAME_WIDTH - 82, 576, 'Clear slot  Del', () => this.clear(), 140, 32);
+    addButton(this, SLOT_X + 72, GAME_HEIGHT - 34, '◀ Troops  Esc', () => this.backToTroops(), 140, 32);
+    addButton(this, SLOT_X + 224, GAME_HEIGHT - 34, 'Start battle  B', () => this.startBattle(), 150, 32);
+    addButton(this, GAME_WIDTH - 236, GAME_HEIGHT - 34, 'Save to slot  ⏎', () => this.save(), 150, 32);
+    addButton(this, GAME_WIDTH - 82, GAME_HEIGHT - 34, 'Clear slot  Del', () => this.clear(), 140, 32);
 
     this.ui = this.add.container(0, 0);
 
@@ -142,6 +144,9 @@ export class OrdersScene extends Phaser.Scene {
       const rank = Math.max(1, Math.min(RANKS.length, this.setup.rank + step)) as RankNumber;
       this.setup.rank = rank;
       this.registry.set('rank', rank);
+    } else if (this.row === TACTICAL_ROW) {
+      this.setup.tactical = !this.setup.tactical;
+      this.registry.set('tactical', this.setup.tactical);
     } else if (this.row >= FIRST_MENU_ROW) {
       const r = this.menuRows()[this.row - FIRST_MENU_ROW];
       if (r) this.draft = cycleRow(this.draft, r.id, step);
@@ -223,13 +228,19 @@ export class OrdersScene extends Phaser.Scene {
 
   private renderRank(): void {
     const rules = rankRules(this.setup.rank);
-    const selected = this.row === RANK_ROW;
     const x = GAME_WIDTH - 300;
-    if (selected) this.ui.add(this.add.rectangle(x - 6, 12, 292, 26, 0x2b3a50).setOrigin(0));
-    this.ui.add(this.add.text(x, 16, 'Rank (debug)', textStyle(12, TEXT.muted)));
-    this.arrows(x + 96, 25, 180, `${rules.numeral} · ${rules.name}`, (d) => {
-      this.row = RANK_ROW;
-      this.change(d);
+    const lines: [number, string, string][] = [
+      [RANK_ROW, 'Rank (debug)', `${rules.numeral} · ${rules.name}`],
+      [TACTICAL_ROW, 'Tactical mode', this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
+    ];
+    lines.forEach(([row, label, value], i) => {
+      const y = 6 + i * 24;
+      if (this.row === row) this.ui.add(this.add.rectangle(x - 6, y, 292, 22, 0x2b3a50).setOrigin(0));
+      this.ui.add(this.add.text(x, y + 4, label, textStyle(12, TEXT.muted)));
+      this.arrows(x + 96, y + 11, 180, value, (d) => {
+        this.row = row;
+        this.change(d);
+      });
     });
   }
 

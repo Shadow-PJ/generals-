@@ -14,9 +14,16 @@ describe('key bindings', () => {
     expect(actionForKey('KeyQ')).toBeUndefined();
   });
 
-  it('leaves keys 1 to 5 and U free for the card slots and the ultimate', () => {
-    const used = Object.values(KEYBOARD_BINDINGS).flat();
-    for (const code of ['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'KeyU']) expect(used).not.toContain(code);
+  it('fires card slots with keys 1 to 5 and the ultimate with U', () => {
+    expect(['Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5'].map((code) => actionForKey(code))).toEqual([
+      'slot1',
+      'slot2',
+      'slot3',
+      'slot4',
+      'slot5',
+    ]);
+    expect(actionForKey('Numpad3')).toBe('slot3');
+    expect(actionForKey('KeyU')).toBe('ultimate');
   });
 
   it('gives each key at most one action', () => {

@@ -1,17 +1,27 @@
 // The battle loop: create a battle from a setup, then advance it one fixed tick at a time.
 
 import { BATTLE_RULES } from '../data/battle';
-import type { TroopPlacement } from '../data/armies';
-import { UNIT_CLASSES } from '../data/units';
 import { think, type Action, type SkillCast } from './behaviors';
+import { applyInput, createCommand, updateCommand } from './command';
 import { performAttack, updateProjectiles } from './combat';
 import { isSpaceFree, moveUnitBy, separateUnits, stepAwayFrom, updateKnockbacks, walkToward } from './movement';
+import { advanceOrders, orderIntent, tickOrder } from './orders';
 import { overtimeStartTick } from './overtime';
 import { findUnit, livingUnits } from './queries';
-import { createRng, nextInt, type RngState } from './rng';
-import { castBarrier, castMark, castShove, initialSkillCooldownTicks } from './skills';
-import { attackIntervalTicks, secondsToTicks } from './time';
-import { SIDES, type BattleSetup, type BattleState, type Side, type Unit, type Wall, type Winner } from './types';
+import { createRng } from './rng';
+import { castBarrier, castMark, castShove } from './skills';
+import { createUnit } from './spawn';
+import { secondsToTicks } from './time';
+import {
+  SIDES,
+  type BattleInput,
+  type BattleSetup,
+  type BattleState,
+  type Side,
+  type Unit,
+  type Wall,
+  type Winner,
+} from './types';
 import { rebuildNav } from './walls';
 
 export function createBattle(setup: BattleSetup): BattleState {
@@ -48,6 +58,13 @@ export function createBattle(setup: BattleSetup): BattleState {
     },
     events: [],
     result: null,
+    command: createCommand('player', setup.rank ?? 1, setup.loadout),
+    reserves: {
+      player: [...(setup.reserves?.player ?? [])],
+      enemy: [...(setup.reserves?.enemy ?? [])],
+    },
+    tactical: setup.tactical ?? false,
+    inputLog: [],
   };
   rebuildNav(state);
 
@@ -59,43 +76,30 @@ export function createBattle(setup: BattleSetup): BattleState {
   return state;
 }
 
-function createUnit(id: number, side: Side, placement: TroopPlacement, rng: RngState): Unit {
-  const stats = { ...UNIT_CLASSES[placement.cls].stats };
-  return {
-    id,
-    side,
-    cls: placement.cls,
-    stats,
-    x: placement.x,
-    y: placement.y,
-    hp: stats.maxHp,
-    alive: true,
-    targetId: null,
-    // Spread first attacks out so a whole army doesn't swing on the same tick.
-    attackCooldown: nextInt(rng, attackIntervalTicks(stats.attacksPerSecond)),
-    skillCooldown: initialSkillCooldownTicks(placement.cls),
-    mark: null,
-    barrier: null,
-    knockback: null,
-    lastHitBy: null,
-    path: [],
-    repathTick: 0,
-  };
-}
-
 function totalMaxHp(units: Unit[], side: Side): number {
   return units.filter((u) => u.side === side).reduce((sum, u) => sum + u.stats.maxHp, 0);
 }
 
-/** Advances the battle by one tick (1/20 s). Does nothing once the battle is over. */
-export function stepBattle(state: BattleState): void {
+/**
+ * Advances the battle by one tick (1/20 s). `inputs` are the player's key presses for this tick;
+ * each is stamped with the tick it belongs to and logged, so the battle can be replayed.
+ * Does nothing once the battle is over.
+ */
+export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = []): void {
   if (state.result) return;
 
   if (state.tick === overtimeStartTick()) state.events.push({ tick: state.tick, type: 'overtime' });
+  updateCommand(state);
+  for (const input of inputs) applyInput(state, input);
+  advanceOrders(state);
   tickTimers(state);
 
-  // Decide: every unit looks at the same start-of-tick state.
-  const intents = state.units.map((u) => (u.alive && !u.knockback ? think(state, u) : null));
+  // Decide: every unit looks at the same start-of-tick state. Card orders come before a troop's own ideas.
+  const intents = state.units.map((u) => {
+    if (!u.alive || u.knockback) return null;
+    const own = think(state, u);
+    return orderIntent(state, u, own) ?? own;
+  });
 
   // Act, in id order: first every skill, while all units still stand where they decided,
   // then every move and attack. A unit shoved earlier in the tick still does what it
@@ -117,10 +121,19 @@ export function stepBattle(state: BattleState): void {
   state.tick += 1;
 }
 
-/** Runs a battle from start to finish and returns its final state. */
-export function runBattle(setup: BattleSetup): BattleState {
+/** Runs a battle from start to finish, feeding in the inputs at their ticks, and returns its final state. */
+export function runBattle(setup: BattleSetup, inputs: readonly BattleInput[] = []): BattleState {
   const state = createBattle(setup);
-  while (!state.result) stepBattle(state);
+  let next = 0;
+  const sorted = [...inputs].sort((a, b) => a.tick - b.tick);
+  while (!state.result) {
+    const now: BattleInput[] = [];
+    while (next < sorted.length && sorted[next]!.tick <= state.tick) {
+      if (sorted[next]!.tick === state.tick) now.push(sorted[next]!);
+      next++;
+    }
+    stepBattle(state, now);
+  }
   return state;
 }
 
@@ -131,6 +144,8 @@ function tickTimers(state: BattleState): void {
     if (unit.skillCooldown > 0) unit.skillCooldown -= 1;
     if (unit.mark && --unit.mark.ticksLeft <= 0) unit.mark = null;
     if (unit.barrier && --unit.barrier.ticksLeft <= 0) unit.barrier = null;
+    if (unit.rallyTicks > 0) unit.rallyTicks -= 1;
+    tickOrder(unit);
   }
 }
 
@@ -179,6 +194,8 @@ function resolveDeaths(state: BattleState): void {
     unit.knockback = null;
     unit.path = [];
     unit.targetId = null;
+    unit.orders = [];
+    unit.rallyTicks = 0;
     state.events.push({ tick: state.tick, type: 'death', unitId: unit.id, killerId: unit.lastHitBy });
   }
 }

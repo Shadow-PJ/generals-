@@ -59,3 +59,9 @@ export function mostHurt<T extends Unit>(units: readonly T[]): T | undefined {
   }
   return best;
 }
+
+/** How strongly the unit carries out its current card order: 1, or more after a Perfect timing. */
+export function orderPower(unit: Unit): number {
+  const order = unit.orders[0];
+  return order?.started ? order.power : 1;
+}
