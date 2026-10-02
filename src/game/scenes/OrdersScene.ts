@@ -218,7 +218,13 @@ export class OrdersScene extends Phaser.Scene {
       this.row = FIRST_MENU_ROW;
     } else {
       const loading = orderModelState();
-      const why = result.note ?? (loading.status === 'loading' ? `The small model is still loading (${Math.round(loading.progress * 100)}%).` : '');
+      const why =
+        result.note ??
+        (loading.status === 'loading'
+          ? `The small model is still loading (${Math.round(loading.progress * 100)}%).`
+          : loading.status === 'warming'
+            ? 'The small model is still getting ready.'
+            : '');
       this.status = { text: `${reply('notUnderstood')}  (${result.error}) ${why}`.trim(), color: TEXT.defeat };
     }
     this.render();

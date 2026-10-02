@@ -67,6 +67,8 @@ describe('the order-reading model in the game', () => {
     expect(orderModelState()).toEqual({ status: 'loading', name: first!.name, progress: 0.25 });
     expect(orderModelTranslator()).toBeNull();
     fake.loads[0]!.finish();
+    // It reads one practice order first, so the long prompt is ready for your first real one.
+    await flush();
     await flush();
     expect(orderModelState()).toEqual({ status: 'ready', name: first!.name, threads: 4 });
     expect(await orderModelTranslator()!.translate('chill')).toMatchObject({ ok: true, card: { steps: [{ action: 'hold' }] } });
@@ -86,6 +88,7 @@ describe('the order-reading model in the game', () => {
     syncOrderModel();
     fake.loads[0]!.finish();
     await flush();
+    await flush();
     await changeSettings({ orderModel: second!.id });
     syncOrderModel();
     expect(fake.unloaded).toEqual([first!.url]);
@@ -94,6 +97,7 @@ describe('the order-reading model in the game', () => {
     syncOrderModel();
     // A load that finishes after being switched off is thrown away.
     fake.loads[1]!.finish();
+    await flush();
     await flush();
     expect(orderModelState()).toEqual({ status: 'off' });
     expect(fake.unloaded).toEqual([first!.url, second!.url]);

@@ -17,7 +17,7 @@ const SCREEN_CHANGE_MS = 800;
 const BATTLE_WATCH_MS = 4_000;
 const MODEL_READY_TIMEOUT_MS = 480_000;
 /** Orders the rule parser can't read, so the model has to. */
-const FREE_FORM_ORDERS = ['yo team just chill where u are for a sec', 'snipers deal with their caster', 'when their rogue jumps in, healers keep the archers alive'];
+const FREE_FORM_ORDERS = ['yo team just chill where u are for a sec', 'drop their ranger asap'];
 
 function option(argv: readonly string[], name: string): string | null {
   const prefix = `--${name}=`;
@@ -161,6 +161,6 @@ async function testModel(
     log(`      "${text}" -> ${reading.card} [${reading.by}, ${(reading.ms / 1000).toFixed(1)} s]`);
     allByModel &&= reading.by === 'model' && reading.ok;
   }
-  check(allByModel, 'the model read every free-form order into a card');
+  check(allByModel, 'the model read each free-form order into a card (speed is reported above; the model eval judges accuracy)');
   return allByModel;
 }

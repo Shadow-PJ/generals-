@@ -230,6 +230,8 @@ function modelNote(state: ModelState, sizeMb: number): string {
       return `The rule parser reads simple orders at once. A small model on this computer can read free-form ones; it downloads once (about ${sizeMb} MB).`;
     case 'loading':
       return `Getting ${state.name} ready: ${Math.round(state.progress * 100)}%. The rule parser reads your orders meanwhile.`;
+    case 'warming':
+      return `${state.name} is reading its instructions (only the first time it starts). The rule parser reads your orders meanwhile.`;
     case 'ready':
       return `${state.name} is ready (${state.threads} thread${state.threads === 1 ? '' : 's'}). It reads the orders the rule parser can't.`;
     case 'failed':

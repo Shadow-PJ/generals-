@@ -64,7 +64,7 @@ jobs:
           path: release/Generals-Setup-*.exe
           if-no-files-found: error
 
-      - name: Order model in the desktop app - download it, then read 3 free-form orders
+      - name: Order model in the desktop app - download it, warm it up, then read 2 free-form orders
         shell: pwsh
         timeout-minutes: 12
         run: |

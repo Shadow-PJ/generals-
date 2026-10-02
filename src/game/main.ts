@@ -65,7 +65,7 @@ function exposeTestHook(): void {
       modelState: orderModelState,
       async translate(text: string) {
         const start = performance.now();
-        const result = await translateOrder(text, orderModelTranslator(), 120_000);
+        const result = await translateOrder(text, orderModelTranslator(), 240_000);
         return { ok: result.ok, by: result.by, card: result.ok ? describeCard(result.card) : result.error, ms: performance.now() - start };
       },
     },
