@@ -51,13 +51,13 @@ Goal: you write cards before battle and fire them during it. The game is fully p
 
 ### 2A. Cards and the card builder
 
-- [ ] Card format: optional condition, steps, targets, cost, Auto or manual; combined ("when X and Y") and repeating ("every time") conditions supported from the start, gated by rank
-- [ ] Actions: Focus, Move, Fall Back, Overcharge, Protect, Hold, Call Reserve
-- [ ] Conditions: an enemy class reaches your backline; an ally drops below a set HP; 3 or more enemies close together; the enemy ultimate is charging
-- [ ] Card builder screen: pick the condition, steps and targets from menus
-- [ ] Rule parser for simple English orders, tested on 50 or more example sentences
-- [ ] Validator that reads a rank rules table from `src/data` (rank set by a debug switch for now)
-- [ ] Rejected cards show the General's "not trained yet" line
+- [x] Card format: optional condition, steps, targets, cost, Auto or manual; combined ("when X and Y") and repeating ("every time") conditions supported from the start, gated by rank
+- [x] Actions: Focus, Move, Fall Back, Overcharge, Protect, Hold, Call Reserve
+- [x] Conditions: an enemy class reaches your backline; an ally drops below a set HP; 3 or more enemies close together; the enemy ultimate is charging
+- [x] Card builder screen: pick the condition, steps and targets from menus
+- [x] Rule parser for simple English orders, tested on 50 or more example sentences
+- [x] Validator that reads a rank rules table from `src/data` (rank set by a debug switch for now)
+- [x] Rejected cards show the General's "not trained yet" line
 
 Done when: parser and validator tests pass, and cards save to slots.
 

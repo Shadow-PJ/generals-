@@ -1,16 +1,15 @@
 // Shown over the finished battle: who won, how, and a rematch.
 
 import Phaser from 'phaser';
-import type { TroopPlacement } from '../../data/armies';
 import { formatBattleTime, type BattleResult } from '../../sim';
 import { InputLayer } from '../InputLayer';
+import type { MatchSetup } from '../match';
 import { resultReason, resultTitle } from '../resultText';
 import { newSeed } from '../seed';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
-export interface ResultData {
-  placement: TroopPlacement[];
+export interface ResultData extends MatchSetup {
   seed: number;
   result: BattleResult;
 }
@@ -49,11 +48,13 @@ export class ResultScene extends Phaser.Scene {
 
   private rematch(): void {
     this.scene.stop('Battle');
-    this.scene.start('Battle', { placement: this.setup.placement, seed: newSeed() });
+    const { placement, loadout, rank } = this.setup;
+    this.scene.start('Battle', { placement, loadout, rank, seed: newSeed() });
   }
 
   private moveTroops(): void {
     this.scene.stop('Battle');
-    this.scene.start('Prep', { placement: this.setup.placement });
+    const { placement, loadout, rank } = this.setup;
+    this.scene.start('Prep', { placement, loadout, rank });
   }
 }

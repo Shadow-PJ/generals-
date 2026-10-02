@@ -7,8 +7,10 @@ export type InputAction =
   | 'back'
   | 'pause'
   | 'speed'
-  | 'nextUnit'
-  | 'prevUnit'
+  | 'next'
+  | 'prev'
+  | 'clear'
+  | 'start'
   | 'up'
   | 'down'
   | 'left'
@@ -20,8 +22,10 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   back: ['Escape', 'Backspace'],
   pause: ['Space', 'KeyP'],
   speed: ['KeyF'],
-  nextUnit: ['Tab'],
-  prevUnit: [],
+  next: ['Tab'],
+  prev: [],
+  clear: ['Delete'],
+  start: ['KeyB'],
   up: ['ArrowUp', 'KeyW'],
   down: ['ArrowDown', 'KeyS'],
   left: ['ArrowLeft', 'KeyA'],
@@ -35,6 +39,6 @@ for (const [action, codes] of Object.entries(KEYBOARD_BINDINGS) as [InputAction,
 
 /** The action a key press means, if any. Shift+Tab steps backward. */
 export function actionForKey(code: string, shiftKey = false): InputAction | undefined {
-  if (code === 'Tab' && shiftKey) return 'prevUnit';
+  if (code === 'Tab' && shiftKey) return 'prev';
   return ACTION_BY_CODE.get(code);
 }

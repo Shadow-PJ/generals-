@@ -7,8 +7,10 @@ describe('key bindings', () => {
     expect(actionForKey('Space')).toBe('pause');
     expect(actionForKey('KeyF')).toBe('speed');
     expect(actionForKey('ArrowLeft')).toBe('left');
-    expect(actionForKey('Tab')).toBe('nextUnit');
-    expect(actionForKey('Tab', true)).toBe('prevUnit');
+    expect(actionForKey('Tab')).toBe('next');
+    expect(actionForKey('Tab', true)).toBe('prev');
+    expect(actionForKey('Delete')).toBe('clear');
+    expect(actionForKey('KeyB')).toBe('start');
     expect(actionForKey('KeyQ')).toBeUndefined();
   });
 
