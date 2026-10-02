@@ -1,5 +1,6 @@
-// The small model that reads free-form orders, when it is switched on in Settings. It loads in
-// the background; until it is ready (or if it fails) the rule parser reads orders alone.
+// The experimental language model that reads the orders the parser and the order reader can't,
+// when it is switched on in Settings. It loads in the background; until it is ready (or if it
+// fails) the parser and reader read orders without it.
 // After loading it reads one practice order: the first reading also works through the long
 // prompt (by far the slowest part), and later readings reuse it, so your first order is quick.
 

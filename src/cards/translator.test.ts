@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseOrder } from './parser';
 import { CARD_GRAMMAR } from './modelFormat';
-import { modelTranslator, ruleParser, translateOrder, type Translator } from './translator';
+import { modelTranslator, readerTranslator, ruleParser, translateOrder, type Translator } from './translator';
 import type { Card } from './types';
 
 const holdCard: Card = { condition: null, steps: [{ action: 'hold', actors: { kind: 'all' } }], auto: false };
@@ -30,30 +30,48 @@ describe('translators', () => {
 
   it('read simple orders with the parser, without asking the model', async () => {
     const model = fakeModel('hold');
-    const result = await translateOrder('Everyone fall back', model, 1000);
+    const result = await translateOrder('Everyone fall back', [model], 1000);
     expect(result).toMatchObject({ ok: true, by: 'parser' });
     expect(model.calls).toEqual([]);
   });
 
   it('send orders the parser cannot read to the model', async () => {
     expect(parseOrder(FREE_FORM).ok).toBe(false);
-    const result = await translateOrder(FREE_FORM, fakeModel('hold'), 1000);
+    const result = await translateOrder(FREE_FORM, [fakeModel('hold')], 1000);
     expect(result).toMatchObject({ ok: true, by: 'model', card: { text: FREE_FORM, steps: holdCard.steps } });
   });
 
   it('fall back to the parser when there is no model, it fails, throws or is too slow', async () => {
     const parserAnswer = parseOrder(FREE_FORM);
-    expect(await translateOrder(FREE_FORM, null, 1000)).toEqual({ ...parserAnswer, by: 'parser' });
+    expect(await translateOrder(FREE_FORM, [null], 1000)).toEqual({ ...parserAnswer, by: 'parser' });
     for (const behaviour of ['fail', 'throw', 'slow'] as const) {
-      const result = await translateOrder(FREE_FORM, fakeModel(behaviour), 50);
+      const result = await translateOrder(FREE_FORM, [fakeModel(behaviour)], 50);
       expect(result, behaviour).toMatchObject({ ok: false, by: 'parser' });
       expect(result.note, behaviour).toBeTruthy();
     }
   });
 
+  it('ask the order reader next, and the model only for what the reader refuses', async () => {
+    const holdReader = readerTranslator({ read: (text) => ({ ok: true, card: { text, ...holdCard } }) });
+    const refusingReader = readerTranslator({ read: () => ({ ok: false, error: "I didn't catch that order." }) });
+    const model = fakeModel('hold');
+    expect(await translateOrder(FREE_FORM, [holdReader, model], 1000)).toMatchObject({ ok: true, by: 'reader' });
+    expect(model.calls).toEqual([]);
+    expect(await translateOrder(FREE_FORM, [refusingReader, model], 1000)).toMatchObject({ ok: true, by: 'model' });
+    expect(model.calls).toEqual([FREE_FORM]);
+    // With no model, a refusal leaves the parser's answer, quietly.
+    expect(await translateOrder(FREE_FORM, [refusingReader, null], 1000)).toEqual({ ...parseOrder(FREE_FORM), by: 'parser' });
+  });
+
+  it('pass on only the card from the reader, not its working', async () => {
+    const reading = { ok: true as const, card: { text: 'chill', ...holdCard }, sureness: 3, words: ['chill'] };
+    const reader = readerTranslator({ read: () => reading });
+    expect(await reader.translate('chill')).toEqual({ ok: true, card: { text: 'chill', ...holdCard } });
+  });
+
   it('do not bother the model with an empty order', async () => {
     const model = fakeModel('hold');
-    expect(await translateOrder('   ', model, 1000)).toMatchObject({ ok: false, by: 'parser' });
+    expect(await translateOrder('   ', [model], 1000)).toMatchObject({ ok: false, by: 'parser' });
     expect(model.calls).toEqual([]);
   });
 });

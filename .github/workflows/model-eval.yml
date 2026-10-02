@@ -1,14 +1,15 @@
-# Measures the small order-reading models in a real browser (headless Chromium, the same engine
-# as the desktop app): accuracy on the held-out test orders, speed and download size. Runs on a
-# push that changes the model setup, its prompt or the test orders (it takes about half an hour,
-# so not on every push), and on demand from the Actions tab. The reports are on each run's
-# summary page and attached as downloads.
+# Measures the experimental language models (session 3B) in a real browser (headless Chromium,
+# the same engine as the desktop app): accuracy on the held-out test orders, speed and download
+# size. Runs on a push that changes the model setup, its prompt or the test orders (it takes
+# about half an hour, so not on every push), and on demand from the Actions tab. The reports are
+# on each run's summary page and attached as downloads. The order reader (session 3C) needs none
+# of this: `npm run eval` measures it in a second, and `npm test` checks it.
 name: Model eval
 
 on:
   push:
     paths:
-      - 'tools/eval/**'
+      - 'tools/eval/model/**'
       - 'tools/dataset/natural.txt'
       - 'src/cards/modelFormat.ts'
       - 'src/platform/model.ts'

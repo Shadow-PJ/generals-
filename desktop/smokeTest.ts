@@ -2,8 +2,9 @@
 // after installing it. `Generals.exe --smoke-test=play` writes an order into slot 1 and starts
 // a battle; `--smoke-test=reopen` starts the app again and checks the card is still in slot 1.
 // This is the owner check from docs/PLAN.md (install, play, close, reopen), done by a script.
-// `--smoke-test=model --smoke-model=<id>` switches on the small order model, waits for it to
-// download, and has it read a few free-form orders, timing each.
+// The play test also has the order reader read a free-form order, which checks its weights load
+// in the installed app. `--smoke-test=model --smoke-model=<id>` switches on the experimental
+// language model, waits for it to download, and has it read a few free-form orders, timing each.
 
 import type { BrowserWindow } from 'electron';
 import { appendFileSync } from 'node:fs';
@@ -18,6 +19,8 @@ const BATTLE_WATCH_MS = 4_000;
 const MODEL_READY_TIMEOUT_MS = 480_000;
 /** Orders the rule parser can't read, so the model has to. */
 const FREE_FORM_ORDERS = ['yo team just chill where u are for a sec', 'drop their ranger asap'];
+/** An order the rule parser can't read, and the card the order reader should make of it. */
+const READER_ORDER = { text: 'yo rangers pull back to the healer asap', card: 'Rangers fall back to your Guardians' };
 
 function option(argv: readonly string[], name: string): string | null {
   const prefix = `--${name}=`;
@@ -114,6 +117,9 @@ export async function runSmokeTest(options: {
     await press('Enter');
     const saved = await waitFor(async () => (await options.readProfile())?.includes(ORDER) ?? false, SAVE_TIMEOUT_MS);
     check(saved, 'the card was written to saves\\profile.json');
+    const read = await page<Reading>(`window.__smoke.translate(${JSON.stringify(READER_ORDER.text)})`);
+    log(`      "${READER_ORDER.text}" -> ${read.card} [${read.by}, ${read.ms.toFixed(1)} ms]`);
+    check(read.by === 'reader' && read.card === READER_ORDER.card, 'the order reader loaded and read a free-form order');
     await press('KeyB'); // start the battle
     await wait(BATTLE_WATCH_MS);
     check(await page<boolean>(`document.querySelector('input') === null`), 'the battle started');
@@ -157,7 +163,7 @@ async function testModel(
   if (state.status !== 'ready') return false;
   let allByModel = true;
   for (const text of FREE_FORM_ORDERS) {
-    const reading = await page<Reading>(`window.__smoke.translate(${JSON.stringify(text)})`);
+    const reading = await page<Reading>(`window.__smoke.translateWithModel(${JSON.stringify(text)})`);
     log(`      "${text}" -> ${reading.card} [${reading.by}, ${(reading.ms / 1000).toFixed(1)} s]`);
     allByModel &&= reading.by === 'model' && reading.ok;
   }
