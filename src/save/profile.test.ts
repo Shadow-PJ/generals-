@@ -18,17 +18,19 @@ function saved(): Profile {
   profile.placement[0] = { cls: 'vanguard', x: 230, y: 150 };
   profile.rank = 5;
   profile.tactical = true;
+  profile.general = 'warlord';
   return profile;
 }
 
 describe('the saved profile', () => {
-  it('starts with empty slots, the starter army, the debug rank and Tactical mode off', () => {
+  it('starts with empty slots, the starter army, the debug rank, Tactical mode off and the Captain', () => {
     const profile = readProfile(null);
     expect(profile.loadout.slots).toEqual([null, null, null, null]);
     expect(profile.loadout.legendary).toBeNull();
     expect(profile.placement).toEqual(STARTER_ARMY);
     expect(profile.rank).toBe(DEBUG_DEFAULT_RANK);
     expect(profile.tactical).toBe(false);
+    expect(profile.general).toBe('captain');
   });
 
   it('comes back exactly as it was written', () => {
@@ -49,7 +51,9 @@ describe('the saved profile', () => {
     data.loadout.slots[2].steps = 'oops';
     data.rank = 9;
     data.tactical = 'yes';
+    data.general = 'napoleon';
     const profile = readProfile(JSON.stringify(data));
+    expect(profile.general).toBe('captain');
     expect(profile.loadout.slots[0]).toEqual(card('Everyone focus their Ranger'));
     expect(profile.loadout.slots[2]).toBeNull();
     expect(profile.rank).toBe(DEBUG_DEFAULT_RANK);

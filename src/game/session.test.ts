@@ -63,11 +63,13 @@ describe('the session', () => {
     setup.loadout.slots[1] = { condition: null, steps: [{ action: 'hold', actors: { kind: 'all' } }], auto: false };
     setup.rank = 4;
     setup.tactical = true;
+    setup.general = 'conductor';
     await remember(setup);
     const profile = readProfile(fake.files.get('saves/profile.json') ?? null);
     expect(profile.loadout.slots[1]?.steps[0]?.action).toBe('hold');
     expect(profile.rank).toBe(4);
     expect(profile.tactical).toBe(true);
+    expect(profile.general).toBe('conductor');
 
     // The next start picks it all up again.
     await startSession(fake.platform);

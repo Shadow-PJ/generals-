@@ -1,16 +1,19 @@
 // Writing orders: each slot holds one Command card. Type an order and the rule parser turns it
-// into a card, or build one from the menus. The validator checks it against your rank before it
-// goes into a slot, and the General answers.
+// into a card, or build one from the menus. The validator checks it against your rank, then your
+// General reads it by their personality rules and answers. Slots keep the card as you wrote it;
+// the General's version is what fires. Rephrasing is free.
 
 import Phaser from 'phaser';
 import { cardCost } from '../../cards/cost';
-import { describeCard } from '../../cards/describe';
+import { describeCard, describeCondition } from '../../cards/describe';
 import { parseOrder } from '../../cards/parser';
-import { reply, replyToVerdict } from '../../cards/replies';
+import { applyPersonality, type Reading } from '../../cards/personality';
+import { generalReply, reply, replyToVerdict } from '../../cards/replies';
 import type { Card } from '../../cards/types';
 import { slotUnlockRank, validateCard } from '../../cards/validator';
+import { GENERAL_IDS, GENERALS } from '../../data/generals';
 import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
-import { builderRows, cycleRow, newDraft, type BuilderRow } from '../cardBuilder';
+import { builderRows, newDraft, type BuilderRow } from '../cardBuilder';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -24,13 +27,14 @@ const SLOT_X = 16;
 const SLOT_W = 296;
 const SLOT_H = 84;
 const PANEL_X = 332;
-const ROWS_Y = 214;
+const ROWS_Y = 268;
 const ROW_H = 20;
-/** Fixed rows above the card's menus: the rank switch, Tactical mode and the typed order. */
+/** Fixed rows above the card's menus: the rank and General switches, Tactical mode and the typed order. */
 const RANK_ROW = 0;
 const TACTICAL_ROW = 1;
-const TEXT_ROW = 2;
-const FIRST_MENU_ROW = 3;
+const GENERAL_ROW = 2;
+const TEXT_ROW = 3;
+const FIRST_MENU_ROW = 4;
 
 export class OrdersScene extends Phaser.Scene {
   private setup!: MatchSetup;
@@ -125,8 +129,26 @@ export class OrdersScene extends Phaser.Scene {
     this.drafts[this.slot] = card;
   }
 
+  /** How your General reads a card; null until the card passes the validator. */
+  private reading(card: Card): Reading | null {
+    const { rank, general } = this.setup;
+    return validateCard(card, rank).ok ? applyPersonality(general, card, rank) : null;
+  }
+
+  /** "Warlord", for replies. */
+  private get speaker(): string {
+    return GENERALS[this.setup.general].name.replace(/^The /, '');
+  }
+
+  /** The card's menus, with the Strategist's suggested condition first when there is one. */
   private menuRows(): BuilderRow[] {
-    return builderRows(this.draft);
+    const rows = builderRows(this.draft);
+    const suggestion = this.reading(this.draft)?.suggestion;
+    if (!suggestion) return rows;
+    // Accepting changes the card, so the words it was written from no longer match it.
+    const { text: _words, ...card } = this.draft;
+    const accept = { label: 'Accept the condition', card: { ...card, condition: suggestion } };
+    return [{ id: 'suggestion', label: 'Strategist', choices: [{ label: 'Ignore', card: this.draft }, accept], index: 0 }, ...rows];
   }
 
   private moveRow(step: number): void {
@@ -142,9 +164,13 @@ export class OrdersScene extends Phaser.Scene {
     } else if (this.row === TACTICAL_ROW) {
       this.setup.tactical = !this.setup.tactical;
       this.keep();
+    } else if (this.row === GENERAL_ROW) {
+      const i = GENERAL_IDS.indexOf(this.setup.general);
+      this.setup.general = GENERAL_IDS[(i + step + GENERAL_IDS.length) % GENERAL_IDS.length]!;
+      this.keep();
     } else if (this.row >= FIRST_MENU_ROW) {
       const r = this.menuRows()[this.row - FIRST_MENU_ROW];
-      if (r) this.draft = cycleRow(this.draft, r.id, step);
+      if (r) this.draft = r.choices[(((r.index + step) % r.choices.length) + r.choices.length) % r.choices.length]!.card;
       this.syncOrderText();
       // Rows can appear or vanish (a new step, a removed condition); stay on the same line number.
       this.row = Math.min(this.row, FIRST_MENU_ROW + this.menuRows().length - 1);
@@ -182,15 +208,16 @@ export class OrdersScene extends Phaser.Scene {
   private save(): void {
     const locked = slotUnlockRank(this.slot, this.setup.rank);
     if (locked) {
-      this.status = { text: `Captain: ${reply('slotLocked', locked)}`, color: TEXT.defeat };
+      this.status = { text: `${this.speaker}: ${reply('slotLocked', locked)}`, color: TEXT.defeat };
     } else {
       const verdict = validateCard(this.draft, this.setup.rank);
-      if (verdict.ok) {
+      const reading = this.reading(this.draft);
+      if (verdict.ok && reading) {
         this.setup.loadout.slots[this.slot] = structuredClone(this.draft);
-        this.status = { text: `Saved to slot ${this.slot + 1}.  Captain: ${replyToVerdict(verdict)}`, color: TEXT.victory };
+        this.status = { text: `Saved to slot ${this.slot + 1}.  ${this.speaker}: “${generalReply(reading)}”`, color: TEXT.victory };
         this.keep();
       } else {
-        this.status = { text: `Not saved.  Captain: ${replyToVerdict(verdict)}`, color: TEXT.defeat };
+        this.status = { text: `Not saved.  ${this.speaker}: ${replyToVerdict(verdict)}`, color: TEXT.defeat };
       }
     }
     this.render();
@@ -226,24 +253,25 @@ export class OrdersScene extends Phaser.Scene {
 
   private render(): void {
     this.ui.removeAll(true);
-    this.renderRank();
+    this.renderSwitches();
     this.renderSlots();
     this.renderPreview();
     this.renderMenus();
   }
 
-  private renderRank(): void {
+  private renderSwitches(): void {
     const rules = rankRules(this.setup.rank);
     const x = GAME_WIDTH - 300;
     const lines: [number, string, string][] = [
       [RANK_ROW, 'Rank (debug)', `${rules.numeral} · ${rules.name}`],
       [TACTICAL_ROW, 'Tactical mode', this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
+      [GENERAL_ROW, 'General (debug)', GENERALS[this.setup.general].name],
     ];
     lines.forEach(([row, label, value], i) => {
-      const y = 6 + i * 24;
-      if (this.row === row) this.ui.add(this.add.rectangle(x - 6, y, 292, 22, 0x2b3a50).setOrigin(0));
-      this.ui.add(this.add.text(x, y + 4, label, textStyle(12, TEXT.muted)));
-      this.arrows(x + 96, y + 11, 180, value, (d) => {
+      const y = 2 + i * 20;
+      if (this.row === row) this.ui.add(this.add.rectangle(x - 6, y, 292, 20, 0x2b3a50).setOrigin(0));
+      this.ui.add(this.add.text(x, y + 3, label, textStyle(12, TEXT.muted)));
+      this.arrows(x + 112, y + 10, 172, value, (d) => {
         this.row = row;
         this.change(d);
       });
@@ -272,14 +300,20 @@ export class OrdersScene extends Phaser.Scene {
         this.ui.add(this.add.text(SLOT_X + 34, y + 10, 'Empty slot', textStyle(12, TEXT.muted)));
         continue;
       }
-      this.ui.add(
-        this.add.text(SLOT_X + 34, y + 8, describeCard(card), { ...textStyle(12), wordWrap: { width: SLOT_W - 44 } }),
-      );
+      // The slot shows what will fire: your General's version of the card.
       const verdict = validateCard(card, rank);
-      const footer = verdict.ok
-        ? `${'●'.repeat(verdict.cost)} ${verdict.cost} pip${verdict.cost === 1 ? '' : 's'} · ${card.auto ? 'Auto' : 'Manual'}`
-        : `⚠ ${replyToVerdict(verdict)}`;
-      this.ui.add(this.add.text(SLOT_X + 34, y + SLOT_H - 20, footer, textStyle(11, verdict.ok ? TEXT.muted : TEXT.defeat)));
+      const reading = this.reading(card);
+      const shown = reading?.card ?? card;
+      this.ui.add(
+        this.add.text(SLOT_X + 34, y + 8, describeCard(shown), { ...textStyle(12), wordWrap: { width: SLOT_W - 44 }, maxLines: 3 }),
+      );
+      const cost = cardCost(shown);
+      const tooDear = cost > rankRules(rank).maxPips;
+      const footer = !reading
+        ? `⚠ ${replyToVerdict(verdict)}`
+        : `${'●'.repeat(cost)} ${pips(cost)} · ${card.auto ? 'Auto' : 'Manual'}` +
+          (tooDear ? ' · ⚠ over your max pips' : reading.rules.length > 0 && changed(card, shown) ? ` · ${this.speaker}'s version` : '');
+      this.ui.add(this.add.text(SLOT_X + 34, y + SLOT_H - 20, footer, textStyle(11, reading && !tooDear ? TEXT.muted : TEXT.defeat)));
     }
     const ly = TOP_BAR_HEIGHT + 16 + SLOT_COUNT * (SLOT_H + 8);
     this.ui.add(this.add.rectangle(SLOT_X, ly, SLOT_W, 44, 0x151b25).setOrigin(0).setStrokeStyle(1, 0x2a3646));
@@ -301,13 +335,27 @@ export class OrdersScene extends Phaser.Scene {
       }),
     );
     const cost = cardCost(card);
-    this.ui.add(
-      this.add.text(PANEL_X, 166, `Cost ${cost} pip${cost === 1 ? '' : 's'} · ${card.auto ? 'Auto' : 'Manual'}`, textStyle(12, TEXT.muted)),
-    );
-    this.ui.add(
-      this.add.text(PANEL_X + 150, 166, `Captain: ${replyToVerdict(verdict)}`, textStyle(12, verdict.ok ? TEXT.victory : TEXT.defeat)),
-    );
-    this.ui.add(this.add.text(PANEL_X, 188, this.status.text, { ...textStyle(12, this.status.color), wordWrap: { width: GAME_WIDTH - PANEL_X - 16 } }));
+    const width = GAME_WIDTH - PANEL_X - 16;
+    this.ui.add(this.add.text(PANEL_X, 166, `Cost ${pips(cost)} · ${card.auto ? 'Auto' : 'Manual'}`, textStyle(12, TEXT.muted)));
+    const reading = this.reading(card);
+    if (!reading) {
+      this.ui.add(this.add.text(PANEL_X + 150, 166, `${this.speaker}: ${replyToVerdict(verdict)}`, textStyle(12, TEXT.defeat)));
+    } else {
+      // The General's reading, then their answer. Rephrasing is free: edit the card and read again.
+      const name = GENERALS[this.setup.general].name;
+      const finalCost = cardCost(reading.card);
+      const version = changed(card, reading.card)
+        ? `${name}'s version: ${describeCard(reading.card)}  (${pips(finalCost)})`
+        : reading.suggestion
+          ? `${name} suggests: ${describeCondition(reading.suggestion)}. Press → on the Strategist line to accept.`
+          : `${name} keeps it as written.`;
+      this.ui.add(this.add.text(PANEL_X, 188, version, { ...textStyle(12, TEXT.body), wordWrap: { width }, maxLines: 2 }));
+      const warning = finalCost > rankRules(this.setup.rank).maxPips ? '  ⚠ More than your max pips: it can never fire. Rephrase it.' : '';
+      this.ui.add(
+        this.add.text(PANEL_X, 222, `“${generalReply(reading)}”${warning}`, { ...textStyle(12, warning ? TEXT.defeat : TEXT.perfect), wordWrap: { width } }),
+      );
+    }
+    this.ui.add(this.add.text(PANEL_X, 244, this.status.text, { ...textStyle(12, this.status.color), wordWrap: { width }, maxLines: 1 }));
   }
 
   private renderMenus(): void {
@@ -331,4 +379,13 @@ export class OrdersScene extends Phaser.Scene {
     right.on('pointerdown', () => onStep(1));
     this.ui.add([left, right, this.add.text(x + width / 2, y, value, textStyle(12)).setOrigin(0.5)]);
   }
+}
+
+function pips(n: number): string {
+  return `${n} pip${n === 1 ? '' : 's'}`;
+}
+
+/** True if the General's version differs from what you wrote (not counting the words). */
+function changed(written: Card, read: Card): boolean {
+  return JSON.stringify(read.steps) !== JSON.stringify(written.steps) || JSON.stringify(read.condition) !== JSON.stringify(written.condition);
 }

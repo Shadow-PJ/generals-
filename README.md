@@ -14,6 +14,8 @@ On Windows: every merge to `main` builds an installer. Open the repository's **A
 
 Place your troops and press Enter. Write your orders: type them in plain English or build them from the menus, and save them to your card slots. Press B to start the battle, then fire your cards with keys 1 to 5 (a card with a condition glows when its moment comes: press it then for a Perfect timing) and your ultimate with U once the Momentum bar is full. Space pauses and F switches between 1x and 2x speed. Your cards and troop positions are saved as you change them.
 
+Your General reads every card in their own way: the Warlord turns retreats into counter-attacks, the Engineer adds a Hold before every Move, the Hive Mother keeps orders short and simple, the Strategist suggests a better moment, and the Conductor reorders steps into combos. Until you can recruit them, pick one with the General (debug) switch at the top of the orders screen.
+
 On the troop screen, Esc opens Settings: fullscreen or windowed, window size, and resolution. F11 switches fullscreen on any screen.
 
 ## Running it

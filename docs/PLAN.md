@@ -96,11 +96,11 @@ Goal: Generals read orders their own way, and players can type or speak orders i
 
 ### 3A. Personality rules
 
-- [ ] Rules engine that edits finished cards, with the rules for all 6 Generals from the design
-- [ ] Steps a General adds skip the step limit but cost pips
-- [ ] At least 3 reply lines per rule per General, in a data file
-- [ ] The card screen shows the General's version and reply; rephrasing is free
-- [ ] A debug switch to pick the General before battle
+- [x] Rules engine that edits finished cards, with the rules for all 6 Generals from the design
+- [x] Steps a General adds skip the step limit but cost pips
+- [x] At least 3 reply lines per rule per General, in a data file
+- [x] The card screen shows the General's version and reply; rephrasing is free
+- [x] A debug switch to pick the General before battle
 
 Done when: tests cover every rule.
 

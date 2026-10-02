@@ -50,13 +50,13 @@ export class ResultScene extends Phaser.Scene {
 
   private rematch(): void {
     this.scene.stop('Battle');
-    const { placement, loadout, rank, tactical } = this.setup;
-    this.scene.start('Battle', { placement, loadout, rank, tactical, seed: newSeed() });
+    const { placement, loadout, rank, tactical, general } = this.setup;
+    this.scene.start('Battle', { placement, loadout, rank, tactical, general, seed: newSeed() });
   }
 
   private moveTroops(): void {
     this.scene.stop('Battle');
-    const { placement, loadout, rank, tactical } = this.setup;
-    this.scene.start('Prep', { placement, loadout, rank, tactical });
+    const { placement, loadout, rank, tactical, general } = this.setup;
+    this.scene.start('Prep', { placement, loadout, rank, tactical, general });
   }
 }
