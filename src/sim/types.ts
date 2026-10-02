@@ -3,6 +3,7 @@
 
 import type { Card, Loadout, Place, Target } from '../cards/types';
 import type { TroopPlacement } from '../data/armies';
+import type { GeneralId } from '../data/generals';
 import type { MapData, Rect } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { UnitClass, UnitStats } from '../data/units';
@@ -31,6 +32,8 @@ export interface BattleSetup {
   reserves?: { player: UnitClass[]; enemy: UnitClass[] };
   /** Tactical mode: the screen pauses every 10 s, and there is no Perfect timing. */
   tactical?: boolean;
+  /** Your General, who reads your cards by their personality rules. The Captain when left out. */
+  general?: GeneralId;
 }
 
 /** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */

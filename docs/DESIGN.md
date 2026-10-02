@@ -106,6 +106,16 @@ Every order passes through four steps, and only the translator may use AI. Nothi
 | Strategist | A card without a condition gets a suggested one, which you accept or ignore | "Wait for their Assassin to commit. Then strike." |
 | Conductor | Reorders steps into a signature combo when possible | "On the beat." |
 
+How the rules read in detail (session 3A):
+
+- **Slots keep your card as you wrote it.** Your General's rules are applied when the card is read, so the slot and the battle show the General's version, and switching Generals re-reads every card.
+- **Warlord:** a Focus on the nearest enemy, by the troops that fell back, goes right after each Fall Back. Nothing is added when the next step is already a Focus, or when your order says "hold back".
+- **Engineer:** a Hold by the same troops goes before each Move, unless they already Hold just before it. Fall Back is not a Move.
+- **Hive Mother:** steps after the second are dropped. "The weakest" and named troops become the nearest troop; "him" (the one that set off the condition) becomes the nearest troop of his class.
+- **Strategist:** the suggestion depends on the card's first step. Focus waits for the target to reach your backline if it is a Vanguard or Assassin, otherwise for any enemy to; Protect waits for that ally to drop below 50% HP; Fall Back and Call Reserve wait for any ally below 50%; Move, Hold and Overcharge wait for 3 or more enemies close together. There is no suggestion when your rank allows no conditions or the card already has one. Accepting it adds the condition to your card.
+- **Conductor:** when no two steps in a row already make a signature combo, it picks the order of your steps that makes the most combos while moving them the least.
+- **Cost:** a General's steps cost pips like yours. If they push a card above your max pips it can never fire, and the card screen says so, so you can rephrase.
+
 ## Command and Momentum
 
 Two bars run the battle: Command pips pay for cards, and Momentum charges your ultimate. Both reward skill without locking beginners out. All numbers are starting values to tune in playtests.

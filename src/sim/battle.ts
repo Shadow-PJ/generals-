@@ -58,7 +58,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     },
     events: [],
     result: null,
-    command: createCommand('player', setup.rank ?? 1, setup.loadout),
+    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general),
     reserves: {
       player: [...(setup.reserves?.player ?? [])],
       enemy: [...(setup.reserves?.enemy ?? [])],

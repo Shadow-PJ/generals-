@@ -7,6 +7,7 @@ import { cardCost } from '../../cards/cost';
 import { shortCard } from '../../cards/describe';
 import { STARTER_ARMY_MIRRORED, STARTER_RESERVES } from '../../data/armies';
 import { COMMAND_RULES } from '../../data/command';
+import { GENERALS } from '../../data/generals';
 import { OPEN_FIELD } from '../../data/maps';
 import { RANKS } from '../../data/ranks';
 import { UNIT_CLASSES } from '../../data/units';
@@ -116,6 +117,7 @@ export class BattleScene extends Phaser.Scene {
       rank: data.rank,
       reserves: { player: [...STARTER_RESERVES], enemy: [] },
       tactical: data.tactical,
+      general: data.general,
     });
     this.clock = createClock();
     this.pending = [];
@@ -138,7 +140,7 @@ export class BattleScene extends Phaser.Scene {
     this.world.add([field, this.wallsLayer, this.unitsLayer]);
 
     this.topBar = this.add.graphics();
-    this.add.text(16, 8, 'YOU', textStyle(12, TEXT.muted, true));
+    this.add.text(16, 8, `YOU · ${GENERALS[this.setup.general].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
     this.add.text(GAME_WIDTH - 16, 8, 'ENEMY', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     this.clockText = this.add.text(GAME_WIDTH / 2, 6, '0:00', textStyle(22, TEXT.title, true)).setOrigin(0.5, 0);
     this.overtimeText = this.add.text(GAME_WIDTH / 2 + 50, 12, '', textStyle(13, TEXT.overtime, true));

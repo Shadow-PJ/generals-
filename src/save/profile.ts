@@ -1,5 +1,5 @@
-// Your saved progress: the cards in your slots, where your troops stand, your rank and
-// Tactical mode. It is plain JSON in saves/profile.json. Reading is forgiving: anything missing
+// Your saved progress: the cards in your slots, where your troops stand, your rank, Tactical
+// mode and your General. It is plain JSON in saves/profile.json. Reading is forgiving: anything missing
 // or damaged falls back to the default, so a bad file never stops the game from starting.
 // Phase 5 grows this into the full save with migrations; `version` is there for that.
 
@@ -7,6 +7,7 @@ import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
 import { STARTER_ARMY, type TroopPlacement } from '../data/armies';
 import { OPEN_FIELD } from '../data/maps';
+import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
 import { DEBUG_DEFAULT_RANK, RANKS, type RankNumber } from '../data/ranks';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
@@ -20,6 +21,8 @@ export interface Profile {
   placement: TroopPlacement[];
   rank: RankNumber;
   tactical: boolean;
+  /** Your cards are stored as you wrote them; the General's rules are applied when they are read. */
+  general: GeneralId;
 }
 
 export function newProfile(): Profile {
@@ -29,6 +32,7 @@ export function newProfile(): Profile {
     placement: STARTER_ARMY.map((t) => ({ ...t })),
     rank: DEBUG_DEFAULT_RANK,
     tactical: false,
+    general: STARTING_GENERAL,
   };
 }
 
@@ -52,6 +56,7 @@ export function readProfile(text: string | null): Profile {
   profile.placement = readPlacement(saved.placement) ?? profile.placement;
   if (RANKS.some((r) => r.rank === saved.rank)) profile.rank = saved.rank as RankNumber;
   if (typeof saved.tactical === 'boolean') profile.tactical = saved.tactical;
+  if ((GENERAL_IDS as readonly unknown[]).includes(saved.general)) profile.general = saved.general as GeneralId;
   return profile;
 }
 

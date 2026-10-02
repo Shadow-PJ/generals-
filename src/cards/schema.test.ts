@@ -64,6 +64,11 @@ describe('reading cards from saved data', () => {
     expect(readCard(data)).toEqual({ text: 'Fall back', condition: null, steps: [{ action: 'fallBack', actors: { kind: 'all' }, to: null }], auto: false });
   });
 
+  it('drops the General’s mark from steps, so a save can’t sneak steps past the validator', () => {
+    const data = { condition: null, steps: [{ action: 'hold', actors: { kind: 'all' }, byGeneral: true }], auto: false };
+    expect(readCard(data)?.steps[0]).toEqual({ action: 'hold', actors: { kind: 'all' } });
+  });
+
   it('refuses data that is not shaped like a card', () => {
     const good = parsed('When my Ranger drops below 50%, protect her');
     const broken: unknown[] = [

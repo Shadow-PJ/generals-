@@ -2,10 +2,12 @@
 // pressing a slot or the ultimate key does. Only your side has cards until enemy commanders (4D).
 
 import { cardCost } from '../cards/cost';
+import { applyPersonality } from '../cards/personality';
 import type { Card, Loadout } from '../cards/types';
 import { slotUnlockRank, validateCard } from '../cards/validator';
 import { CARD_RULES } from '../data/cards';
 import { COMMAND_RULES, ULTIMATES } from '../data/command';
+import type { GeneralId } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
 import { checkCondition } from './conditions';
 import { issueCard } from './orders';
@@ -16,8 +18,17 @@ import type { BattleInput, BattleState, CommandState, Side, SlotState } from './
 export const LEGENDARY_SLOT = 4;
 export const SLOT_COUNT = 5;
 
-/** Sets up the slots. A card the rank doesn't allow, or in a locked slot, is left out. */
-export function createCommand(side: Side, rank: RankNumber, loadout: Loadout | undefined): CommandState {
+/**
+ * Sets up the slots. Each card goes through the validator as you wrote it (a card the rank
+ * doesn't allow, or in a locked slot, is left out), then through your General's personality
+ * rules, so the General's version is what fires.
+ */
+export function createCommand(
+  side: Side,
+  rank: RankNumber,
+  loadout: Loadout | undefined,
+  general: GeneralId = 'captain',
+): CommandState {
   const rules = rankRules(rank);
   const cards: (Card | null)[] = [...(loadout?.slots ?? []).slice(0, LEGENDARY_SLOT), null, null, null, null].slice(
     0,
@@ -26,7 +37,10 @@ export function createCommand(side: Side, rank: RankNumber, loadout: Loadout | u
   // The Legendary slot opens with the first boss win (session 5A).
   cards.push(null);
   const slots: SlotState[] = cards.map((card, i) => ({
-    card: card && i < LEGENDARY_SLOT && !slotUnlockRank(i, rank) && validateCard(card, rank).ok ? structuredClone(card) : null,
+    card:
+      card && i < LEGENDARY_SLOT && !slotUnlockRank(i, rank) && validateCard(card, rank).ok
+        ? applyPersonality(general, card, rank).card
+        : null,
     restTicks: 0,
     glowing: false,
     lingerTicks: 0,

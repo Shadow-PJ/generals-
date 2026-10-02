@@ -25,7 +25,15 @@ export type Target =
 /** Where a Move goes. */
 export type Place = { kind: 'forward' } | { kind: 'back' } | { kind: 'behindEnemies' } | { kind: 'ally'; ally: Target };
 
-export type Step =
+export type Step = StepAction & {
+  /**
+   * Set on steps your General added (personality rules). They skip your rank's step limit and
+   * may use any action, but still cost pips. A card you write never has it.
+   */
+  byGeneral?: true;
+};
+
+export type StepAction =
   | { action: 'focus'; actors: Actors; target: Target }
   | { action: 'move'; actors: Actors; to: Place }
   /** Fall back toward an ally, or just away from the enemy when `to` is null. */

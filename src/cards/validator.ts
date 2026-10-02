@@ -42,15 +42,17 @@ export function cardProblems(card: Card, rank: RankNumber): Problem[] {
   const problems: Problem[] = [];
   const cost = cardCost(card);
 
-  if (card.steps.length === 0) problems.push({ kind: 'noSteps' });
+  // Steps your General added skip the step limit and may use any action (they still cost pips).
+  const written = card.steps.filter((s) => !s.byGeneral);
+  if (written.length === 0) problems.push({ kind: 'noSteps' });
   const allowed = new Set(unlockedActions(rank));
-  for (const step of card.steps) {
+  for (const step of written) {
     if (!allowed.has(step.action) && !problems.some((p) => p.kind === 'actionLocked' && p.action === step.action)) {
       problems.push({ kind: 'actionLocked', action: step.action });
     }
   }
-  if (card.steps.length > rules.stepsPerCard) {
-    problems.push({ kind: 'tooManySteps', steps: card.steps.length, max: rules.stepsPerCard });
+  if (written.length > rules.stepsPerCard) {
+    problems.push({ kind: 'tooManySteps', steps: written.length, max: rules.stepsPerCard });
   }
 
   const level = conditionLevel(card);

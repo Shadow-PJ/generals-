@@ -2,6 +2,7 @@
 
 import type { Card, Loadout, Step } from '../../cards/types';
 import type { TroopPlacement } from '../../data/armies';
+import type { GeneralId } from '../../data/generals';
 import type { RankNumber } from '../../data/ranks';
 import type { MapData, WallData } from '../../data/maps';
 import { createBattle } from '../battle';
@@ -25,6 +26,7 @@ export interface BattleOptions {
   rank?: RankNumber;
   reserves?: TroopPlacement['cls'][];
   tactical?: boolean;
+  general?: GeneralId;
 }
 
 export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], options: BattleOptions = {}): BattleState {
@@ -38,6 +40,7 @@ export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], op
     rank: options.rank ?? 5,
     reserves: { player: options.reserves ?? [], enemy: [] },
     tactical: options.tactical,
+    general: options.general,
   });
 }
 
