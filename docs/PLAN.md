@@ -18,15 +18,15 @@ Goal: troops fight on their own, the same way every time for the same seed, and 
 
 ### 1A. Project and battle engine
 
-- [ ] Vite, TypeScript and Phaser (latest stable) project with Vitest; npm scripts `dev`, `build`, `test` and `sim`
-- [ ] Folders as in `CLAUDE.md`: `src/sim` (pure battle logic), `src/game` (Phaser screens), `src/data` (all numbers)
-- [ ] Battle engine with a fixed tick of 20 per second and seeded random numbers; no clock
-- [ ] Unit stats from data: HP, armor, damage, attack speed, range, move speed
-- [ ] Movement and targeting; walls block movement
-- [ ] Vanguard (Shove), Ranger (Mark) and Guardian (Barrier) with their behaviors and weaknesses
-- [ ] A battle ends when one army is gone, or after 3 minutes by remaining HP
-- [ ] Headless runner: `npm run sim -- --seed 42` prints the winner and a short log
-- [ ] Determinism test: the same seed and inputs always give the same result
+- [x] Vite, TypeScript and Phaser (latest stable) project with Vitest; npm scripts `dev`, `build`, `test` and `sim`
+- [x] Folders as in `CLAUDE.md`: `src/sim` (pure battle logic), `src/game` (Phaser screens), `src/data` (all numbers)
+- [x] Battle engine with a fixed tick of 20 per second and seeded random numbers; no clock
+- [x] Unit stats from data: HP, armor, damage, attack speed, range, move speed
+- [x] Movement and targeting; walls block movement
+- [x] Vanguard (Shove), Ranger (Mark) and Guardian (Barrier) with their behaviors and weaknesses
+- [x] A battle ends when one army is gone, or after 3 minutes by remaining HP
+- [x] Headless runner: `npm run sim -- --seed 42` prints the winner and a short log
+- [x] Determinism test: the same seed and inputs always give the same result
 
 Done when: tests pass and a full battle runs in the terminal.
 
