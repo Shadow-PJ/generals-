@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseOrder } from '../../src/cards/parser';
 import { validateCard } from '../../src/cards/validator';
-import { generate } from './generate';
+import { generate, joinPieces } from './generate';
 import { cardKey } from './natural';
 
 const pairs = generate(2000, 7);
@@ -36,6 +36,23 @@ describe('the dataset generator', () => {
       read++;
       expect(cardKey(parsed.card), p.text).toBe(cardKey(p.card));
     }
-    expect(read).toBeGreaterThan(pairs.length / 2);
+    // Most generated orders are meant to be beyond the parser: slang, typos, odd word order.
+    expect(read).toBeGreaterThan(pairs.length / 20);
+  });
+
+  it('labels every word, and the labeled pieces make up the sentence', () => {
+    for (const p of pairs) {
+      expect(joinPieces(p.pieces).toLowerCase(), p.text).toBe(p.text.toLowerCase());
+      expect(p.pieces.every((piece) => piece.text.length > 0)).toBe(true);
+    }
+  });
+
+  it('adds typos from their own random numbers, so the same seed without typos gives the same orders', () => {
+    const clean = generate(200, 7, { typos: false });
+    const typed = pairs.slice(0, 200);
+    const same = clean.filter((p, i) => p.text === typed[i]!.text).length;
+    expect(same).toBeGreaterThan(100);
+    expect(same).toBeLessThan(200);
+    expect(clean.map((p) => p.card)).toEqual(typed.map((p) => p.card));
   });
 });
