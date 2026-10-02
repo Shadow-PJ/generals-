@@ -227,7 +227,7 @@ export class SettingsScene extends Phaser.Scene {
 function modelNote(state: ModelState, sizeMb: number): string {
   switch (state.status) {
     case 'off':
-      return `The rule parser reads simple orders at once. A small model on this computer can read free-form ones; it downloads once (about ${sizeMb} MB).`;
+      return `The rule parser reads simple orders at once. Experimental: a small model on this computer for free-form orders (downloads once, about ${sizeMb} MB; slow, and often wrong until it is trained).`;
     case 'loading':
       return `Getting ${state.name} ready: ${Math.round(state.progress * 100)}%. The rule parser reads your orders meanwhile.`;
     case 'warming':

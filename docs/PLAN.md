@@ -106,12 +106,12 @@ Done when: tests cover every rule.
 
 ### 3B. Translator and model test
 
-- [ ] Translator interface: parser or model, same card output, validator always after it
-- [ ] Dataset generator script that combines actions, targets and conditions into sentence and card pairs
-- [ ] 1,000 or more natural sentences written by Claude, including slang, typos and long orders
-- [ ] A held-out test set and an eval script that prints accuracy and every failure
-- [ ] Try an existing small open model running on the player's computer, in both the browser and desktop builds, with its output forced into the card format; report accuracy, speed and download size
-- [ ] Parser fallback when the model is missing or too slow
+- [x] Translator interface: parser or model, same card output, validator always after it
+- [x] Dataset generator script that combines actions, targets and conditions into sentence and card pairs
+- [x] 1,000 or more natural sentences written by Claude, including slang, typos and long orders
+- [x] A held-out test set and an eval script that prints accuracy and every failure
+- [x] Try an existing small open model running on the player's computer, in both the browser and desktop builds, with its output forced into the card format; report accuracy, speed and download size
+- [x] Parser fallback when the model is missing or too slow
 
 Done when: the pull request includes the eval report and a recommendation: keep this model, fine-tune it, or switch to an intent-and-slots model.
 
