@@ -1,18 +1,18 @@
 # Measures the small order-reading models in a real browser (headless Chromium, the same engine
-# as the desktop app): accuracy on the held-out test orders, speed and download size. Runs when
-# the model setup, its prompt or the test orders change, and on demand. The reports are on each
-# run's summary page and attached as downloads.
+# as the desktop app): accuracy on the held-out test orders, speed and download size. Runs on a
+# push that changes the model setup, its prompt or the test orders (it takes about half an hour,
+# so not on every push), and on demand from the Actions tab. The reports are on each run's
+# summary page and attached as downloads.
 name: Model eval
 
 on:
-  pull_request:
+  push:
     paths:
       - 'tools/eval/**'
       - 'tools/dataset/natural.txt'
       - 'src/cards/modelFormat.ts'
       - 'src/platform/model.ts'
       - 'src/platform/models.ts'
-      - '.github/workflows/model-eval.yml'
   workflow_dispatch:
 
 concurrency:
