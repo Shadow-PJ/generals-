@@ -19,6 +19,17 @@ const BATTLE_WATCH_MS = 4_000;
 const MODEL_READY_TIMEOUT_MS = 480_000;
 /** Orders the rule parser can't read, so the model has to. */
 const FREE_FORM_ORDERS = ['yo team just chill where u are for a sec', 'drop their ranger asap'];
+/** Asks the page what speech recognition it has, including Chromium's on-device kind. */
+const SPEECH_PROBE = `(async () => {
+  const R = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+  if (!R) return 'none';
+  if (typeof R.available !== 'function') return 'the API only (no on-device check)';
+  try {
+    return 'API; on-device English: ' + (await R.available({ langs: ['en-US'], processLocally: true }));
+  } catch (error) {
+    return 'API; on-device check failed: ' + error;
+  }
+})()`;
 /** An order the rule parser can't read, and the card the order reader should make of it. */
 const READER_ORDER = { text: 'yo rangers pull back to the healer asap', card: 'Rangers fall back to your Guardians' };
 
@@ -120,6 +131,8 @@ export async function runSmokeTest(options: {
     const read = await page<Reading>(`window.__smoke.translate(${JSON.stringify(READER_ORDER.text)})`);
     log(`      "${READER_ORDER.text}" -> ${read.card} [${read.by}, ${read.ms.toFixed(1)} ms]`);
     check(read.by === 'reader' && read.card === READER_ORDER.card, 'the order reader loaded and read a free-form order');
+    // Not a check: what speech recognition Electron offers, for deciding on voice in the app later.
+    log(`      speech recognition in the app: ${await page<string>(SPEECH_PROBE)}`);
     await press('KeyB'); // start the battle
     await wait(BATTLE_WATCH_MS);
     check(await page<boolean>(`document.querySelector('input') === null`), 'the battle started');

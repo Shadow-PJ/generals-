@@ -45,5 +45,7 @@ export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Plat
     },
     // The app's page is cross-origin isolated, so the model can use several threads.
     loadModel: loadLocalModel,
+    // Electron's Chromium has the speech API but not the speech service behind it.
+    speech: null,
   };
 }

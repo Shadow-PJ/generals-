@@ -49,6 +49,7 @@ function fakePlatform(options: { desktop: boolean; files?: Partial<Record<FileNa
     loadModel: async () => {
       throw new Error('no model in tests');
     },
+    speech: null,
   };
   return { platform, files, log, failNextWrites: (on: boolean) => (failWrites = on) };
 }

@@ -34,6 +34,7 @@ function fakePlatform() {
         };
         loads.push({ url, progress: (d, t) => options?.onProgress?.(d, t), finish: () => resolve(model), fail: reject });
       }),
+    speech: null,
   };
   return { platform, loads, unloaded };
 }

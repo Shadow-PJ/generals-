@@ -20,7 +20,9 @@ export type InputAction =
   | 'slot4'
   | 'slot5'
   | 'ultimate'
-  | 'fullscreen';
+  | 'fullscreen'
+  /** Held to speak an order (push-to-talk). */
+  | 'talk';
 
 /** The card slot actions, in slot order. */
 export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
@@ -46,11 +48,18 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   slot5: ['Digit5', 'Numpad5'],
   ultimate: ['KeyU'],
   fullscreen: ['F11'],
+  talk: ['KeyV'],
 };
 
 const ACTION_BY_CODE = new Map<string, InputAction>();
 for (const [action, codes] of Object.entries(KEYBOARD_BINDINGS) as [InputAction, readonly string[]][]) {
   for (const code of codes) ACTION_BY_CODE.set(code, action);
+}
+
+/** The key to show for an action on screen: "V" for KeyV. */
+export function keyLabel(action: InputAction): string {
+  const code = KEYBOARD_BINDINGS[action][0] ?? '';
+  return code.replace(/^(Key|Digit)/, '');
 }
 
 /** The action a key press means, if any. Shift+Tab steps backward. */
