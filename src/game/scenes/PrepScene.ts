@@ -3,8 +3,9 @@
 
 import Phaser from 'phaser';
 import type { TroopPlacement } from '../../data/armies';
-import { OPEN_FIELD } from '../../data/maps';
+import { MAPS } from '../../data/maps';
 import { GENERALS } from '../../data/generals';
+import { RANKS } from '../../data/ranks';
 import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
@@ -55,23 +56,36 @@ export class PrepScene extends Phaser.Scene {
       textStyle(13),
     );
     addButton(this, GAME_WIDTH - 628, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
-    addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Troops  T', () => this.toTroops(), 112, 34);
+    addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.toTroops(), 112, 34);
     addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
     addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.toSettings(), 140, 34);
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
 
     const world = this.add.container(0, TOP_BAR_HEIGHT);
     const field = this.add.graphics();
-    drawField(field, OPEN_FIELD);
-    drawZone(field, OPEN_FIELD.deployZones.player, 'player', 1);
-    drawZone(field, OPEN_FIELD.deployZones.enemy, 'enemy', 0.6);
-    for (const wall of OPEN_FIELD.walls) drawWall(field, wall);
+    const map = MAPS[this.setup.map];
+    drawField(field, map);
+    drawZone(field, map.deployZones.player, 'player', 1);
+    drawZone(field, map.deployZones.enemy, 'enemy', 0.6);
+    for (const wall of map.walls) drawWall(field, wall);
     for (const t of enemyArmyOf(this.setup).placement) {
       drawBody(field, t.cls, 'enemy', t.x, t.y, UNIT_CLASSES[t.cls].stats.radius, t.x - 100, t.y, { alpha: 0.85 });
     }
+    // The map's terrain rule over the field, and who leads the enemy under its deploy zone.
+    const terrain = this.add.text(map.width / 2, 10, `${map.name}: ${map.terrainText}`, textStyle(12, TEXT.muted)).setOrigin(0.5, 0);
+    const zone = map.deployZones.enemy;
+    const rank = RANKS.find((r) => r.rank === this.setup.enemyCommander);
+    const enemyLead = this.add
+      .text(
+        zone.x + zone.w / 2,
+        zone.y + zone.h + 6,
+        `${GENERALS[this.setup.enemyGeneral].name} · ${rank ? `commander Rank ${rank.numeral}` : 'no commander'}`,
+        textStyle(12, TEXT.threat, true),
+      )
+      .setOrigin(0.5, 0);
     this.graphics = this.add.graphics();
     this.label = this.add.text(0, 0, '', textStyle(12, TEXT.title)).setOrigin(0.5, 1);
-    world.add([field, this.graphics, this.label]);
+    world.add([field, terrain, enemyLead, this.graphics, this.label]);
 
     // Your 3 reserves wait off the field until a Call Reserve card brings them in.
     this.add.text(16, BOTTOM_BAR_Y + 16, 'RESERVES', textStyle(12, TEXT.muted, true));
@@ -97,7 +111,7 @@ export class PrepScene extends Phaser.Scene {
       wordWrap: { width: GAME_WIDTH - 626 },
     });
     this.add.text(520, BOTTOM_BAR_Y + 52, 'SPECIALIZED', textStyle(12, TEXT.muted, true));
-    this.add.text(610, BOTTOM_BAR_Y + 52, specs.length > 0 ? specs.join(', ') : 'None (Troops screen: T)', {
+    this.add.text(610, BOTTOM_BAR_Y + 52, specs.length > 0 ? specs.join(', ') : 'None (Skirmish screen: T)', {
       ...textStyle(12),
       wordWrap: { width: GAME_WIDTH - 626 },
     });
@@ -134,7 +148,7 @@ export class PrepScene extends Phaser.Scene {
 
   private problemAt(index: number, x: number, y: number) {
     const others = this.placement.filter((_, i) => i !== index);
-    return placementProblem(OPEN_FIELD, 'player', this.placement[index]!.cls, x, y, others);
+    return placementProblem(MAPS[this.setup.map], 'player', this.placement[index]!.cls, x, y, others);
   }
 
   private pickUp(x: number, y: number): void {

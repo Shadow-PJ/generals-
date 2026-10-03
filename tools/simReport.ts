@@ -2,6 +2,8 @@
 
 import { SIGNATURE_COMBOS } from '../src/data/combos';
 import { GENERAL_IDS, GENERALS, type GeneralId } from '../src/data/generals';
+import { MAP_IDS, type MapId } from '../src/data/maps';
+import { RANKS, type RankNumber } from '../src/data/ranks';
 import { SPECIALIZATIONS } from '../src/data/specializations';
 import { SYNERGIES } from '../src/data/synergies';
 import { UNIT_CLASSES } from '../src/data/units';
@@ -13,13 +15,21 @@ export interface SimOptions {
   /** Your General, and the enemy's: the Captain unless given. */
   general: GeneralId;
   enemyGeneral: GeneralId;
+  /** The map: Open Field unless given. */
+  map: MapId;
+  /** Both sides get a commander of this rank firing its General's script, or none (null). */
+  commanders: RankNumber | null;
 }
 
-const USAGE = 'Usage: npm run sim -- --seed 42 [--verbose] [--general warlord] [--enemy-general captain]';
+const USAGE =
+  'Usage: npm run sim -- --seed 42 [--verbose] [--general warlord] [--enemy-general captain] [--map redCanyon] [--commanders 3]';
 
-/** Reads `--seed 42` (or `--seed=42`), `--verbose`, `--general <id>` and `--enemy-general <id>` from command-line arguments. */
+/**
+ * Reads `--seed 42` (or `--seed=42`), `--verbose`, `--general <id>`, `--enemy-general <id>`,
+ * `--map <id>` and `--commanders <rank>` from command-line arguments.
+ */
 export function parseSimArgs(args: readonly string[]): SimOptions {
-  const options: SimOptions = { seed: 42, verbose: false, general: 'captain', enemyGeneral: 'captain' };
+  const options: SimOptions = { seed: 42, verbose: false, general: 'captain', enemyGeneral: 'captain', map: 'openField', commanders: null };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i]!;
     const [name, inline] = arg.includes('=') ? [arg.slice(0, arg.indexOf('=')), arg.slice(arg.indexOf('=') + 1)] : [arg, undefined];
@@ -32,6 +42,10 @@ export function parseSimArgs(args: readonly string[]): SimOptions {
       options.general = parseGeneral(value());
     } else if (name === '--enemy-general') {
       options.enemyGeneral = parseGeneral(value());
+    } else if (name === '--map') {
+      options.map = parseMap(value());
+    } else if (name === '--commanders') {
+      options.commanders = parseRank(value());
     } else {
       throw new Error(`Unknown option "${arg}". ${USAGE}`);
     }
@@ -44,6 +58,19 @@ function parseGeneral(value: string | undefined): GeneralId {
     throw new Error(`The General must be one of ${GENERAL_IDS.join(', ')}, got "${value ?? ''}".`);
   }
   return value as GeneralId;
+}
+
+function parseMap(value: string | undefined): MapId {
+  if (!(MAP_IDS as readonly (string | undefined)[]).includes(value)) {
+    throw new Error(`The map must be one of ${MAP_IDS.join(', ')}, got "${value ?? ''}".`);
+  }
+  return value as MapId;
+}
+
+function parseRank(value: string | undefined): RankNumber {
+  const rank = RANKS.find((r) => String(r.rank) === value);
+  if (!rank) throw new Error(`The commanders' rank must be 1 to ${RANKS.length}, got "${value ?? ''}".`);
+  return rank.rank;
 }
 
 function parseSeed(value: string | undefined): number {
@@ -104,12 +131,13 @@ export function formatLog(state: BattleState, verbose: boolean): string[] {
       lines.push(`${time}  ${label(e.unitId)} fell (by ${label(e.killerId)})`);
     } else if (e.type === 'cardFired') {
       const link = e.link > 1 ? `, chain link ${e.link}` : '';
-      lines.push(`${time}  Card in slot ${e.slot + 1} fired${e.perfect ? ' (Perfect timing)' : e.auto ? ' (Auto)' : ''}${link}`);
+      lines.push(`${time}  ${SIDE_NAMES[e.side]} card in slot ${e.slot + 1} fired${e.perfect ? ' (Perfect timing)' : e.auto ? ' (Auto)' : ''}${link}`);
     } else if (e.type === 'combo') {
-      lines.push(`${time}  Combo: ${SIGNATURE_COMBOS.find((c) => c.id === e.combo)!.name}${e.acrossCards ? ' (across the chain)' : ''}`);
+      const combo = SIGNATURE_COMBOS.find((c) => c.id === e.combo)!.name;
+      lines.push(`${time}  ${SIDE_NAMES[e.side]} combo: ${combo}${e.acrossCards ? ' (across the chain)' : ''}`);
     } else if (e.type === 'ultimate') {
       const name = Object.values(GENERALS).find((g) => g.ultimate.id === e.name)!.ultimate.name;
-      lines.push(`${time}  ${e.finisher ? `Finisher: ${name}!` : `${name}!`}`);
+      lines.push(`${time}  ${SIDE_NAMES[e.side]} ${e.finisher ? `Finisher: ${name}!` : `ultimate: ${name}!`}`);
     } else if (e.type === 'evolved') {
       lines.push(`${time}  ${label(e.mergedId)} merged into ${label(e.unitId)} (Forced Evolution)`);
     } else if (e.type === 'synergy') {

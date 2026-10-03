@@ -1,6 +1,6 @@
 // When a card's condition is met, and which units set it off ("him", "her", "the group").
 
-import { CONDITION_RULES } from '../data/command';
+import { COMMAND_RULES, CONDITION_RULES } from '../data/command';
 import type { Condition, Trigger } from '../cards/types';
 import { distance } from './geometry';
 import { hpShare, livingUnits } from './queries';
@@ -70,8 +70,12 @@ export function checkTrigger(state: BattleState, side: Side, trigger: Trigger): 
       }
       return center && most >= trigger.count ? { met: true, enemyId: center.id, allyId: null } : NOT_MET;
     }
-    case 'enemyUltimateCharging':
-      // The enemy has no General firing an ultimate until session 4D.
-      return NOT_MET;
+    case 'enemyUltimateCharging': {
+      // Only a side with a commander has Momentum to charge an ultimate with.
+      const enemy = otherSide(side);
+      const command = state.command.side === enemy ? state.command : state.enemyCommand;
+      const charging = command !== null && command.momentum >= COMMAND_RULES.momentum.max * CONDITION_RULES.ultimateChargingShare;
+      return charging ? { met: true, enemyId: null, allyId: null } : NOT_MET;
+    }
   }
 }

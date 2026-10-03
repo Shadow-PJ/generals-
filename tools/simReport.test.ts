@@ -6,7 +6,7 @@ import { formatReport, parseSimArgs } from './simReport';
 
 describe('headless runner options', () => {
   it('reads the seed in both spellings, and --verbose', () => {
-    const captains = { general: 'captain', enemyGeneral: 'captain' };
+    const captains = { general: 'captain', enemyGeneral: 'captain', map: 'openField', commanders: null };
     expect(parseSimArgs(['--seed', '42'])).toEqual({ seed: 42, verbose: false, ...captains });
     expect(parseSimArgs(['--seed=7', '--verbose'])).toEqual({ seed: 7, verbose: true, ...captains });
     expect(parseSimArgs([])).toEqual({ seed: 42, verbose: false, ...captains });
@@ -15,6 +15,12 @@ describe('headless runner options', () => {
   it('reads either side’s General', () => {
     expect(parseSimArgs(['--general', 'warlord', '--enemy-general=hiveMother'])).toMatchObject({ general: 'warlord', enemyGeneral: 'hiveMother' });
     expect(() => parseSimArgs(['--general', 'napoleon'])).toThrow(/General/);
+  });
+
+  it('reads the map and the commanders’ rank', () => {
+    expect(parseSimArgs(['--map', 'redCanyon', '--commanders=3'])).toMatchObject({ map: 'redCanyon', commanders: 3 });
+    expect(() => parseSimArgs(['--map', 'moon'])).toThrow(/map/);
+    expect(() => parseSimArgs(['--commanders', '6'])).toThrow(/rank/);
   });
 
   it('rejects bad seeds and unknown options', () => {

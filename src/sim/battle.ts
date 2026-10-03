@@ -2,7 +2,7 @@
 
 import { BATTLE_RULES } from '../data/battle';
 import { tauntIntent, think } from './behaviors';
-import type { Action, SkillCast } from './intents';
+import { aroundRock, type Action, type SkillCast } from './intents';
 import { applyInput, createCommand, fed, updateCommand } from './command';
 import { performAttack, resolvePhaseShifts, updateProjectiles } from './combat';
 import { isSpaceFree, moveUnitBy, separateUnits, stepAwayFrom, updateKnockbacks, walkToward } from './movement';
@@ -43,7 +43,7 @@ export function createBattle(setup: BattleSetup): BattleState {
   for (let i = 0; i < count; i++) {
     for (const side of SIDES) {
       const placement = setup[side][i];
-      if (placement) units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side]));
+      if (placement) units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side], setup.map));
     }
   }
   // The army each side brought, troops and reserves, switches its synergies on.
@@ -51,7 +51,7 @@ export function createBattle(setup: BattleSetup): BattleState {
 
   const walls: Wall[] = setup.map.walls.map((w, i) => {
     const hp = w.hp ?? BATTLE_RULES.walls.hp;
-    return { id: i + 1, x: w.x, y: w.y, w: w.w, h: w.h, hp, maxHp: hp };
+    return { id: i + 1, x: w.x, y: w.y, w: w.w, h: w.h, hp, maxHp: hp, unbreakable: w.unbreakable ?? false };
   });
 
   const state: BattleState = {
@@ -78,6 +78,9 @@ export function createBattle(setup: BattleSetup): BattleState {
     events: [],
     result: null,
     command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general),
+    enemyCommand: setup.enemyCommander
+      ? createCommand('enemy', setup.enemyCommander.rank, setup.enemyCommander.loadout, generals.enemy)
+      : null,
     reserves,
     tactical: setup.tactical ?? false,
     inputLog: [],
@@ -114,12 +117,12 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
   vampiricLinks(state);
 
   // Decide: every unit looks at the same start-of-tick state. A taunt comes first, then card
-  // orders, then a troop's own ideas. Shoved, stunned and casting troops do nothing; silenced
-  // ones use no skills.
+  // orders, then a troop's own ideas; a shot that would only hit rock becomes a walk around it.
+  // Shoved, stunned and casting troops do nothing; silenced ones use no skills.
   const intents = state.units.map((u) => {
     if (!u.alive || u.knockback || u.stunTicks > 0 || u.casting) return null;
     const own = think(state, u);
-    const intent = tauntIntent(state, u) ?? orderIntent(state, u, own) ?? own;
+    const intent = aroundRock(state, u, tauntIntent(state, u) ?? orderIntent(state, u, own) ?? own);
     return u.silencedTicks > 0 ? { ...intent, cast: null } : intent;
   });
 

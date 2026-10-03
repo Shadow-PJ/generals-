@@ -1,6 +1,6 @@
 // Read-only questions about the battle that behaviors ask: who is near, who is hurt.
 
-import { distance } from './geometry';
+import { distance, type Point } from './geometry';
 import type { BattleState, Side, Unit } from './types';
 
 export function livingUnits(state: BattleState, side: Side): Unit[] {
@@ -11,9 +11,28 @@ export function livingEnemies(state: BattleState, unit: Unit): Unit[] {
   return state.units.filter((u) => u.alive && u.side !== unit.side);
 }
 
-/** Living enemies the unit can pick as a target: all but the invisible ones. */
+/**
+ * True if `target` can't be seen from `from`: it is invisible (Shadow Escort), or it stands in a
+ * forest and `from` is farther away than the map's forest sight (Deep Forest).
+ */
+export function isHidden(state: BattleState, target: Unit, from: Point): boolean {
+  if (target.invisibleTicks > 0) return true;
+  return inForest(state, target) && distance(from.x, from.y, target.x, target.y) > (state.map.forestSight ?? 0);
+}
+
+/** True if the unit's middle is inside one of the map's forests. */
+export function inForest(state: BattleState, unit: Unit): boolean {
+  return (state.map.forests ?? []).some((f) => unit.x >= f.x && unit.x <= f.x + f.w && unit.y >= f.y && unit.y <= f.y + f.h);
+}
+
+/** Living enemies the unit can pick as a target: all it can see. */
 export function visibleEnemies(state: BattleState, unit: Unit): Unit[] {
-  return state.units.filter((u) => u.alive && u.side !== unit.side && u.invisibleTicks <= 0);
+  return state.units.filter((u) => u.alive && u.side !== unit.side && !isHidden(state, u, unit));
+}
+
+/** True if no living troop of `side` can see the unit: how the battle screen shows hidden enemies. */
+export function hiddenFromSide(state: BattleState, unit: Unit, side: Side): boolean {
+  return state.units.every((u) => !u.alive || u.side !== side || isHidden(state, unit, u));
 }
 
 /** Living units on the same side, not counting the unit itself. */

@@ -3,6 +3,7 @@
 import type { Loadout } from '../cards/types';
 import type { EnemyArmy, TroopPlacement } from '../data/armies';
 import type { GeneralId } from '../data/generals';
+import type { MapId } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { SpecChoice } from '../data/specializations';
 import type { UnitClass } from '../data/units';
@@ -20,5 +21,9 @@ export interface MatchSetup {
   reserves: UnitClass[];
   /** Your specialization for each class, until the Tech Web sells them (phase 5). */
   specs: SpecChoice;
+  /** Skirmish: the map, the enemy's army and General, and its commander's rank (null: no commander, no enemy cards). */
+  map: MapId;
   enemyArmy: EnemyArmy;
+  enemyGeneral: GeneralId;
+  enemyCommander: RankNumber | null;
 }

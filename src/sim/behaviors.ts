@@ -13,7 +13,9 @@ import {
   edgeDistance,
   findUnit,
   hpShare,
+  inForest,
   livingAllies,
+  livingEnemies,
   mostHurt,
   nearestTo,
   visibleEnemies,
@@ -57,6 +59,16 @@ export function tauntIntent(state: BattleState, unit: Unit): Intent | null {
 }
 
 /**
+ * Nobody in sight: walk toward the nearest enemy hiding in the woods (Deep Forest) to find it;
+ * it can be attacked once seen. With no one hiding there (only invisible enemies), stand.
+ */
+function search(state: BattleState, unit: Unit): Intent {
+  const hiding = livingEnemies(state, unit).filter((e) => e.invisibleTicks <= 0 && inForest(state, e));
+  const nearest = nearestTo(hiding, unit.x, unit.y);
+  return nearest ? { action: { kind: 'walk', to: { x: nearest.x, y: nearest.y }, targetId: null }, cast: null } : HOLD;
+}
+
+/**
  * Vanguard: holds the front and protects the nearest ally.
  * It keeps fighting any enemy already in reach, preferring the one closest to its nearest
  * ally. Otherwise it goes for the enemy closest to that ally: whoever threatens the ally,
@@ -64,7 +76,7 @@ export function tauntIntent(state: BattleState, unit: Unit): Intent | null {
  */
 export function thinkVanguard(state: BattleState, unit: Unit): Intent {
   const enemies = visibleEnemies(state, unit);
-  if (enemies.length === 0) return HOLD;
+  if (enemies.length === 0) return search(state, unit);
   const cast = unit.skillCooldown <= 0 && shoveTargets(state, unit).length > 0 ? { skill: 'shove' as const } : null;
 
   const inReach = enemies.filter((e) => edgeDistance(unit, e) <= unit.stats.range);
@@ -84,7 +96,7 @@ export function thinkVanguard(state: BattleState, unit: Unit): Intent {
  */
 export function thinkRanger(state: BattleState, unit: Unit): Intent {
   const threat = nearestTo(visibleEnemies(state, unit), unit.x, unit.y);
-  if (!threat) return HOLD;
+  if (!threat) return search(state, unit);
   const away = backAway(state, unit, threat, UNIT_CLASSES.ranger.behavior.retreatDistance);
   if (away) return { action: away, cast: null };
 
@@ -103,7 +115,7 @@ export function thinkRanger(state: BattleState, unit: Unit): Intent {
  */
 export function thinkInvoker(state: BattleState, unit: Unit): Intent {
   const threat = nearestTo(visibleEnemies(state, unit), unit.x, unit.y);
-  if (!threat) return HOLD;
+  if (!threat) return search(state, unit);
   const away = backAway(state, unit, threat, UNIT_CLASSES.invoker.behavior.retreatDistance);
   if (away) return { action: away, cast: null };
   const spot = unit.skillCooldown <= 0 ? riftSpot(state, unit) : null;
@@ -117,7 +129,7 @@ export function thinkInvoker(state: BattleState, unit: Unit): Intent {
  */
 export function thinkAssassin(state: BattleState, unit: Unit): Intent {
   const prey = choosePrey(state, unit);
-  if (!prey) return HOLD;
+  if (!prey) return search(state, unit);
   const ready = unit.skillCooldown <= 0 && centerDistance(unit, prey) <= UNIT_CLASSES.assassin.shadowstep.range;
   return { action: attackOrApproach(unit, prey), cast: ready ? { skill: 'shadowstep', targetId: prey.id } : null };
 }
@@ -131,7 +143,7 @@ export function thinkAssassin(state: BattleState, unit: Unit): Intent {
  */
 export function thinkGuardian(state: BattleState, unit: Unit): Intent {
   const enemies = visibleEnemies(state, unit);
-  if (enemies.length === 0) return HOLD;
+  if (enemies.length === 0) return search(state, unit);
   const allies = livingAllies(state, unit);
   const cast = chooseBarrierTarget(unit, allies);
 

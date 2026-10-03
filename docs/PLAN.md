@@ -161,9 +161,9 @@ Owner checks: each General feels different in a skirmish.
 
 ### 4D. Maps, enemy commanders and skirmish
 
-- [ ] The 5 region maps with their terrain rules: forest hiding, ruins sightlines, canyon paths, fortress gates, open plains
-- [ ] Enemy commanders that fire their own cards from simple scripts
-- [ ] Skirmish mode: any General and army against any other, on any map
+- [x] The 5 region maps with their terrain rules: forest hiding, ruins sightlines, canyon paths, fortress gates, open plains
+- [x] Enemy commanders that fire their own cards from simple scripts
+- [x] Skirmish mode: any General and army against any other, on any map
 
 Owner checks: play every General on every map at least once.
 

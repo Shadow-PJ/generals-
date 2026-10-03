@@ -40,9 +40,9 @@ export function firstWallOnSegment(state: BattleState, ax: number, ay: number, b
   return hit;
 }
 
-/** A shot hits a wall. Writes a wallHit event, and a wallBreak event if the wall breaks. */
+/** A shot hits a wall. Writes a wallHit event, and a wallBreak event if the wall breaks. An unbreakable wall just stops the shot. */
 export function damageWall(state: BattleState, wall: Wall, sourceId: number, raw: number): void {
-  if (wall.hp <= 0) return;
+  if (wall.hp <= 0 || wall.unbreakable) return;
   const amount = Math.min(wall.hp, Math.max(BATTLE_RULES.minDamage, Math.round(raw * overtimeMultiplier(state.tick))));
   wall.hp -= amount;
   state.events.push({ tick: state.tick, type: 'wallHit', wallId: wall.id, sourceId, amount });

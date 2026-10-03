@@ -8,7 +8,7 @@ import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
 import { ENEMY_ARMIES, RESERVE_COUNT, STARTER_ARMY, STARTER_RESERVES, type EnemyArmy, type TroopPlacement } from '../data/armies';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
-import { OPEN_FIELD } from '../data/maps';
+import { MAP_IDS, OPEN_FIELD, type MapId } from '../data/maps';
 import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
 import { DEBUG_DEFAULT_RANK, RANKS, type RankNumber } from '../data/ranks';
 import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
@@ -29,10 +29,13 @@ export interface Profile {
   general: GeneralId;
   /** Combos you have landed at least once, for the Combo Codex. Older saves have none yet. */
   codex: CodexEntryId[];
-  /** Your reserves, specializations and the enemy's army, from the debug Troops screen. Older saves have the starter ones. */
+  /** Your reserves, specializations and the skirmish (map, enemy army, General and commander). Older saves have the starter ones. */
   reserves: UnitClass[];
   specs: SpecChoice;
+  map: MapId;
   enemyArmy: EnemyArmy;
+  enemyGeneral: GeneralId;
+  enemyCommander: RankNumber | null;
 }
 
 export function newProfile(): Profile {
@@ -46,7 +49,10 @@ export function newProfile(): Profile {
     codex: [],
     reserves: [...STARTER_RESERVES],
     specs: {},
+    map: 'openField',
     enemyArmy: 'starter',
+    enemyGeneral: STARTING_GENERAL,
+    enemyCommander: null,
   };
 }
 
@@ -75,6 +81,9 @@ export function readProfile(text: string | null): Profile {
   profile.reserves = readReserves(saved.reserves) ?? profile.reserves;
   profile.specs = readSpecs(saved.specs);
   if ((ENEMY_ARMIES as readonly unknown[]).includes(saved.enemyArmy)) profile.enemyArmy = saved.enemyArmy as EnemyArmy;
+  if ((MAP_IDS as readonly unknown[]).includes(saved.map)) profile.map = saved.map as MapId;
+  if ((GENERAL_IDS as readonly unknown[]).includes(saved.enemyGeneral)) profile.enemyGeneral = saved.enemyGeneral as GeneralId;
+  if (RANKS.some((r) => r.rank === saved.enemyCommander)) profile.enemyCommander = saved.enemyCommander as RankNumber;
   return profile;
 }
 
