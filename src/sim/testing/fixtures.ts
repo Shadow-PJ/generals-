@@ -29,6 +29,7 @@ export interface BattleOptions {
   enemyReserves?: TroopPlacement['cls'][];
   tactical?: boolean;
   general?: GeneralId;
+  enemyGeneral?: GeneralId;
   specs?: SpecChoice;
   enemySpecs?: SpecChoice;
 }
@@ -45,6 +46,7 @@ export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], op
     reserves: { player: options.reserves ?? [], enemy: options.enemyReserves ?? [] },
     tactical: options.tactical,
     general: options.general,
+    enemyGeneral: options.enemyGeneral,
     specs: { player: options.specs, enemy: options.enemySpecs },
   });
 }

@@ -5,11 +5,10 @@
 import { SPEC_RULES } from '../data/specializations';
 import { UNIT_CLASSES } from '../data/units';
 import { critMultiplier, dealDamage, rollDamage } from './combat';
-import { clamp, distance, type Point } from './geometry';
-import { isSpaceFree } from './movement';
 import { findUnit, hpShare, mostHurt, visibleEnemies } from './queries';
 import { skillCooldownTicks } from './skills';
-import { silence } from './status';
+import { spotBehind } from './spots';
+import { damageFactor, silence } from './status';
 import { attackIntervalTicks, secondsToTicks } from './time';
 import type { BattleState, Unit } from './types';
 
@@ -34,25 +33,6 @@ export function choosePrey(state: BattleState, assassin: Unit): Unit | undefined
   return undefined;
 }
 
-/** Where the Assassin lands: just past the target, on the far side from where it stands now. */
-export function spotBehind(state: BattleState, assassin: Unit, target: Unit): Point | null {
-  const d = distance(assassin.x, assassin.y, target.x, target.y);
-  const dx = d === 0 ? (assassin.side === 'player' ? 1 : -1) : (target.x - assassin.x) / d;
-  const dy = d === 0 ? 0 : (target.y - assassin.y) / d;
-  const reach = target.stats.radius + assassin.stats.radius + 2;
-  const r = assassin.stats.radius;
-  // Straight behind first, then a little to either side.
-  for (const turn of [0, 0.5, -0.5, 1, -1]) {
-    const rx = dx - dy * turn;
-    const ry = dy + dx * turn;
-    const len = Math.sqrt(rx * rx + ry * ry);
-    const x = clamp(target.x + (rx / len) * reach, r, state.map.width - r);
-    const y = clamp(target.y + (ry / len) * reach, r, state.map.height - r);
-    if (isSpaceFree(state, x, y, r)) return { x, y };
-  }
-  return null;
-}
-
 /**
  * Shadowstep: blink behind the target and strike it at once; a target left below the execute
  * share of its HP dies. `power` above 1 (a Perfect Overcharge, Overload) strikes harder.
@@ -72,7 +52,7 @@ export function castShadowstep(state: BattleState, assassin: Unit, target: Unit,
   state.events.push({ tick: state.tick, type: 'skill', unitId: assassin.id, skill: 'shadowstep', targetIds: [target.id] });
 
   const strike = blade ? SPEC_RULES.blade.strikeMultiplier : shadowstep.strikeMultiplier;
-  const raw = rollDamage(state, assassin.stats.damage) * strike * power * critMultiplier(state, assassin, target);
+  const raw = rollDamage(state, assassin.stats.damage) * strike * power * damageFactor(assassin) * critMultiplier(state, assassin, target);
   dealDamage(state, assassin.id, target, raw, assassin.stats.armorPierce, 'shadowstep');
 
   const executeShare = blade ? SPEC_RULES.blade.executeShare : shadowstep.executeShare;

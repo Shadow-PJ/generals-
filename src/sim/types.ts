@@ -4,7 +4,7 @@
 import type { Card, Loadout, Place, Step, Target } from '../cards/types';
 import type { SignatureComboId } from '../data/combos';
 import type { TroopPlacement } from '../data/armies';
-import type { GeneralId } from '../data/generals';
+import type { GeneralId, UltimateId } from '../data/generals';
 import type { MapData, Rect } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { SpecChoice, SpecializationId } from '../data/specializations';
@@ -35,8 +35,10 @@ export interface BattleSetup {
   reserves?: { player: UnitClass[]; enemy: UnitClass[] };
   /** Tactical mode: the screen pauses every 10 s, and there is no Perfect timing. */
   tactical?: boolean;
-  /** Your General, who reads your cards by their personality rules. The Captain when left out. */
+  /** Your General: reads your cards by their personality rules, and gives your troops their skill and doctrine. The Captain when left out. */
   general?: GeneralId;
+  /** The enemy's General, for its troops' skill and doctrine (it has no cards until 4D). The Captain when left out. */
+  enemyGeneral?: GeneralId;
   /** Each side's specializations, one per class; none when left out. */
   specs?: { player?: SpecChoice; enemy?: SpecChoice };
 }
@@ -52,8 +54,8 @@ export interface Knockback {
   dx: number;
   dy: number;
   ticksLeft: number;
-  /** Who pushed. */
-  byId: number;
+  /** Who pushed; null for a pull (Gravity Well). */
+  byId: number | null;
   /** Fire Break already burned the unit during this push. */
   burned: boolean;
 }
@@ -93,6 +95,24 @@ export interface Taunt {
 /** Healing over time (Mender): `amount` HP every second while it lasts. */
 export interface Regen {
   amount: number;
+  ticksLeft: number;
+}
+
+/** A while of faster attacks (Vampiric Link): `bonus` 2 = three times as fast. */
+export interface Haste {
+  bonus: number;
+  ticksLeft: number;
+}
+
+/** Hive Mother's Assimilation: a kill grows a shell (armor) or claws (damage) for a while. */
+export interface Adaptation {
+  kind: 'shell' | 'claws';
+  ticksLeft: number;
+}
+
+/** Conductor's Echo Strike: Vibration stacks on an enemy, which fade if no new hit lands for a while. */
+export interface Vibration {
+  stacks: number;
   ticksLeft: number;
 }
 
@@ -183,6 +203,28 @@ export interface Unit {
   regen: Regen | null;
   /** The Rift an Invoker is casting; it can't act meanwhile. */
   casting: Cast | null;
+  /** Where the troop started, or last finished a Move or Fall Back: Engineer Vanguards hold this spot. */
+  home: Point;
+  /** Ticks until the troop's General skill (Vampiric Link) is ready again. */
+  troopSkillCooldown: number;
+  haste: Haste | null;
+  /** Engineer: attacks since the troop last vented. Thermal Detonation turns it into healing and damage. */
+  heat: number;
+  adaptation: Adaptation | null;
+  /** Strategist: the troop's once-per-battle Phase Shift is spent. */
+  phaseShiftUsed: boolean;
+  /**
+   * Strategist: the attacker whose blow the troop is dodging this tick. It takes no damage until
+   * the tick ends, then teleports behind that attacker (resolvePhaseShifts).
+   */
+  phasingFrom: number | null;
+  vibration: Vibration | null;
+  /** Ticks left shattered (a full Vibration stack): less armor meanwhile. */
+  shatterTicks: number;
+  /** Reaper's Toll: an invulnerable wraith for this long, then it falls. */
+  wraithTicks: number;
+  /** Forced Evolution merged another troop into this one. */
+  elite: boolean;
   lastHitBy: number | null;
   /** Path corners still to walk around walls; empty when the way is clear. */
   path: Point[];
@@ -265,11 +307,23 @@ export interface Projectile {
   element: 'burn' | 'frost' | null;
 }
 
-export type SkillName = 'shove' | 'mark' | 'barrier' | 'rift' | 'shadowstep';
+/** Troop skills, then the Generals' troop skills. */
+export type SkillName =
+  | 'shove'
+  | 'mark'
+  | 'barrier'
+  | 'rift'
+  | 'shadowstep'
+  | 'vampiricLink'
+  | 'vent'
+  | 'assimilation'
+  | 'phaseShift'
+  | 'shatter';
 /**
  * What dealt damage: a plain attack, a Shove, Overload's cost to the troop itself, Iron Shell's
  * reflection, a Rift's pulse, Fire Break's burn, Volley's splash, the strike after a Shadowstep,
- * or an execution.
+ * an execution (Shadowstep, or a wraith's time running out), the HP a troop pays for Vampiric
+ * Link or Blood Price, a vent (Venting), Thermal Detonation's beam, or Shatterstorm.
  */
 export type DamageCause =
   | 'attack'
@@ -280,9 +334,14 @@ export type DamageCause =
   | 'burn'
   | 'splash'
   | 'shadowstep'
-  | 'execute';
+  | 'execute'
+  | 'drain'
+  | 'bloodPrice'
+  | 'vent'
+  | 'beam'
+  | 'shatterstorm';
 /** Damage that hits an area; Assassins take more of it. */
-export const AREA_CAUSES: readonly DamageCause[] = ['shove', 'rift', 'burn', 'splash'];
+export const AREA_CAUSES: readonly DamageCause[] = ['shove', 'rift', 'burn', 'splash', 'vent', 'beam', 'shatterstorm'];
 export type EndReason = 'eliminated' | 'timeout';
 export type Winner = Side | 'draw';
 
@@ -310,7 +369,10 @@ export type BattleEvent =
   | { tick: number; type: 'overtime' }
   /** `link`: 1 for a card on its own, 2 or more for a link in a chain. */
   | { tick: number; type: 'cardFired'; side: Side; slot: number; auto: boolean; perfect: boolean; cost: number; link: number }
-  | { tick: number; type: 'ultimate'; side: Side; name: 'rally'; link: number; finisher: boolean }
+  /** `at` and `to`: where it struck, for the ones that strike a place (Gravity Well; Thermal Detonation's beam runs from `at` to `to`). */
+  | { tick: number; type: 'ultimate'; side: Side; name: UltimateId; link: number; finisher: boolean; at?: Point; to?: Point }
+  /** Forced Evolution: `mergedId` joined `unitId`, which became an elite. */
+  | { tick: number; type: 'evolved'; side: Side; unitId: number; mergedId: number }
   /** A signature combo landed: inside one card, or across two cards of a chain. */
   | { tick: number; type: 'combo'; side: Side; combo: SignatureComboId; acrossCards: boolean }
   | { tick: number; type: 'reserveCalled'; side: Side; unitId: number }
@@ -342,6 +404,10 @@ export interface BattleState {
   nextZoneId: number;
   /** Each side's specializations. */
   specs: Record<Side, SpecChoice>;
+  /** Each side's General: troop skill and doctrine (and, for your side, ultimate and mana twist). */
+  generals: Record<Side, GeneralId>;
+  /** Hive Mother's pack: the enemy each side's troops are hunting together, if any. */
+  packPrey: Record<Side, number | null>;
   /** The troop synergies each side's army switched on, and those that have taken effect so far. */
   synergies: Record<Side, SynergyId[]>;
   synergiesSeen: Record<Side, SynergyId[]>;

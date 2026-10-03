@@ -2,6 +2,7 @@
 
 import { BATTLE_RULES } from '../data/battle';
 import { COMBO_BONUSES } from '../data/combos';
+import { TROOP_SKILLS } from '../data/generals';
 import { SPEC_RULES } from '../data/specializations';
 import { SYNERGY_RULES } from '../data/synergies';
 import { UNIT_CLASSES } from '../data/units';
@@ -9,7 +10,8 @@ import { distance, segmentNearCircle } from './geometry';
 import { overtimeMultiplier } from './overtime';
 import { centerDistance, findUnit, orderPower } from './queries';
 import { nextFloat, nextRange } from './rng';
-import { applySlow, interruptCast } from './status';
+import { spotBehind } from './spots';
+import { addVibration, applySlow, attackSpeedFactor, damageFactor, effectiveArmor, interruptCast } from './status';
 import { hasSynergy, noteSynergy } from './synergies';
 import { attackIntervalTicks, secondsToTicks, TICKS_PER_SECOND } from './time';
 import { AREA_CAUSES, type BattleState, type DamageCause, type Projectile, type Unit, type Zone } from './types';
@@ -34,7 +36,9 @@ export function damageAfterDefenses(raw: number, armor: number, armorPierce: num
 /**
  * Applies one hit: Overtime grows it (and area damage, for troops weak to it), a Barrier soaks
  * damage first, then HP. Writes a damage event. A troop holding with Iron Shell sends part of
- * the hit back while its Barrier lasts. Losing too much HP breaks an Invoker's cast.
+ * the hit back while its Barrier lasts. Losing too much HP breaks an Invoker's cast. A wraith
+ * takes nothing; a Strategist's troop dodges its first fatal blow (Phase Shift); a Conductor's
+ * troops stack Vibration with every attack that lands (Echo Strike).
  */
 export function dealDamage(
   state: BattleState,
@@ -44,10 +48,10 @@ export function dealDamage(
   armorPierce: number,
   cause: DamageCause,
 ): void {
-  if (!target.alive || target.hp <= 0) return;
+  if (!target.alive || target.hp <= 0 || target.wraithTicks > 0 || target.phasingFrom !== null) return;
   const bonus = (target.mark?.damageTakenBonus ?? 0) + (target.chased?.damageTakenBonus ?? 0);
   const area = AREA_CAUSES.includes(cause) ? target.stats.areaDamageTaken : 1;
-  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick) * area, target.stats.armor, armorPierce, bonus);
+  const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick) * area, effectiveArmor(target), armorPierce, bonus);
   const shelled = target.barrier !== null && cause !== 'reflect' && ironShellHolds(target);
   let absorbed = 0;
   if (target.barrier) {
@@ -55,7 +59,8 @@ export function dealDamage(
     target.barrier.amount -= absorbed;
     if (target.barrier.amount <= 0) barrierBroke(state, target);
   }
-  const amount = Math.min(target.hp, total - absorbed);
+  let amount = Math.min(target.hp, total - absorbed);
+  if (amount > 0 && amount >= target.hp && phaseShift(state, target, sourceId)) amount = 0;
   target.hp -= amount;
   if (amount > 0) target.lastHitBy = sourceId;
   state.events.push({ tick: state.tick, type: 'damage', sourceId, targetId: target.id, amount, absorbed, cause });
@@ -64,6 +69,10 @@ export function dealDamage(
     const limit = target.stats.maxHp * UNIT_CLASSES.invoker.rift.interruptDamageShare;
     if (target.casting.damageTaken >= limit) interruptCast(state, target, sourceId);
   }
+  if (cause === 'attack' && target.hp > 0) {
+    const source = findUnit(state, sourceId);
+    if (source && source.side !== target.side && state.generals[source.side] === 'conductor') addVibration(state, target, sourceId);
+  }
   if (shelled) {
     const attacker = findUnit(state, sourceId);
     const reflected = Math.round(total * COMBO_BONUSES.ironShell.reflectShare);
@@ -71,6 +80,45 @@ export function dealDamage(
       // The reflected share already counts Overtime and ignores the attacker's armor.
       dealDamage(state, target.id, attacker, reflected / overtimeMultiplier(state.tick), 1, 'reflect');
     }
+  }
+}
+
+/**
+ * Strategist's Phase Shift: once per battle, a troop about to fall dodges the blow. It takes no
+ * more damage this tick, and when the tick ends it teleports behind its attacker and stuns it.
+ * True if it dodged.
+ */
+function phaseShift(state: BattleState, unit: Unit, sourceId: number): boolean {
+  if (unit.phaseShiftUsed || state.generals[unit.side] !== 'strategist') return false;
+  unit.phaseShiftUsed = true;
+  unit.phasingFrom = sourceId;
+  return true;
+}
+
+/**
+ * Ends this tick's Phase Shifts, once all of the tick's damage is done, so the order troops and
+ * shots are handled in can't favor a side: every spot is worked out first, then everyone moves.
+ */
+export function resolvePhaseShifts(state: BattleState): void {
+  const shifts = state.units
+    .filter((u) => u.phasingFrom !== null)
+    .map((unit) => {
+      const attacker = findUnit(state, unit.phasingFrom);
+      const enemy = attacker?.alive && attacker.side !== unit.side ? attacker : undefined;
+      return { unit, attacker: enemy, spot: enemy ? spotBehind(state, unit, enemy) : null };
+    });
+  for (const { unit, attacker, spot } of shifts) {
+    unit.phasingFrom = null;
+    if (spot) {
+      unit.x = spot.x;
+      unit.y = spot.y;
+      unit.path = [];
+    }
+    if (attacker) {
+      attacker.stunTicks = Math.max(attacker.stunTicks, secondsToTicks(TROOP_SKILLS.phaseShift.stunSeconds));
+      interruptCast(state, attacker, unit.id);
+    }
+    state.events.push({ tick: state.tick, type: 'skill', unitId: unit.id, skill: 'phaseShift', targetIds: attacker ? [attacker.id] : [] });
   }
 }
 
@@ -103,7 +151,7 @@ export function critMultiplier(state: BattleState, unit: Unit, target: Unit): nu
 
 /** One attack: melee hits land at once, ranged attacks fire a projectile. */
 export function performAttack(state: BattleState, unit: Unit, target: Unit): void {
-  const raw = rollDamage(state, unit.stats.damage) * orderPower(unit) * critMultiplier(state, unit, target);
+  const raw = rollDamage(state, unit.stats.damage) * orderPower(unit) * damageFactor(unit) * critMultiplier(state, unit, target);
   if (unit.stats.projectileSpeed > 0) {
     state.projectiles.push({
       id: state.nextProjectileId++,
@@ -122,8 +170,7 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
   } else {
     dealDamage(state, unit.id, target, raw, unit.stats.armorPierce, 'attack');
   }
-  const rally = unit.rallyTicks > 0 ? 1 + unit.rallyBonus : 1;
-  unit.attackCooldown = attackIntervalTicks(unit.stats.attacksPerSecond * rally);
+  unit.attackCooldown = attackIntervalTicks(unit.stats.attacksPerSecond * attackSpeedFactor(unit));
 }
 
 /**

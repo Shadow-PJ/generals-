@@ -1,13 +1,14 @@
 // Creating troops: the armies at the start, and reserves called in during the battle.
 
 import type { TroopPlacement } from '../data/armies';
+import { TROOP_SKILLS, type GeneralId } from '../data/generals';
 import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
 import { isSpaceFree } from './movement';
 import { nextInt, type RngState } from './rng';
 import { initialSkillCooldownTicks } from './skills';
 import { specFor, specStats } from './specs';
-import { attackIntervalTicks } from './time';
+import { attackIntervalTicks, secondsToTicks } from './time';
 import type { BattleState, Side, Unit } from './types';
 
 export function createUnit(
@@ -16,9 +17,10 @@ export function createUnit(
   placement: TroopPlacement,
   rng: RngState,
   spec: SpecializationId | null = null,
+  general: GeneralId = 'captain',
 ): Unit {
   const stats = specStats(UNIT_CLASSES[placement.cls].stats, spec);
-  return {
+  const unit: Unit = {
     id,
     side,
     cls: placement.cls,
@@ -43,6 +45,17 @@ export function createUnit(
     invisibleTicks: 0,
     regen: null,
     casting: null,
+    home: { x: placement.x, y: placement.y },
+    troopSkillCooldown: secondsToTicks(TROOP_SKILLS.vampiricLink.initialCooldownSeconds),
+    haste: null,
+    heat: 0,
+    adaptation: null,
+    phaseShiftUsed: false,
+    phasingFrom: null,
+    vibration: null,
+    shatterTicks: 0,
+    wraithTicks: 0,
+    elite: false,
     lastHitBy: null,
     path: [],
     repathTick: 0,
@@ -50,6 +63,9 @@ export function createUnit(
     rallyTicks: 0,
     rallyBonus: 0,
   };
+  // Warlord doctrine: Assassins dive at once.
+  if (general === 'warlord' && unit.cls === 'assassin') unit.skillCooldown = 0;
+  return unit;
 }
 
 /** How far apart the spots tried for an arriving reserve are. */
@@ -82,7 +98,8 @@ export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | n
   if (y === null) y = midY;
 
   waiting.splice(index, 1);
-  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng, specFor(state.specs[side], chosen));
+  const spec = specFor(state.specs[side], chosen);
+  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng, spec, state.generals[side]);
   state.units.push(unit);
   state.startHp[side] += unit.stats.maxHp;
   state.events.push({ tick: state.tick, type: 'reserveCalled', side, unitId: unit.id });

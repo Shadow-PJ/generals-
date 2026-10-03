@@ -55,7 +55,9 @@ describe('your army on the debug Troops screen', () => {
     const enemy = enemyArmyOf(yours);
     expect(enemy.placement.map((t) => t.cls)).toEqual(['vanguard', 'assassin', 'ranger', 'ranger', 'guardian']);
     expect(isArmyPlaced(OPEN_FIELD, 'enemy', enemy.placement)).toBe(true);
-    expect(enemy).toMatchObject({ reserves: ['invoker', 'invoker', 'ranger'], specs: { assassin: 'blade' } });
+    expect(enemy).toMatchObject({ reserves: ['invoker', 'invoker', 'ranger'], specs: { assassin: 'blade' }, general: 'captain' });
+    expect(enemyArmyOf({ ...yours, general: 'conductor' }).general).toBe('conductor');
+    expect(enemyArmyOf({ ...setup(), general: 'conductor' }).general).toBe('captain');
   });
 
   it('shows the synergies your troops and reserves switch on', () => {

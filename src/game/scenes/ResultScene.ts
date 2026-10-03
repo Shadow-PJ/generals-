@@ -50,13 +50,17 @@ export class ResultScene extends Phaser.Scene {
 
   private rematch(): void {
     this.scene.stop('Battle');
-    const { placement, loadout, rank, tactical, general } = this.setup;
-    this.scene.start('Battle', { placement, loadout, rank, tactical, general, seed: newSeed() });
+    this.scene.start('Battle', { ...this.matchSetup(), seed: newSeed() });
   }
 
   private moveTroops(): void {
     this.scene.stop('Battle');
-    const { placement, loadout, rank, tactical, general } = this.setup;
-    this.scene.start('Prep', { placement, loadout, rank, tactical, general });
+    this.scene.start('Prep', this.matchSetup());
+  }
+
+  /** Everything you set up for the battle (troops, reserves, cards, General...), without its result. */
+  private matchSetup(): MatchSetup {
+    const { result: _result, seed: _seed, ...setup } = this.setup;
+    return setup;
   }
 }

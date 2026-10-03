@@ -12,6 +12,7 @@ describe('key bindings', () => {
     expect(actionForKey('Delete')).toBe('clear');
     expect(actionForKey('KeyB')).toBe('start');
     expect(actionForKey('KeyT')).toBe('troops');
+    expect(actionForKey('KeyG')).toBe('general');
     expect(actionForKey('KeyQ')).toBeUndefined();
   });
 

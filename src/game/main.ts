@@ -11,6 +11,7 @@ import { orderModelState, orderModelTranslator, syncOrderModel } from './orderMo
 import { loadOrderReader, orderReaderTranslator } from './orderReader';
 import { BattleScene } from './scenes/BattleScene';
 import { CodexScene } from './scenes/CodexScene';
+import { GeneralsScene } from './scenes/GeneralsScene';
 import { OrdersScene } from './scenes/OrdersScene';
 import { PrepScene } from './scenes/PrepScene';
 import { ResultScene } from './scenes/ResultScene';
@@ -45,7 +46,7 @@ async function boot(): Promise<void> {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     // The order text box on the Orders screen is a real HTML input laid over the canvas.
     dom: { createContainer: true },
-    scene: [PrepScene, OrdersScene, BattleScene, ResultScene, SettingsScene, CodexScene, TroopsScene],
+    scene: [PrepScene, OrdersScene, BattleScene, ResultScene, SettingsScene, CodexScene, TroopsScene, GeneralsScene],
   });
 
   // The desktop app keeps its window hidden until the first screen is drawn.

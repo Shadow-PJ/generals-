@@ -1,7 +1,8 @@
 // Command pips, Momentum and card slots: when cards glow, rest, fire by themselves, and what
 // pressing a slot or the ultimate key does. Cards fired close together form a chain (cheaper,
 // more Momentum), steps in a row can make a signature combo, and the ultimate at the end of a
-// long chain is a Finisher. Only your side has cards until enemy commanders (4D).
+// long chain is a Finisher. Your General bends one rule about pips (their mana twist). Only
+// your side has cards until enemy commanders (4D).
 
 import { makesCombo } from '../cards/combos';
 import { cardCost } from '../cards/cost';
@@ -10,14 +11,16 @@ import type { Card, Loadout } from '../cards/types';
 import { slotUnlockRank, validateCard } from '../cards/validator';
 import { CARD_RULES } from '../data/cards';
 import { COMBO_BONUSES, SIGNATURE_COMBOS } from '../data/combos';
-import { COMMAND_RULES, ULTIMATES } from '../data/command';
-import type { GeneralId } from '../data/generals';
+import { COMMAND_RULES } from '../data/command';
+import { MANA_TWISTS, type GeneralId } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
 import { checkCondition } from './conditions';
 import { issueCard, type ComboAt } from './orders';
-import { livingUnits } from './queries';
+import { hpShare, livingUnits } from './queries';
+import { payHp } from './status';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
-import type { BattleInput, BattleState, CommandState, Side, SlotState } from './types';
+import { castUltimate, ultimateOf, ultimateUsable } from './ultimates';
+import type { BattleInput, BattleState, CommandState, Side, SlotState, Unit } from './types';
 
 export const LEGENDARY_SLOT = 4;
 export const SLOT_COUNT = 5;
@@ -57,7 +60,8 @@ export function createCommand(
   return {
     side,
     rank,
-    pips: Math.min(COMMAND_RULES.startingPips, rules.maxPips),
+    // Prepared (Strategist): every battle starts with full pips.
+    pips: general === 'strategist' ? rules.maxPips : Math.min(COMMAND_RULES.startingPips, rules.maxPips),
     maxPips: rules.maxPips,
     pipProgress: 0,
     momentum: 0,
@@ -78,7 +82,7 @@ export function updateCommand(state: BattleState): void {
   command.slots.forEach((slot, i) => {
     if (slot.restTicks > 0) slot.restTicks -= 1;
     updateGlow(state, command, slot);
-    if (shouldAutoFire(state, command, slot)) fireSlot(state, i, true);
+    if (shouldAutoFire(state, slot)) fireSlot(state, i, true);
   });
 }
 
@@ -89,9 +93,20 @@ export function inComeback(state: BattleState, side: Side): boolean {
   return fielded > 0 && lost >= fielded * COMMAND_RULES.comebackLossShare;
 }
 
+/**
+ * Pips refill one at a time. Feeding (Hive Mother) and Prepared (Strategist) refill slower;
+ * Build-Up (Engineer) raises the most you can hold as the battle goes on.
+ */
 function refillPips(state: BattleState, command: CommandState): void {
+  const general = state.generals[command.side];
+  if (general === 'engineer') {
+    const buildUp = MANA_TWISTS.buildUp;
+    const extra = Math.min(buildUp.maxExtraPips, Math.floor(state.tick / secondsToTicks(buildUp.everySeconds)));
+    command.maxPips = rankRules(command.rank).maxPips + extra;
+  }
+  const rate = general === 'hiveMother' ? MANA_TWISTS.feeding.refillRate : general === 'strategist' ? MANA_TWISTS.prepared.refillRate : 1;
   const interval = secondsToTicks(COMMAND_RULES.pipRefillSeconds);
-  command.pipProgress += inComeback(state, command.side) ? COMMAND_RULES.comebackRefillMultiplier : 1;
+  command.pipProgress += rate * (inComeback(state, command.side) ? COMMAND_RULES.comebackRefillMultiplier : 1);
   while (command.pipProgress >= interval) {
     command.pipProgress -= interval;
     // A full bar wastes the pip.
@@ -105,7 +120,9 @@ function updateGlow(state: BattleState, command: CommandState, slot: SlotState):
   const check = checkCondition(state, command.side, condition);
   if (check.met) {
     slot.glowing = true;
-    slot.lingerTicks = secondsToTicks(COMMAND_RULES.glowLingerSeconds);
+    // Rhythm (Conductor): the glow lasts longer.
+    const linger = state.generals[command.side] === 'conductor' ? MANA_TWISTS.rhythm.glowLingerSeconds : COMMAND_RULES.glowLingerSeconds;
+    slot.lingerTicks = secondsToTicks(linger);
     slot.triggerEnemyId = check.enemyId;
     slot.triggerAllyId = check.allyId;
     return;
@@ -121,10 +138,10 @@ function updateGlow(state: BattleState, command: CommandState, slot: SlotState):
 }
 
 /** Auto: fires the moment its condition is met: once per battle, or every time for a repeating card. */
-function shouldAutoFire(state: BattleState, command: CommandState, slot: SlotState): boolean {
+function shouldAutoFire(state: BattleState, slot: SlotState): boolean {
   const card = slot.card;
   if (!card?.auto || !slot.glowing || slot.firedThisGlow || slot.restTicks > 0) return false;
-  if (command.pips < chainedCost(state, card)) return false;
+  if (!canAfford(state, chainedCost(state, card))) return false;
   if (!card.condition?.repeat) return slot.autoFires === 0;
   const gap = secondsToTicks(CARD_RULES.repeatMinSeconds);
   return slot.lastAutoTick === null || state.tick - slot.lastAutoTick >= gap;
@@ -141,8 +158,50 @@ export function slotReadiness(state: BattleState, index: number): SlotReadiness 
   if (slot.restTicks > 0) return 'resting';
   // A card with a condition can only be fired while it glows.
   if (slot.card.condition && !slot.glowing) return 'waiting';
-  if (state.command.pips < chainedCost(state, slot.card)) return 'noPips';
+  if (!canAfford(state, chainedCost(state, slot.card))) return 'noPips';
   return 'ready';
+}
+
+// Paying for cards ---------------------------------------------------------------------------
+
+/**
+ * Blood Price (Warlord): the troop that pays the pips you lack with its HP, if one can: your
+ * healthiest troop, if it would keep at least 1 HP.
+ */
+export function bloodPayer(state: BattleState, missingPips: number): Unit | undefined {
+  const command = state.command;
+  if (missingPips <= 0 || state.generals[command.side] !== 'warlord') return undefined;
+  let healthiest: Unit | undefined;
+  for (const u of livingUnits(state, command.side)) if (!healthiest || hpShare(u) > hpShare(healthiest)) healthiest = u;
+  if (!healthiest) return undefined;
+  const price = bloodPrice(healthiest, missingPips);
+  return healthiest.hp - price >= 1 ? healthiest : undefined;
+}
+
+function bloodPrice(unit: Unit, pips: number): number {
+  return Math.round(unit.stats.maxHp * MANA_TWISTS.bloodPrice.hpSharePerPip * pips);
+}
+
+/** True if you can pay `cost` now: with pips, or (Warlord) with blood for the rest. */
+export function canAfford(state: BattleState, cost: number): boolean {
+  const missing = cost - state.command.pips;
+  return missing <= 0 || bloodPayer(state, missing) !== undefined;
+}
+
+/** Pays a card's cost: pips first, then blood for what is missing. */
+function pay(state: BattleState, cost: number): void {
+  const command = state.command;
+  const missing = cost - command.pips;
+  const payer = bloodPayer(state, missing);
+  if (payer) payHp(state, payer, bloodPrice(payer, missing), 'bloodPrice');
+  command.pips = Math.max(0, command.pips - cost);
+}
+
+/** Feeding (Hive Mother): every enemy that falls gives you a pip. Called for every troop that falls. */
+export function fed(state: BattleState, fallen: Unit): void {
+  const command = state.command;
+  if (fallen.side === command.side || state.generals[command.side] !== 'hiveMother') return;
+  command.pips = Math.min(command.maxPips, command.pips + MANA_TWISTS.feeding.pipsPerKill);
 }
 
 // Chains --------------------------------------------------------------------------------------
@@ -216,7 +275,7 @@ function fireSlot(state: BattleState, index: number, auto: boolean): void {
   const cost = chainedCost(state, card);
   // Perfect timing: a manual card fired while it glows. Tactical mode has none.
   const perfect = !auto && !!card.condition && slot.glowing && !state.tactical;
-  command.pips -= cost;
+  pay(state, cost);
   slot.restTicks = secondsToTicks(COMMAND_RULES.slotRestSeconds);
   slot.firedThisGlow = true;
   if (auto) {
@@ -224,7 +283,9 @@ function fireSlot(state: BattleState, index: number, auto: boolean): void {
     slot.lastAutoTick = state.tick;
   }
   if (perfect) {
-    command.pips = Math.min(command.maxPips, command.pips + COMMAND_RULES.perfect.pipRefund);
+    // Rhythm (Conductor): Perfect timing gives more pips back.
+    const refund = state.generals[command.side] === 'conductor' ? MANA_TWISTS.rhythm.perfectPipRefund : COMMAND_RULES.perfect.pipRefund;
+    command.pips = Math.min(command.maxPips, command.pips + refund);
     addMomentum(command, COMMAND_RULES.momentum.perfectGain, link);
   }
   if (link > 1) addMomentum(command, COMMAND_RULES.momentum.chainLinkGain, link);
@@ -242,13 +303,19 @@ function fireSlot(state: BattleState, index: number, auto: boolean): void {
   }
 }
 
-export function ultimateReady(state: BattleState): boolean {
+/** True when Momentum is full. */
+export function momentumFull(state: BattleState): boolean {
   return state.command.momentum >= COMMAND_RULES.momentum.max;
 }
 
+/** True when Momentum is full and your General's ultimate has something to work on. */
+export function ultimateReady(state: BattleState): boolean {
+  return momentumFull(state) && ultimateUsable(state, state.command.side);
+}
+
 /**
- * The Captain's Rally: every troop heals and attacks faster for a few seconds. As the 3rd link of
- * a chain or later (from Rank IV) it is a Finisher, and 50% stronger.
+ * Your General's ultimate (ultimates.ts). As the 3rd link of a chain or later (from Rank IV) it
+ * is a Finisher, and 50% stronger.
  */
 function fireUltimate(state: BattleState): void {
   if (!ultimateReady(state)) return;
@@ -256,14 +323,9 @@ function fireUltimate(state: BattleState): void {
   const link = nextLink(state);
   const finisher = rankRules(command.rank).finishers && link >= COMMAND_RULES.finisher.minLinks;
   const power = finisher ? 1 + COMMAND_RULES.finisher.powerBonus : 1;
-  const rally = ULTIMATES.rally;
-  for (const unit of livingUnits(state, command.side)) {
-    unit.hp = Math.min(unit.stats.maxHp, unit.hp + Math.round(unit.stats.maxHp * rally.healShare * power));
-    unit.rallyTicks = secondsToTicks(rally.durationSeconds);
-    unit.rallyBonus = rally.attackSpeedBonus * power;
-  }
+  const mark = castUltimate(state, command.side, power);
   command.momentum = 0;
-  state.events.push({ tick: state.tick, type: 'ultimate', side: command.side, name: 'rally', link, finisher });
+  state.events.push({ tick: state.tick, type: 'ultimate', side: command.side, name: ultimateOf(state, command.side), link, finisher, ...mark });
   // The ultimate is a link too, but has no step to make a combo with.
   if (rankRules(command.rank).chains) command.chain = { links: link, lastTick: state.tick, lastStep: null, lastReserveIds: [] };
 }

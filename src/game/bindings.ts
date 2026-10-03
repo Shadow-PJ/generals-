@@ -25,7 +25,9 @@ export type InputAction =
   | 'talk'
   | 'codex'
   /** Opens the debug Troops screen from the Prep screen. */
-  | 'troops';
+  | 'troops'
+  /** Opens the General select screen from the Prep screen. */
+  | 'general';
 
 /** The card slot actions, in slot order. */
 export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
@@ -54,6 +56,7 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   talk: ['KeyV'],
   codex: ['KeyC'],
   troops: ['KeyT'],
+  general: ['KeyG'],
 };
 
 const ACTION_BY_CODE = new Map<string, InputAction>();

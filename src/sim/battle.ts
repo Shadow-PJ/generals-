@@ -1,9 +1,10 @@
 // The battle loop: create a battle from a setup, then advance it one fixed tick at a time.
 
 import { BATTLE_RULES } from '../data/battle';
-import { tauntIntent, think, type Action, type SkillCast } from './behaviors';
-import { applyInput, createCommand, updateCommand } from './command';
-import { performAttack, updateProjectiles } from './combat';
+import { tauntIntent, think } from './behaviors';
+import type { Action, SkillCast } from './intents';
+import { applyInput, createCommand, fed, updateCommand } from './command';
+import { performAttack, resolvePhaseShifts, updateProjectiles } from './combat';
 import { isSpaceFree, moveUnitBy, separateUnits, stepAwayFrom, updateKnockbacks, walkToward } from './movement';
 import { advanceOrders, orderIntent, tickOrder } from './orders';
 import { overtimeStartTick } from './overtime';
@@ -15,6 +16,8 @@ import { castBarrier, castMark, castShove, ironWallTaunts } from './skills';
 import { specFor } from './specs';
 import { createUnit } from './spawn';
 import { activeSynergies } from './synergies';
+import { updatePacks } from './doctrine';
+import { afterAttack, assimilate, vampiricLinks } from './troopSkills';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
 import {
   SIDES,
@@ -32,6 +35,7 @@ export function createBattle(setup: BattleSetup): BattleState {
   const rng = createRng(setup.seed);
   const units: Unit[] = [];
   const specs = { player: { ...setup.specs?.player }, enemy: { ...setup.specs?.enemy } };
+  const generals = { player: setup.general ?? 'captain', enemy: setup.enemyGeneral ?? 'captain' };
   const reserves = { player: [...(setup.reserves?.player ?? [])], enemy: [...(setup.reserves?.enemy ?? [])] };
 
   // Ids alternate between the sides (player, enemy, player, ...) so neither side always acts first.
@@ -39,7 +43,7 @@ export function createBattle(setup: BattleSetup): BattleState {
   for (let i = 0; i < count; i++) {
     for (const side of SIDES) {
       const placement = setup[side][i];
-      if (placement) units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls)));
+      if (placement) units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side]));
     }
   }
   // The army each side brought, troops and reserves, switches its synergies on.
@@ -63,6 +67,8 @@ export function createBattle(setup: BattleSetup): BattleState {
     zones: [],
     nextZoneId: 1,
     specs,
+    generals,
+    packPrey: { player: null, enemy: null },
     synergies: { player: activeSynergies(army('player'), specs.player), enemy: activeSynergies(army('enemy'), specs.enemy) },
     synergiesSeen: { player: [], enemy: [] },
     startHp: {
@@ -104,6 +110,8 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
   advanceOrders(state);
   tickTimers(state);
   ironWallTaunts(state);
+  updatePacks(state);
+  vampiricLinks(state);
 
   // Decide: every unit looks at the same start-of-tick state. A taunt comes first, then card
   // orders, then a troop's own ideas. Shoved, stunned and casting troops do nothing; silenced
@@ -130,6 +138,7 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
   for (const { unit, push } of updateKnockbacks(state)) burnShoved(state, unit, push);
   updateProjectiles(state);
   updateZones(state);
+  resolvePhaseShifts(state);
   separateUnits(state);
   resolveDeaths(state);
   checkForEnd(state);
@@ -166,10 +175,24 @@ function tickTimers(state: BattleState): void {
     if (unit.silencedTicks > 0) unit.silencedTicks -= 1;
     if (unit.invisibleTicks > 0) unit.invisibleTicks -= 1;
     if (unit.rallyTicks > 0) unit.rallyTicks -= 1;
+    if (unit.troopSkillCooldown > 0) unit.troopSkillCooldown -= 1;
+    if (unit.haste && --unit.haste.ticksLeft <= 0) unit.haste = null;
+    if (unit.adaptation && --unit.adaptation.ticksLeft <= 0) unit.adaptation = null;
+    if (unit.vibration && --unit.vibration.ticksLeft <= 0) unit.vibration = null;
+    if (unit.shatterTicks > 0) unit.shatterTicks -= 1;
+    if (unit.wraithTicks > 0 && --unit.wraithTicks === 0) wraithFades(state, unit);
     if (unit.regen) tickRegen(unit);
     tickCast(state, unit);
     tickOrder(unit);
   }
+}
+
+/** Reaper's Toll: a wraith's time is up, and the troop falls. */
+function wraithFades(state: BattleState, unit: Unit): void {
+  const amount = unit.hp;
+  unit.hp = 0;
+  unit.lastHitBy = unit.id;
+  state.events.push({ tick: state.tick, type: 'damage', sourceId: unit.id, targetId: unit.id, amount, absorbed: 0, cause: 'execute' });
 }
 
 /** Mender: heals the regen's amount once a second while it lasts. */
@@ -214,7 +237,10 @@ function carryOut(state: BattleState, unit: Unit, action: Action): void {
     case 'attack': {
       unit.targetId = action.targetId;
       const target = findUnit(state, action.targetId);
-      if (target?.alive && unit.attackCooldown <= 0) performAttack(state, unit, target);
+      if (target?.alive && unit.attackCooldown <= 0) {
+        performAttack(state, unit, target);
+        afterAttack(state, unit);
+      }
       break;
     }
   }
@@ -241,7 +267,14 @@ function resolveDeaths(state: BattleState): void {
     unit.orders = [];
     unit.rallyTicks = 0;
     unit.rallyBonus = 0;
+    unit.haste = null;
+    unit.adaptation = null;
+    unit.vibration = null;
+    unit.shatterTicks = 0;
+    unit.wraithTicks = 0;
     state.events.push({ tick: state.tick, type: 'death', unitId: unit.id, killerId: unit.lastHitBy });
+    assimilate(state, unit);
+    fed(state, unit);
   }
 }
 

@@ -40,6 +40,16 @@ export const COLORS = {
   rift: { arcane: 0xa78bfa, fire: 0xfb923c, frost: 0x7dd3fc },
   silenced: 0xf0abfc,
   taunt: 0xf87171,
+  /** The Generals' skills and ultimates. */
+  wraith: 0xa855f7,
+  elite: 0xfbbf24,
+  haste: 0xef4444,
+  vibration: 0x22d3ee,
+  shell: 0x9ca3af,
+  claws: 0xf97316,
+  heat: 0xfb923c,
+  beam: 0xfde68a,
+  gravityWell: 0x6366f1,
 } as const;
 
 export const TEXT = {

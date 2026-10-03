@@ -62,7 +62,7 @@ export const CONDITION_RULES = {
   groupRadius: 100,
 } as const;
 
-/** The Generals' ultimates. Only the Captain's for now. */
+/** The Captain's ultimate. The other Generals' are in src/data/generals.ts (ULTIMATE_RULES). */
 export const ULTIMATES = {
   rally: { name: 'Rally', healShare: 0.2, attackSpeedBonus: 0.3, durationSeconds: 5 },
 } as const;
