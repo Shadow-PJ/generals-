@@ -13,9 +13,11 @@ import { rankRules, RANKS } from '../../data/ranks';
 import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
 import {
+  bloodPayer,
   chainTicksLeft,
   createBattle,
   LEGENDARY_SLOT,
+  momentumFull,
   nextLink,
   overtimeMultiplier,
   secondsToTicks,
@@ -44,16 +46,21 @@ import { codexEntry } from '../codex';
 import {
   drawBar,
   drawBarrier,
+  drawBeam,
   drawBody,
   drawCasting,
   drawChased,
   drawField,
+  drawGeneralEffects,
+  drawGravityWell,
+  drawHeat,
   drawMark,
   drawRift,
   drawSilenced,
   drawSlowed,
   drawStun,
   drawTaunted,
+  drawVibration,
   drawWall,
 } from '../draw';
 import { fitCamera } from '../display';
@@ -76,7 +83,21 @@ const COMBO_BANNER_MS = 2000;
 /** Pause between the last blow and the result screen, in milliseconds. */
 const RESULT_DELAY_MS = 1400;
 
-const SKILL_LABELS = { shove: 'Shove!', mark: 'Mark', barrier: 'Barrier', rift: 'Rift!', shadowstep: 'Shadowstep!' } as const;
+const SKILL_LABELS = {
+  shove: 'Shove!',
+  mark: 'Mark',
+  barrier: 'Barrier',
+  rift: 'Rift!',
+  shadowstep: 'Shadowstep!',
+  vampiricLink: 'Blood link',
+  vent: 'Vent!',
+  assimilation: 'Assimilated',
+  phaseShift: 'Phase Shift!',
+  shatter: 'Shatter!',
+} as const;
+
+/** How long a beam or a Gravity Well stays on screen, in milliseconds. */
+const STRIKE_MS = 700;
 
 const SLOT_W = 136;
 const SLOT_H = 80;
@@ -112,6 +133,10 @@ export class BattleScene extends Phaser.Scene {
   private ended = false;
   /** When the combo banner showing now is gone, so the next one waits its turn instead of overlapping. */
   private bannerFreeAt = 0;
+  /** Troops merged away by Forced Evolution: gone, not fallen, so no mark is left where they stood. */
+  private merged = new Set<number>();
+  /** Ultimates that strike a place, shown for a moment: Thermal Detonation's beam, Gravity Well. */
+  private strikes: { kind: 'beam' | 'well'; at: Point; to: Point | null; until: number }[] = [];
 
   private world!: Phaser.GameObjects.Container;
   private wallsLayer!: Phaser.GameObjects.Graphics;
@@ -146,6 +171,7 @@ export class BattleScene extends Phaser.Scene {
       reserves: { player: [...data.reserves], enemy: enemy.reserves },
       tactical: data.tactical,
       general: data.general,
+      enemyGeneral: enemy.general,
       specs: { player: data.specs, enemy: enemy.specs },
     });
     this.clock = createClock();
@@ -158,6 +184,8 @@ export class BattleScene extends Phaser.Scene {
     this.eventCursor = 0;
     this.ended = false;
     this.bannerFreeAt = 0;
+    this.merged = new Set();
+    this.strikes = [];
   }
 
   create(): void {
@@ -280,8 +308,16 @@ export class BattleScene extends Phaser.Scene {
         const entry = codexEntry(e.combo);
         this.comboBanner(`${entry.name.toUpperCase()}!`, entry.bonusText, this.found(e.combo));
       } else if (e.type === 'ultimate') {
-        if (e.finisher) this.comboBanner('FINISHER: RALLY!', 'Every troop heals and attacks faster, 50% stronger', this.found('finisher'));
-        else this.banner('RALLY!', TEXT.perfect, 'Every troop heals and attacks faster');
+        const ultimate = GENERALS[this.setup.general].ultimate;
+        const name = ultimate.name.toUpperCase();
+        if (e.finisher) this.comboBanner(`FINISHER: ${name}!`, `${ultimate.text}. 50% stronger.`, this.found('finisher'));
+        else this.banner(`${name}!`, TEXT.perfect, ultimate.text);
+        if (e.name === 'thermalDetonation' && e.at && e.to) this.strikes.push({ kind: 'beam', at: e.at, to: e.to, until: time + STRIKE_MS });
+        if (e.name === 'gravityWell' && e.at) this.strikes.push({ kind: 'well', at: e.at, to: null, until: time + STRIKE_MS });
+      } else if (e.type === 'evolved') {
+        this.merged.add(e.mergedId);
+        const unit = this.unit(e.unitId);
+        if (unit) this.popup(unit.x, unit.y - 30, 'Evolved!', '#fde68a');
       } else if (e.type === 'reserveCalled') {
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 26, 'Reserve arrives!', '#bfe0ff');
@@ -304,7 +340,7 @@ export class BattleScene extends Phaser.Scene {
     for (const zone of this.state.zones) drawRift(g, zone, zone.ticksLeft / riftTicks, Math.max(0, zone.pulseIn / pulseTicks - 0.5) * 2);
     // Fallen troops next, so the living are drawn on top.
     for (const u of this.state.units) {
-      if (u.alive) continue;
+      if (u.alive || this.merged.has(u.id)) continue;
       const r = u.stats.radius * 0.6;
       g.lineStyle(3, COLORS.side[u.side], 0.35);
       g.lineBetween(u.x - r, u.y - r, u.x + r, u.y + r).lineBetween(u.x - r, u.y + r, u.x + r, u.y - r);
@@ -319,6 +355,7 @@ export class BattleScene extends Phaser.Scene {
       // Invisible troops (Shadow Escort) show as a faint outline: yours a little clearer.
       const alpha = u.invisibleTicks > 0 ? (u.side === 'player' ? 0.35 : 0.15) : 1;
       if (u.slow) drawSlowed(g, at.x, at.y, r);
+      drawGeneralEffects(g, at.x, at.y, r, u);
       if (u.barrier) drawBarrier(g, at.x, at.y, r, u.barrier.amount / UNIT_CLASSES.guardian.barrier.amount);
       if (u.rallyTicks > 0) g.lineStyle(2, COLORS.glow, 0.7).strokeCircle(at.x, at.y, r + 9);
       const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
@@ -331,6 +368,8 @@ export class BattleScene extends Phaser.Scene {
       if (u.mark) drawMark(g, at.x, at.y, r);
       if (u.chased) drawChased(g, at.x, at.y, r);
       if (u.silencedTicks > 0) drawSilenced(g, at.x, at.y, r);
+      if (u.vibration || u.shatterTicks > 0) drawVibration(g, at.x, at.y, r, u.vibration?.stacks ?? 0, u.shatterTicks > 0);
+      if (u.heat > 0) drawHeat(g, at.x, at.y, r, u.heat);
       if (u.stunTicks > 0 && !u.knockback) drawStun(g, at.x, at.y, r, time);
       drawBar(g, at.x, at.y - r - 9, 26, u.hp / u.stats.maxHp);
       // A small white dot: this troop is carrying out a card order.
@@ -345,6 +384,12 @@ export class BattleScene extends Phaser.Scene {
       if (!t?.alive) continue;
       const at = this.smoothed(`u${t.id}`, t.x, t.y, blend);
       g.lineStyle(2, COLORS.invalid, 0.9).strokeCircle(at.x, at.y, t.stats.radius + 12);
+    }
+    this.strikes = this.strikes.filter((s) => s.until > time);
+    for (const s of this.strikes) {
+      const share = (s.until - time) / STRIKE_MS;
+      if (s.kind === 'beam' && s.to) drawBeam(g, s.at, s.to, share);
+      else drawGravityWell(g, s.at, share, time);
     }
     for (const p of this.state.projectiles) {
       const at = this.smoothed(`p${p.id}`, p.x, p.y, blend);
@@ -509,7 +554,11 @@ export class BattleScene extends Phaser.Scene {
     g.fillStyle(COLORS.momentum, share >= 1 ? pulse : 1).fillRect(PANEL_X, SLOT_Y + 55, width * Math.min(1, share), 6);
     const ready = ultimateReady(this.state);
     const finisher = ready && rankRules(command.rank).finishers && nextLink(this.state) >= COMMAND_RULES.finisher.minLinks;
-    const label = finisher ? 'U: FINISHER now!' : ready ? 'U: RALLY ready!' : `U: Rally  ${Math.floor(share * 100)}%`;
+    const ultimate = GENERALS[this.setup.general].ultimate;
+    let label = `U: ${ultimate.name}  ${Math.floor(share * 100)}%`;
+    if (finisher) label = 'U: FINISHER now!';
+    else if (ready) label = `U: ${ultimate.name.toUpperCase()} ready!`;
+    else if (momentumFull(this.state)) label = `U: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
     this.ultimateText.setText(label).setColor(finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
   }
 
@@ -532,8 +581,12 @@ export class BattleScene extends Phaser.Scene {
         const cost = slotCost(this.state, index) ?? 0;
         return `${auto}Needs ${cost} pip${cost === 1 ? '' : 's'}`;
       }
-      case 'ready':
-        return slot.glowing ? `${auto}NOW! Perfect timing` : `${auto}Ready`;
+      case 'ready': {
+        // Blood Price (Warlord): short on pips, a troop pays the rest with HP.
+        const cost = slotCost(this.state, index) ?? 0;
+        const blood = this.state.command.pips < cost && bloodPayer(this.state, cost - this.state.command.pips) ? ' (blood)' : '';
+        return slot.glowing ? `${auto}NOW! Perfect${blood}` : `${auto}Ready${blood}`;
+      }
     }
   }
 

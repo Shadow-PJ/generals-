@@ -18,7 +18,7 @@ From Rank III, cards fired within 3 seconds of each other chain: each link costs
 
 Five troop classes fight: Vanguards hold the front and Shove, Rangers shoot from range and Mark, Guardians shield the most hurt ally, Invokers open damaging Rifts on groups of enemies (a long cast that a hit can break), and Assassins blink behind the enemy backline and execute the weak. Press T on the troop screen for the Troops (debug) screen: pick the class of each troop and reserve, a specialization for each class (Breaker or Bulwark, Sniper or Volley, and so on), and whether the enemy brings the starter army or a mirror of yours. Pairs of classes in your army switch on troop synergies by themselves, such as Iron Wall (Guardian and Vanguard); the troop screen shows which are on.
 
-Your General reads every card in their own way: the Warlord turns retreats into counter-attacks, the Engineer adds a Hold before every Move, the Hive Mother keeps orders short and simple, the Strategist suggests a better moment, and the Conductor reorders steps into combos. Until you can recruit them, pick one with the General (debug) switch at the top of the orders screen.
+Your General leads the battle: press G on the troop screen to choose one. Each gives every troop a skill and a way of fighting (the Warlord's troops trade HP for speed, the Engineer's vent heat and dig in early, the Hive Mother's hunt as a pack, the Strategist's dodge a killing blow once, the Conductor's stack Vibration until enemies shatter), brings its own ultimate on U, bends one rule about pips, and reads every card in their own way: the Warlord turns retreats into counter-attacks, the Engineer adds a Hold before every Move, the Hive Mother keeps orders short and simple, the Strategist suggests a better moment, and the Conductor reorders steps into combos. Until you recruit them in the campaign, every General is open.
 
 You can also speak an order: on the orders screen, hold V (or the Talk button), say it, and let go. This uses your browser's speech recognition, so it works in Chrome, Edge and Safari but not Firefox, nor yet in the desktop app; typing always works. Orders are read by a rule parser, and what it can't read by the order reader, a small model trained for this game that runs on your computer, at once and offline (`docs/model-eval-3c.md`). It reads slang, typos and long orders, and says so when it isn't sure rather than guess. On the troop screen, Esc opens Settings: fullscreen or windowed, window size, resolution, and order reading, where you can also switch on an experimental language model for what the other two can't read (it downloads once, about 400 MB, and is slow). F11 switches fullscreen on any screen.
 
@@ -31,7 +31,8 @@ npm install
 npm run dev                 # local dev server
 npm test                    # all tests
 npm run build               # type check and production build
-npm run sim -- --seed 42    # run one battle headless and print the result (add --verbose for skill uses)
+npm run sim -- --seed 42    # run one battle headless and print the result (add --verbose for skill uses,
+                            # --general warlord and --enemy-general conductor to pick each side's General)
 npm run dataset             # write 5,000 generated sentence and card pairs to tools/dataset/out/
 npm run eval                # parser and order reader accuracy on the held-out orders, with every failure
 npm run eval -- --set fresh # the same on fresh.txt, orders written before the reader existed

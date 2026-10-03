@@ -145,7 +145,7 @@ Two bars run the battle: Command pips pay for cards, and Momentum charges your u
 | Engineer | Build-Up | Max pips +1 every 30 s of battle, up to +3; slow start, strong finish |
 | Hive Mother | Feeding | Pips refill at half speed, but every enemy killed gives 1 pip |
 | Strategist | Prepared | Starts every battle with full pips, but refills 25% slower |
-| Conductor | Rhythm | Perfect timing gives 2 pips back, and the glow window lasts longer |
+| Conductor | Rhythm | Perfect timing gives 2 pips back, and the glow window lasts longer (2.5 s instead of 1.5 s) |
 
 ## Combos
 
@@ -311,6 +311,17 @@ Everything echoes. Combo chaining and stacking.
 - **Ultimate, Shatterstorm:** detonates every Vibration stack at once, causing chain explosions.
 - **Mana twist:** Rhythm.
 - **Writes your cards:** as a perfectionist. Reorders your steps so they land as a signature combo when possible.
+
+### How the Generals play in detail (session 4C)
+
+Your General's troop skill and doctrine work on every troop you field, with or without cards; the ultimate and the mana twist work through your Command bar. Until enemy commanders arrive (4D), a mirrored enemy army fights with your General's troop skill and doctrine, and the starter enemy with the Captain's. You choose your General on the General screen (G on the troop screen); every General is open until the campaign.
+
+- **Warlord.** Vampiric Link: a troop with at least half its HP, every 14 s (first after 6 s), pays 10% of its max HP to make the nearest ally within 140 that has an enemy in reach attack three times as fast for 1.5 s. Doctrine: Vanguards attack the strongest enemy in reach (most HP left), else go for the strongest enemy; Assassins start with Shadowstep ready and use it on their prey at any distance. Reaper's Toll: your troops below 20% HP become wraiths for 10 s: they take no damage and hit 50% harder, then fall. It waits until a troop is that low. Blood Price: a card you lack pips for still fires if your healthiest troop (by share of HP) can pay the missing pips with 10% of its max HP each and keep at least 1 HP; pips go first.
+- **Engineer.** Venting: every 5th attack a troop vents, dealing 30 burn damage to every enemy within 55 and losing 2% of its max HP. Its attacks since the last vent are its heat. Doctrine, for the first 40 s of a battle only (so two Engineers can't wait each other out): Vanguards stay at their spot (where they started, or where a Move or Fall Back left them) unless an enemy comes within 260 of it; Rangers stand 45 behind the nearest Vanguard until an enemy is within their range plus 80. Thermal Detonation: every troop heals 8% of its max HP plus 3% per point of heat, then all the heat fires as a beam from the middle of your army through the middle of the enemy's, hitting every enemy within 30 of the line for 60 damage plus 12 per point of heat. Build-Up: max pips +1 at 30, 60 and 90 s.
+- **Hive Mother.** Assimilation: a troop that kills grows a shell (+0.2 armor) from a Vanguard or Guardian, or claws (+25% damage) from any other class, for 10 s. Doctrine: the pack picks the enemy nearest to its middle and keeps it until it falls; Vanguards and Assassins go for it, Rangers and Invokers shoot it whenever it is in range, Guardians keep to their allies. Forced Evolution: your two most hurt troops (by share of HP) merge; the one with more HP left stays as an elite with both max HPs and both HPs added, 50% more damage and +0.1 armor, and the other is gone (it doesn't fall, so no kill is counted). It waits until you have 2 troops. Feeding: pips refill at half speed, and every enemy that falls gives you a pip.
+- **Strategist.** Phase Shift: once per battle, a blow that would make a troop fall misses; the troop takes no more damage that tick, and at the end of the tick it teleports behind its attacker and stuns it for 1.5 s. Doctrine: Vanguards stand between the nearest non-Vanguard ally and the enemy closest to it; Rangers back away from enemies within 85% of their range while they reload. Gravity Well: every unit within 240 of the middle of the enemy army, yours too, is pulled up to 150 toward that point over 0.6 s and can't act meanwhile (Iron Wall Vanguards stand fast). Prepared: you start with full pips; they refill at 75% speed.
+- **Conductor.** Echo Strike: every attack that lands adds a Vibration stack (up to 3, fading 4 s after the last hit); the 3rd shatters the enemy: 0.1 less armor for 4 s. Doctrine: a troop about to hit an enemy with 3 stacks hits the nearest enemy in reach with fewer instead (Assassins keep to their prey). Shatterstorm: every enemy with stacks takes 45 damage per stack, and the enemies within 60 of it half that; the stacks are used up. It waits until an enemy has stacks. Rhythm: a Perfect timing gives 2 pips back, and cards glow 2.5 s after their condition ends instead of 1.5 s.
+- **Ultimates as Finishers** are 50% stronger: Rally heals and speeds more, wraiths last 50% longer, Thermal Detonation heals and burns more, the elite gets more damage, Gravity Well pulls further, Shatterstorm hurts more.
 
 ## Campaign
 

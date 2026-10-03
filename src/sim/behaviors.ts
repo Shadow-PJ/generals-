@@ -5,9 +5,9 @@
 // from the same tick, and the order units are listed in doesn't favor either side.
 
 import { UNIT_CLASSES } from '../data/units';
-import { BATTLE_RULES } from '../data/battle';
+import { applyDoctrine } from './doctrine';
 import { clamp, distance, type Point } from './geometry';
-import { slideMove, stepAwayFrom, stepLength } from './movement';
+import { attackOrApproach, backAway, HOLD, type Intent, type SkillCast } from './intents';
 import {
   centerDistance,
   edgeDistance,
@@ -23,27 +23,14 @@ import { choosePrey } from './shadowstep';
 import { shoveTargets } from './skills';
 import type { BattleState, Unit } from './types';
 
-export type Action =
-  | { kind: 'hold' }
-  | { kind: 'walk'; to: Point; targetId: number | null }
-  | { kind: 'backAway'; from: Point; targetId: number }
-  | { kind: 'attack'; targetId: number };
+export type { Action, Intent, SkillCast } from './intents';
 
-export type SkillCast =
-  | { skill: 'shove' }
-  | { skill: 'mark'; targetId: number }
-  | { skill: 'barrier'; targetId: number }
-  | { skill: 'rift'; at: Point }
-  | { skill: 'shadowstep'; targetId: number };
-
-export interface Intent {
-  action: Action;
-  cast: SkillCast | null;
+/** What the troop does on its own: its class behavior, as its General's doctrine bends it. */
+export function think(state: BattleState, unit: Unit): Intent {
+  return applyDoctrine(state, unit, classIntent(state, unit));
 }
 
-const HOLD: Intent = { action: { kind: 'hold' }, cast: null };
-
-export function think(state: BattleState, unit: Unit): Intent {
+function classIntent(state: BattleState, unit: Unit): Intent {
   switch (unit.cls) {
     case 'vanguard':
       return thinkVanguard(state, unit);
@@ -67,12 +54,6 @@ export function tauntIntent(state: BattleState, unit: Unit): Intent | null {
   const taunter = findUnit(state, unit.taunt.unitId);
   if (!taunter?.alive || taunter.invisibleTicks > 0) return null;
   return { action: attackOrApproach(unit, taunter), cast: null };
-}
-
-/** Attack the target if it is in reach, otherwise walk toward it. */
-function attackOrApproach(unit: Unit, target: Unit): Action {
-  if (edgeDistance(unit, target) <= unit.stats.range) return { kind: 'attack', targetId: target.id };
-  return { kind: 'walk', to: { x: target.x, y: target.y }, targetId: target.id };
 }
 
 /**
@@ -113,20 +94,6 @@ export function thinkRanger(state: BattleState, unit: Unit): Intent {
       ? { skill: 'mark' as const, targetId: threat.id }
       : null;
   return { action, cast };
-}
-
-/**
- * A ranged troop backs away from an enemy closer than `retreatDistance`, and can't shoot meanwhile.
- * Null when the enemy is far enough, or the troop is cornered against a wall or the map edge.
- */
-function backAway(state: BattleState, unit: Unit, threat: Unit, retreatDistance: number): Action | null {
-  if (edgeDistance(unit, threat) >= retreatDistance) return null;
-  const step = stepAwayFrom(unit, threat);
-  if (!step) return null;
-  const to = slideMove(state, unit.x, unit.y, unit.stats.radius, step.x, step.y);
-  const moved = distance(unit.x, unit.y, to.x, to.y);
-  if (moved < stepLength(unit) * BATTLE_RULES.corneredMoveShare) return null;
-  return { kind: 'backAway', from: { x: threat.x, y: threat.y }, targetId: threat.id };
 }
 
 /**

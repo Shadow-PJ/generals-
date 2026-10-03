@@ -154,8 +154,8 @@ Goal: everything that happens inside one battle, playable in a skirmish mode.
 
 ### 4C. The 5 Generals
 
-- [ ] Warlord, Engineer, Hive Mother, Strategist and Conductor, each with troop skill, doctrine, ultimate and mana twist
-- [ ] General select screen
+- [x] Warlord, Engineer, Hive Mother, Strategist and Conductor, each with troop skill, doctrine, ultimate and mana twist
+- [x] General select screen
 
 Owner checks: each General feels different in a skirmish.
 

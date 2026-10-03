@@ -7,6 +7,7 @@ import {
   STARTER_ARMY_MIRRORED,
   type TroopPlacement,
 } from '../data/armies';
+import type { GeneralId } from '../data/generals';
 import { OPEN_FIELD } from '../data/maps';
 import { SPECIALIZATIONS_OF, type SpecChoice, type SpecializationId } from '../data/specializations';
 import type { SynergyId } from '../data/synergies';
@@ -52,13 +53,19 @@ export function withSpec(specs: SpecChoice, cls: UnitClass, spec: Specialization
   return next;
 }
 
-/** The army the enemy brings: the starter army, or yours mirrored onto its side. */
-export function enemyArmyOf(setup: MatchSetup): { placement: TroopPlacement[]; reserves: UnitClass[]; specs: SpecChoice } {
-  if (setup.enemyArmy === 'starter') return { placement: STARTER_ARMY_MIRRORED.map((t) => ({ ...t })), reserves: [], specs: {} };
+/**
+ * The army the enemy brings: the starter army under the Captain, or a mirror of yours, with
+ * your specializations and your General's troop skill and doctrine.
+ */
+export function enemyArmyOf(setup: MatchSetup): { placement: TroopPlacement[]; reserves: UnitClass[]; specs: SpecChoice; general: GeneralId } {
+  if (setup.enemyArmy === 'starter') {
+    return { placement: STARTER_ARMY_MIRRORED.map((t) => ({ ...t })), reserves: [], specs: {}, general: 'captain' };
+  }
   return {
     placement: setup.placement.map((t, i) => ({ ...STARTER_ARMY_MIRRORED[i]!, cls: t.cls })),
     reserves: [...setup.reserves],
     specs: { ...setup.specs },
+    general: setup.general,
   };
 }
 

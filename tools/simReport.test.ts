@@ -6,9 +6,15 @@ import { formatReport, parseSimArgs } from './simReport';
 
 describe('headless runner options', () => {
   it('reads the seed in both spellings, and --verbose', () => {
-    expect(parseSimArgs(['--seed', '42'])).toEqual({ seed: 42, verbose: false });
-    expect(parseSimArgs(['--seed=7', '--verbose'])).toEqual({ seed: 7, verbose: true });
-    expect(parseSimArgs([])).toEqual({ seed: 42, verbose: false });
+    const captains = { general: 'captain', enemyGeneral: 'captain' };
+    expect(parseSimArgs(['--seed', '42'])).toEqual({ seed: 42, verbose: false, ...captains });
+    expect(parseSimArgs(['--seed=7', '--verbose'])).toEqual({ seed: 7, verbose: true, ...captains });
+    expect(parseSimArgs([])).toEqual({ seed: 42, verbose: false, ...captains });
+  });
+
+  it('reads either side’s General', () => {
+    expect(parseSimArgs(['--general', 'warlord', '--enemy-general=hiveMother'])).toMatchObject({ general: 'warlord', enemyGeneral: 'hiveMother' });
+    expect(() => parseSimArgs(['--general', 'napoleon'])).toThrow(/General/);
   });
 
   it('rejects bad seeds and unknown options', () => {

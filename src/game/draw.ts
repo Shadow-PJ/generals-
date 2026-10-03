@@ -203,3 +203,59 @@ export function drawMark(g: Graphics, x: number, y: number, r: number): void {
   g.lineBetween(x - outer, y, x - inner, y).lineBetween(x + inner, y, x + outer, y);
   g.lineBetween(x, y - outer, x, y - inner).lineBetween(x, y + inner, x, y + outer);
 }
+
+/** The Generals' effects on a troop: an elite (gold double ring), a wraith (violet haze), Vampiric Link (red ring), Assimilation (shell or claws). */
+export function drawGeneralEffects(
+  g: Graphics,
+  x: number,
+  y: number,
+  r: number,
+  unit: { elite: boolean; wraithTicks: number; haste: unknown; adaptation: { kind: 'shell' | 'claws' } | null },
+): void {
+  if (unit.wraithTicks > 0) g.fillStyle(COLORS.wraith, 0.3).fillCircle(x, y, r + 8);
+  if (unit.elite) g.lineStyle(2, COLORS.elite, 0.95).strokeCircle(x, y, r + 4).strokeCircle(x, y, r + 7);
+  if (unit.haste) g.lineStyle(2, COLORS.haste, 0.9).strokeCircle(x, y, r + 11);
+  if (unit.adaptation?.kind === 'shell') g.lineStyle(4, COLORS.shell, 0.8).strokeCircle(x, y, r + 2);
+  if (unit.adaptation?.kind === 'claws') {
+    g.lineStyle(2, COLORS.claws, 0.95);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+      g.lineBetween(x + Math.cos(a) * r, y + Math.sin(a) * r, x + Math.cos(a) * (r + 6), y + Math.sin(a) * (r + 6));
+    }
+  }
+}
+
+/** Vibration stacks (Echo Strike) as small dots over the troop; a shattered troop gets a broken ring. */
+export function drawVibration(g: Graphics, x: number, y: number, r: number, stacks: number, shattered: boolean): void {
+  g.fillStyle(COLORS.vibration, 1);
+  for (let i = 0; i < stacks; i++) g.fillCircle(x - 6 + i * 6, y - r - 16, 2);
+  if (shattered) {
+    g.lineStyle(2, COLORS.vibration, 0.8);
+    for (let i = 0; i < 4; i++) {
+      const a = (i / 4) * Math.PI * 2;
+      g.beginPath().arc(x, y, r + 6, a, a + Math.PI / 4).strokePath();
+    }
+  }
+}
+
+/** Heat (Venting) as small orange marks under the troop: one per attack since it last vented. */
+export function drawHeat(g: Graphics, x: number, y: number, r: number, heat: number): void {
+  g.fillStyle(COLORS.heat, 0.9);
+  for (let i = 0; i < heat; i++) g.fillRect(x - 9 + i * 5, y + r + 9, 3, 3);
+}
+
+/** Thermal Detonation's beam, fading over `share` (1 to 0). */
+export function drawBeam(g: Graphics, from: { x: number; y: number }, to: { x: number; y: number }, share: number): void {
+  g.lineStyle(18 * share + 4, COLORS.beam, 0.25 * share).lineBetween(from.x, from.y, to.x, to.y);
+  g.lineStyle(4, COLORS.beam, 0.9 * share).lineBetween(from.x, from.y, to.x, to.y);
+}
+
+/** Gravity Well: a dark swirl at the point, shrinking as `share` goes from 1 to 0. */
+export function drawGravityWell(g: Graphics, at: { x: number; y: number }, share: number, time: number): void {
+  g.fillStyle(COLORS.gravityWell, 0.25 * share).fillCircle(at.x, at.y, 60 * share + 10);
+  g.lineStyle(2, COLORS.gravityWell, 0.9 * share);
+  for (let i = 0; i < 3; i++) {
+    const a = time / 150 + (i * Math.PI * 2) / 3;
+    g.beginPath().arc(at.x, at.y, 20 + 30 * share, a, a + Math.PI / 2).strokePath();
+  }
+}

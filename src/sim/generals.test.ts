@@ -54,10 +54,16 @@ describe('the General in battle', () => {
     expect(quiet([fallBack], { rank: 1 }).command.slots[0]!.card).toEqual(fallBack);
   });
 
-  it('leaves a battle without cards exactly the same for every General', () => {
+  it('leaves a battle without cards as it was with the Captain, and changes it with any other General', () => {
     const setup = { seed: 42, map: OPEN_FIELD, player: STARTER_ARMY, enemy: STARTER_ARMY_MIRRORED };
-    const plain = runBattle(setup).result;
-    for (const general of GENERAL_IDS) expect(runBattle({ ...setup, general }).result).toEqual(plain);
+    const plain = runBattle(setup);
+    expect(runBattle({ ...setup, general: 'captain' }).events).toEqual(plain.events);
+    // Their troop skills and doctrines change how troops fight, even with no cards.
+    for (const general of GENERAL_IDS.filter((g) => g !== 'captain')) {
+      const battle = runBattle({ ...setup, general });
+      expect(battle.events, general).not.toEqual(plain.events);
+      expect(runBattle({ ...setup, general }).events, general).toEqual(battle.events);
+    }
   });
 
   it('replays exactly with a General’s cards', () => {

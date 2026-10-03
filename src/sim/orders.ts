@@ -26,7 +26,7 @@ import { castBarrier, castMark, castShove, shoveTargets, skillCooldownTicks } fr
 import { spawnReserve } from './spawn';
 import { secondsToTicks } from './time';
 import type { BattleState, Side, Unit, UnitOrder } from './types';
-import type { Action, Intent, SkillCast } from './behaviors';
+import { attackOrApproach, type Intent, type SkillCast } from './intents';
 
 export interface CardTriggers {
   enemyId: number | null;
@@ -175,6 +175,8 @@ export function advanceOrders(state: BattleState): void {
         continue;
       }
       if (order.kind === 'overcharge' || isFinished(state, unit, order)) {
+        // Where a Move or Fall Back ends is the troop's new spot to hold (Engineer doctrine).
+        if (order.kind === 'move' || order.kind === 'fallBack') unit.home = { x: unit.x, y: unit.y };
         unit.orders.shift();
         continue;
       }
@@ -425,11 +427,6 @@ function weakest(units: Unit[]): Unit | undefined {
 }
 
 // Geometry helpers -----------------------------------------------------------------------------
-
-function attackOrApproach(unit: Unit, target: Unit): Action {
-  if (edgeDistance(unit, target) <= unit.stats.range) return { kind: 'attack', targetId: target.id };
-  return { kind: 'walk', to: { x: target.x, y: target.y }, targetId: target.id };
-}
 
 function centroid(units: Unit[]): Point {
   let x = 0;

@@ -4,6 +4,7 @@
 import Phaser from 'phaser';
 import type { TroopPlacement } from '../../data/armies';
 import { OPEN_FIELD } from '../../data/maps';
+import { GENERALS } from '../../data/generals';
 import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
@@ -50,9 +51,10 @@ export class PrepScene extends Phaser.Scene {
     this.add.text(
       16,
       38,
-      'Drag troops, or pick one with Tab and the arrow keys.',
+      'Drag troops, or Tab and the arrows.',
       textStyle(13),
     );
+    addButton(this, GAME_WIDTH - 628, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
     addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Troops  T', () => this.toTroops(), 112, 34);
     addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
     addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.toSettings(), 140, 34);
@@ -99,6 +101,9 @@ export class PrepScene extends Phaser.Scene {
       ...textStyle(12),
       wordWrap: { width: GAME_WIDTH - 626 },
     });
+    const general = GENERALS[this.setup.general];
+    this.add.text(520, BOTTOM_BAR_Y + 76, 'GENERAL', textStyle(12, TEXT.muted, true));
+    this.add.text(610, BOTTOM_BAR_Y + 76, `${general.name}${general.faction ? ` · ${general.faction}` : ''} (G to change)`, textStyle(12, TEXT.perfect));
 
     this.actions = new InputLayer(this)
       .on('next', () => this.cycleSelection(1))
@@ -106,7 +111,8 @@ export class PrepScene extends Phaser.Scene {
       .on('confirm', () => this.toOrders())
       .on('back', () => this.toSettings())
       .on('codex', () => this.toCodex())
-      .on('troops', () => this.toTroops());
+      .on('troops', () => this.toTroops())
+      .on('general', () => this.toGenerals());
 
     // World coordinates, so dragging works at any render scale.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.worldX, p.worldY - TOP_BAR_HEIGHT));
@@ -209,6 +215,11 @@ export class PrepScene extends Phaser.Scene {
   private toCodex(): void {
     this.drop();
     this.scene.start('Codex', { ...this.setup, placement: this.placement });
+  }
+
+  private toGenerals(): void {
+    this.drop();
+    this.scene.start('Generals', { ...this.setup, placement: this.placement });
   }
 
   private toTroops(): void {
