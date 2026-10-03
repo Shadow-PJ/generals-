@@ -13,6 +13,7 @@ export function openMap(walls: WallData[] = []): MapData {
   return {
     id: 'test',
     name: 'Test Map',
+    terrainText: 'A test map.',
     width: 1000,
     height: 600,
     walls,

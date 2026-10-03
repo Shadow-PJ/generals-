@@ -4,6 +4,7 @@ import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES } from '../data/a
 import { OPEN_FIELD } from '../data/maps';
 import { isArmyPlaced } from '../sim';
 import type { MatchSetup } from './match';
+import { enemyScript } from '../data/enemyScripts';
 import { cycle, enemyArmyOf, nextClass, specOptions, withClass, withSpec, yourSynergies } from './troops';
 
 function setup(change: Partial<MatchSetup> = {}): MatchSetup {
@@ -15,7 +16,10 @@ function setup(change: Partial<MatchSetup> = {}): MatchSetup {
     general: 'captain',
     reserves: [...STARTER_RESERVES],
     specs: {},
+    map: 'openField',
     enemyArmy: 'starter',
+    enemyGeneral: 'captain',
+    enemyCommander: null,
     ...change,
   };
 }
@@ -56,8 +60,15 @@ describe('your army on the debug Troops screen', () => {
     expect(enemy.placement.map((t) => t.cls)).toEqual(['vanguard', 'assassin', 'ranger', 'ranger', 'guardian']);
     expect(isArmyPlaced(OPEN_FIELD, 'enemy', enemy.placement)).toBe(true);
     expect(enemy).toMatchObject({ reserves: ['invoker', 'invoker', 'ranger'], specs: { assassin: 'blade' }, general: 'captain' });
-    expect(enemyArmyOf({ ...yours, general: 'conductor' }).general).toBe('conductor');
-    expect(enemyArmyOf({ ...setup(), general: 'conductor' }).general).toBe('captain');
+  });
+
+  it('puts the chosen General at the head of the enemy, and gives it a commander with that General’s script', () => {
+    expect(enemyArmyOf(setup()).commander).toBeUndefined();
+    const enemy = enemyArmyOf(setup({ enemyGeneral: 'warlord', enemyCommander: 4 }));
+    expect(enemy.general).toBe('warlord');
+    expect(enemy.commander).toEqual({ rank: 4, loadout: enemyScript('warlord', 4) });
+    // The starter enemy keeps the starter reserves, for its commander to call in.
+    expect(enemy.reserves).toEqual(STARTER_RESERVES);
   });
 
   it('shows the synergies your troops and reserves switch on', () => {

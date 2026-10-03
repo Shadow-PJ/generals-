@@ -37,8 +37,10 @@ export interface BattleSetup {
   tactical?: boolean;
   /** Your General: reads your cards by their personality rules, and gives your troops their skill and doctrine. The Captain when left out. */
   general?: GeneralId;
-  /** The enemy's General, for its troops' skill and doctrine (it has no cards until 4D). The Captain when left out. */
+  /** The enemy's General: its troops' skill and doctrine, and its commander's ultimate, twist and card style. The Captain when left out. */
   enemyGeneral?: GeneralId;
+  /** An enemy commander: its rank and the cards it fires by script (all Auto). None when left out. */
+  enemyCommander?: { rank: RankNumber; loadout: Loadout };
   /** Each side's specializations, one per class; none when left out. */
   specs?: { player?: SpecChoice; enemy?: SpecChoice };
 }
@@ -281,11 +283,12 @@ export interface CommandState {
   chain: ChainState;
 }
 
-/** A wall on the battlefield. It blocks movement and shots until its HP runs out. */
+/** A wall on the battlefield. It blocks movement and shots until its HP runs out, unless it is unbreakable. */
 export interface Wall extends Rect {
   id: number;
   hp: number;
   maxHp: number;
+  unbreakable: boolean;
 }
 
 export interface Projectile {
@@ -415,8 +418,10 @@ export interface BattleState {
   startHp: Record<Side, number>;
   events: BattleEvent[];
   result: BattleResult | null;
-  /** Your cards, pips and Momentum. The enemy gets its own in session 4D. */
+  /** Your cards, pips and Momentum. */
   command: CommandState;
+  /** The enemy commander's, when the enemy has one. */
+  enemyCommand: CommandState | null;
   /** Troops still waiting in reserve. */
   reserves: { player: UnitClass[]; enemy: UnitClass[] };
   tactical: boolean;

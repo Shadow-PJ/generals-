@@ -1,14 +1,18 @@
-// The debug Troops screen: pick the class of each of your 5 troops and 3 reserves, a
-// specialization for each class, and the army the enemy brings. It stands in for the campaign
-// (which unlocks the Invoker and Assassin) and the Tech Web (which sells specializations) until
-// phase 5. Up and Down pick a row, Left and Right change it; a click changes it too.
+// The Skirmish screen (debug until the campaign): pick the class of each of your 5 troops and 3
+// reserves, a specialization for each class, and the battle: the map, both Generals, the enemy's
+// army and its commander. It stands in for the campaign (which unlocks the Invoker and Assassin)
+// and the Tech Web (which sells specializations) until phase 5. Up and Down pick a row, Left and
+// Right change it; a click changes it too.
 
 import Phaser from 'phaser';
 import { RESERVE_COUNT, type EnemyArmy } from '../../data/armies';
+import { GENERAL_IDS, GENERALS } from '../../data/generals';
+import { MAP_IDS, MAPS } from '../../data/maps';
+import { RANKS, type RankNumber } from '../../data/ranks';
 import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
 import { TROOP_CLASSES, UNIT_CLASSES, type UnitClass } from '../../data/units';
-import { drawBody } from '../draw';
+import { drawBody, drawField, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -20,8 +24,17 @@ import { addButton, textStyle } from '../ui';
 type Row =
   | { kind: 'troop'; index: number }
   | { kind: 'reserve'; index: number }
+  | { kind: 'map' }
+  | { kind: 'general' }
+  | { kind: 'enemyGeneral' }
   | { kind: 'enemy' }
+  | { kind: 'enemyCommander' }
   | { kind: 'spec'; cls: UnitClass };
+
+/** No commander, or one of each rank. */
+const COMMANDER_CHOICES: readonly (RankNumber | null)[] = [null, ...RANKS.map((r) => r.rank)];
+/** The map preview's size, as a share of the battlefield. */
+const PREVIEW_SCALE = 0.32;
 
 const ENEMY_NAMES: Record<EnemyArmy, string> = { starter: 'The starter army', mirror: 'A mirror of yours' };
 
@@ -40,6 +53,8 @@ export class TroopsScene extends Phaser.Scene {
   private notes: (Phaser.GameObjects.Text | null)[] = [];
   private shapes!: Phaser.GameObjects.Graphics;
   private synergyText!: Phaser.GameObjects.Text;
+  private preview!: Phaser.GameObjects.Graphics;
+  private terrainText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Troops');
@@ -50,7 +65,11 @@ export class TroopsScene extends Phaser.Scene {
     this.rows = [
       ...this.setup.placement.map((_, index) => ({ kind: 'troop', index }) as const),
       ...Array.from({ length: RESERVE_COUNT }, (_, index) => ({ kind: 'reserve', index }) as const),
+      { kind: 'map' },
+      { kind: 'general' },
+      { kind: 'enemyGeneral' },
       { kind: 'enemy' },
+      { kind: 'enemyCommander' },
       ...TROOP_CLASSES.map((cls) => ({ kind: 'spec', cls }) as const),
     ];
     this.selected = 0;
@@ -61,11 +80,11 @@ export class TroopsScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'TROOPS (DEBUG)', textStyle(18, TEXT.title, true));
+    this.add.text(16, 10, 'SKIRMISH', textStyle(18, TEXT.title, true));
     this.add.text(
       16,
       38,
-      'Until the campaign and the Tech Web arrive, pick your army and specializations here. ↑↓ pick, ←→ change.',
+      'Your army, its specializations and the battle, until the campaign arrives. ↑↓ pick, ←→ change.',
       textStyle(13, TEXT.muted),
     );
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Done  Esc', () => this.goBack(), 150, 34);
@@ -79,9 +98,9 @@ export class TroopsScene extends Phaser.Scene {
         y += 8;
         this.add.text(LEFT_X, y, 'RESERVES', textStyle(12, TEXT.muted, true));
         y += 20;
-      } else if (row.kind === 'enemy') {
+      } else if (row.kind === 'map') {
         y += 8;
-        this.add.text(LEFT_X, y, 'ENEMY ARMY', textStyle(12, TEXT.muted, true));
+        this.add.text(LEFT_X, y, 'THE BATTLE', textStyle(12, TEXT.muted, true));
         y += 20;
       } else if (row.kind === 'spec' && row.cls === TROOP_CLASSES[0]) {
         y = TOP_BAR_HEIGHT + 14;
@@ -102,8 +121,17 @@ export class TroopsScene extends Phaser.Scene {
       y += h;
     });
 
-    this.add.text(LEFT_X, GAME_HEIGHT - 200, 'SYNERGIES YOUR ARMY SWITCHES ON', textStyle(12, TEXT.muted, true));
-    this.synergyText = this.add.text(LEFT_X, GAME_HEIGHT - 180, '', { ...textStyle(13), lineSpacing: 6 });
+    // The chosen map, small, under the specializations, with how its terrain plays.
+    const previewY = TOP_BAR_HEIGHT + 14 + 20 + TROOP_CLASSES.length * SPEC_ROW_H + 10;
+    this.preview = this.add.graphics().setPosition(RIGHT_X, previewY).setScale(PREVIEW_SCALE);
+    const previewW = MAPS.openField.width * PREVIEW_SCALE;
+    this.terrainText = this.add.text(RIGHT_X + previewW + 10, previewY, '', {
+      ...textStyle(12, TEXT.muted),
+      wordWrap: { width: GAME_WIDTH - 16 - (RIGHT_X + previewW + 10) },
+    });
+
+    this.add.text(LEFT_X, GAME_HEIGHT - 146, 'SYNERGIES YOUR ARMY SWITCHES ON', textStyle(12, TEXT.muted, true));
+    this.synergyText = this.add.text(LEFT_X, GAME_HEIGHT - 126, '', { ...textStyle(13), lineSpacing: 4 });
 
     new InputLayer(this)
       .on('up', () => this.move(-1))
@@ -124,8 +152,16 @@ export class TroopsScene extends Phaser.Scene {
         return `Troop ${row.index + 1}`;
       case 'reserve':
         return `Reserve ${row.index + 1}`;
+      case 'map':
+        return 'Map';
+      case 'general':
+        return 'Your General';
+      case 'enemyGeneral':
+        return 'Enemy General';
       case 'enemy':
-        return 'The enemy brings';
+        return 'Enemy army';
+      case 'enemyCommander':
+        return 'Enemy commander';
       case 'spec':
         return UNIT_CLASSES[row.cls].name;
     }
@@ -147,8 +183,20 @@ export class TroopsScene extends Phaser.Scene {
       case 'reserve':
         setup.reserves[row.index] = nextClass(setup.reserves[row.index]!, step);
         break;
+      case 'map':
+        setup.map = cycle(MAP_IDS, setup.map, step);
+        break;
+      case 'general':
+        setup.general = cycle(GENERAL_IDS, setup.general, step);
+        break;
+      case 'enemyGeneral':
+        setup.enemyGeneral = cycle(GENERAL_IDS, setup.enemyGeneral, step);
+        break;
       case 'enemy':
         setup.enemyArmy = cycle<EnemyArmy>(['starter', 'mirror'], setup.enemyArmy, step);
+        break;
+      case 'enemyCommander':
+        setup.enemyCommander = cycle(COMMANDER_CHOICES, setup.enemyCommander, step);
         break;
       case 'spec': {
         const options = specOptions(row.cls);
@@ -176,9 +224,25 @@ export class TroopsScene extends Phaser.Scene {
           drawBody(g, cls, 'player', box.x + 120, box.y + box.height / 2, r, box.x + 220, box.y + box.height / 2);
           break;
         }
+        case 'map':
+          value.setText(`◀  ${MAPS[this.setup.map].name}  ▶`);
+          break;
+        case 'general':
+          value.setText(`◀  ${GENERALS[this.setup.general].name}  ▶`);
+          break;
+        case 'enemyGeneral':
+          value.setText(`◀  ${GENERALS[this.setup.enemyGeneral].name}  ▶`);
+          break;
         case 'enemy':
           value.setText(`◀  ${ENEMY_NAMES[this.setup.enemyArmy]}  ▶`);
           break;
+        case 'enemyCommander': {
+          const rank = RANKS.find((r) => r.rank === this.setup.enemyCommander);
+          let text = 'None: no enemy cards or ultimate';
+          if (rank) text = `Rank ${rank.numeral}: ${rank.autoMode ? 'its cards and ultimate' : 'only its ultimate'}`;
+          value.setText(`◀  ${text}  ▶`);
+          break;
+        }
         case 'spec': {
           const spec = this.setup.specs[row.cls];
           value.setText(`◀  ${spec ? SPECIALIZATIONS[spec].name : 'None'}  ▶`);
@@ -188,6 +252,13 @@ export class TroopsScene extends Phaser.Scene {
         }
       }
     });
+    const map = MAPS[this.setup.map];
+    const p = this.preview.clear();
+    drawField(p, map);
+    drawZone(p, map.deployZones.player, 'player', 1);
+    drawZone(p, map.deployZones.enemy, 'enemy', 0.6);
+    for (const wall of map.walls) drawWall(p, wall);
+    this.terrainText.setText(`${map.name.toUpperCase()}\n${map.terrainText}`);
     const on = yourSynergies(this.setup);
     this.synergyText.setText(
       on.length === 0

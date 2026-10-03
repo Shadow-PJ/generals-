@@ -13,6 +13,7 @@ import {
   edgeDistance,
   findUnit,
   hpShare,
+  isHidden,
   livingAllies,
   livingEnemies,
   livingUnits,
@@ -299,7 +300,7 @@ export function orderIntent(state: BattleState, unit: Unit, base: Intent): Inten
     case 'focus': {
       // An invisible target can't be chased; the troop acts on its own until it shows again.
       const target = findUnit(state, order.unitId);
-      if (!target?.alive || target.invisibleTicks > 0) return null;
+      if (!target?.alive || isHidden(state, target, unit)) return null;
       return { action: attackOrApproach(unit, target), cast: base.cast };
     }
     case 'move':
@@ -374,7 +375,7 @@ function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks
     }
     case 'assassin': {
       const current = findUnit(state, unit.targetId);
-      const target = current?.alive && current.side !== unit.side && current.invisibleTicks <= 0 ? current : choosePrey(state, unit);
+      const target = current?.alive && current.side !== unit.side && !isHidden(state, current, unit) ? current : choosePrey(state, unit);
       if (!target || !castShadowstep(state, unit, target, power)) unit.skillCooldown = 0;
       return;
     }
@@ -383,9 +384,9 @@ function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks
 
 // Choosing targets ---------------------------------------------------------------------------
 
-/** The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army). Invisible enemies can't be named. */
+/** The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army). Hidden enemies can't be named. */
 function resolveEnemy(state: BattleState, side: Side, from: Point, target: Target, triggerId: number | null): Unit | undefined {
-  const enemies = state.units.filter((u) => u.alive && u.side !== side && u.invisibleTicks <= 0);
+  const enemies = state.units.filter((u) => u.alive && u.side !== side && !isHidden(state, u, from));
   switch (target.kind) {
     case 'class':
       return nearestTo(enemies.filter((e) => e.cls === target.cls), from.x, from.y);
@@ -395,7 +396,7 @@ function resolveEnemy(state: BattleState, side: Side, from: Point, target: Targe
       return weakest(enemies);
     case 'trigger': {
       const u = findUnit(state, triggerId);
-      return u?.alive && u.side !== side && u.invisibleTicks <= 0 ? u : undefined;
+      return u?.alive && u.side !== side && !isHidden(state, u, from) ? u : undefined;
     }
     case 'named':
       return undefined;

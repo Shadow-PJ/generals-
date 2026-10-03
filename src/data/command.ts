@@ -56,6 +56,8 @@ export const ORDER_RULES = {
 
 /** When conditions count as met. */
 export const CONDITION_RULES = {
+  /** The enemy ultimate is charging once its Momentum reaches this share of full. */
+  ultimateChargingShare: 0.8,
   /** An enemy this close to one of your Rangers or Guardians has reached your backline. */
   backlineRadius: 90,
   /** Enemies within this distance of each other count as close together. */

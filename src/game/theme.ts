@@ -50,6 +50,12 @@ export const COLORS = {
   heat: 0xfb923c,
   beam: 0xfde68a,
   gravityWell: 0x6366f1,
+  /** Terrain: forests (Deep Forest), rock and iron (Red Canyon, Iron Fortress), open glass (Glass Plains). */
+  forest: 0x14532d,
+  tree: 0x166534,
+  rock: 0x4b3a33,
+  rockEdge: 0x2b211d,
+  plains: 0x24303f,
 } as const;
 
 export const TEXT = {
