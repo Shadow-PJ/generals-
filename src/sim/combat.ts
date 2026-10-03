@@ -6,7 +6,7 @@ import { TROOP_SKILLS } from '../data/generals';
 import { SPEC_RULES } from '../data/specializations';
 import { SYNERGY_RULES } from '../data/synergies';
 import { UNIT_CLASSES } from '../data/units';
-import { distance, segmentNearCircle } from './geometry';
+import { distance, segmentNearCircle, snap } from './geometry';
 import { overtimeMultiplier } from './overtime';
 import { centerDistance, findUnit, orderPower } from './queries';
 import { nextFloat, nextRange } from './rng';
@@ -15,7 +15,7 @@ import { addVibration, applySlow, attackSpeedFactor, damageFactor, effectiveArmo
 import { hasSynergy, noteSynergy } from './synergies';
 import { attackIntervalTicks, secondsToTicks, TICKS_PER_SECOND } from './time';
 import { AREA_CAUSES, type BattleState, type DamageCause, type Projectile, type Unit, type Zone } from './types';
-import { damageWall, firstWallOnSegment } from './walls';
+import { damageWall, firstWallOnSegment, standingWalls } from './walls';
 
 /** Base damage with the battle's random spread applied. Uses the battle's seeded generator. */
 export function rollDamage(state: BattleState, base: number): number {
@@ -177,9 +177,12 @@ export function performAttack(state: BattleState, unit: Unit, target: Unit): voi
  * Projectiles fly straight at their target and hit when they reach its body. A standing
  * wall in the way takes the hit instead, and so does an enemy Bulwark whose body is in the way.
  * They vanish if the target dies first. Crossfire arrows take the element of a Rift they fly through.
+ * A wall that breaks this tick still stops the tick's other shots, so which side's shot is
+ * handled first doesn't decide whose shot gets through.
  */
 export function updateProjectiles(state: BattleState): void {
   const flying = [];
+  const walls = standingWalls(state);
   for (const p of state.projectiles) {
     const target = findUnit(state, p.targetId);
     if (!target || !target.alive) continue;
@@ -188,7 +191,7 @@ export function updateProjectiles(state: BattleState): void {
     const arrives = d <= step + target.stats.radius;
     const toX = arrives ? target.x : p.x + ((target.x - p.x) / d) * step;
     const toY = arrives ? target.y : p.y + ((target.y - p.y) / d) * step;
-    const wall = firstWallOnSegment(state, p.x, p.y, toX, toY);
+    const wall = firstWallOnSegment(walls, p.x, p.y, toX, toY);
     if (wall) {
       damageWall(state, wall, p.ownerId, p.damage);
       continue;
@@ -206,8 +209,8 @@ export function updateProjectiles(state: BattleState): void {
       projectileHit(state, p, target);
       continue;
     }
-    p.x = toX;
-    p.y = toY;
+    p.x = snap(toX);
+    p.y = snap(toY);
     flying.push(p);
   }
   state.projectiles = flying;

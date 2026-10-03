@@ -1,4 +1,4 @@
-// Plane geometry for the battle engine: basic arithmetic and Math.sqrt only.
+// Plane geometry for the battle engine: basic arithmetic, Math.sqrt and Math.floor only.
 
 import type { Rect } from '../data/maps';
 
@@ -11,6 +11,27 @@ export function distance(ax: number, ay: number, bx: number, by: number): number
   const dx = bx - ax;
   const dy = by - ay;
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Positions sit on a fine grid: 1/1024 of a world unit. Floating point rounds a spot and its
+ * mirror image (x and map width - x) differently, and a mirror match amplifies that drift the
+ * same way every battle, so one side would always come out ahead. Every point of a power-of-two
+ * grid is exact, and so is its mirror image, so mirrored troops stay exactly mirrored.
+ */
+const POSITION_GRID = 1024;
+
+/**
+ * The nearest grid point to a coordinate; every unit and shot position goes through it. A value
+ * exactly halfway goes to the even grid point (Math.round would always go up, and the mirror
+ * image of "up" is "down"), so mirrored values always snap to mirrored points.
+ */
+export function snap(value: number): number {
+  const scaled = value * POSITION_GRID;
+  let n = Math.floor(scaled);
+  const rest = scaled - n;
+  if (rest > 0.5 || (rest === 0.5 && n % 2 !== 0)) n += 1;
+  return n / POSITION_GRID;
 }
 
 export function clamp(value: number, min: number, max: number): number {

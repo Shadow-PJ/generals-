@@ -11,13 +11,13 @@ import { overtimeStartTick } from './overtime';
 import { findUnit, livingUnits } from './queries';
 import { burnShoved, startRift, tickCast, updateZones } from './rift';
 import { createRng } from './rng';
-import { castShadowstep } from './shadowstep';
+import { castShadowstep, type Landing } from './shadowstep';
 import { castBarrier, castMark, castShove, ironWallTaunts } from './skills';
 import { specFor } from './specs';
 import { createUnit } from './spawn';
 import { activeSynergies } from './synergies';
 import { updatePacks } from './doctrine';
-import { afterAttack, assimilate, vampiricLinks } from './troopSkills';
+import { afterAttack, assimilate, vampiricLinks, ventHeat } from './troopSkills';
 import { secondsToTicks, TICKS_PER_SECOND } from './time';
 import {
   SIDES,
@@ -123,17 +123,24 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
     return u.silencedTicks > 0 ? { ...intent, cast: null } : intent;
   });
 
-  // Act, in id order: first every skill, while all units still stand where they decided,
-  // then every move and attack. A unit shoved earlier in the tick still does what it
-  // decided, so being first in id order is no advantage; pushes start after everyone acted.
+  // Act, in id order: first every skill, while all units still stand where they decided
+  // (Assassins strike at once but land once every skill is cast), then every move and attack.
+  // A unit shoved earlier in the tick still does what it decided, so being first in id order
+  // is no advantage; pushes start after everyone acted, and so do Engineer troops' vents.
+  const landings: Landing[] = [];
   state.units.forEach((unit, i) => {
     const intent = intents[i];
-    if (intent?.cast && unit.alive) castSkill(state, unit, intent.cast);
+    if (intent?.cast && unit.alive) castSkill(state, unit, intent.cast, landings);
   });
+  for (const { unit, x, y } of landings) {
+    unit.x = x;
+    unit.y = y;
+  }
   state.units.forEach((unit, i) => {
     const intent = intents[i];
     if (intent && unit.alive) carryOut(state, unit, intent.action);
   });
+  ventHeat(state);
 
   for (const { unit, push } of updateKnockbacks(state)) burnShoved(state, unit, push);
   updateProjectiles(state);
@@ -203,7 +210,7 @@ function tickRegen(unit: Unit): void {
   if (regen.ticksLeft <= 0) unit.regen = null;
 }
 
-function castSkill(state: BattleState, unit: Unit, cast: SkillCast): void {
+function castSkill(state: BattleState, unit: Unit, cast: SkillCast, landings: Landing[]): void {
   if (cast.skill === 'shove') {
     castShove(state, unit);
     return;
@@ -216,7 +223,7 @@ function castSkill(state: BattleState, unit: Unit, cast: SkillCast): void {
   if (!target?.alive) return;
   if (cast.skill === 'mark') castMark(state, unit, target);
   else if (cast.skill === 'barrier') castBarrier(state, unit, target);
-  else castShadowstep(state, unit, target);
+  else castShadowstep(state, unit, target, 1, landings);
 }
 
 function carryOut(state: BattleState, unit: Unit, action: Action): void {

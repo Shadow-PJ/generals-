@@ -6,7 +6,7 @@ import { dealDamage, resolvePhaseShifts } from './combat';
 import { attackSpeedFactor, damageFactor, effectiveArmor } from './status';
 import { battleWith, freeze, sideUnits } from './testing/fixtures';
 import { secondsToTicks } from './time';
-import { afterAttack, vampiricLinks } from './troopSkills';
+import { afterAttack, vampiricLinks, ventHeat } from './troopSkills';
 import type { BattleEvent, BattleState } from './types';
 
 function skills(state: BattleState, skill: string): Extract<BattleEvent, { type: 'skill' }>[] {
@@ -56,14 +56,33 @@ describe("the Generals' troop skills", () => {
     const vanguard = sideUnits(state, 'player')[0]!;
     const [near, far] = sideUnits(state, 'enemy');
     for (let i = 0; i < venting.everyAttacks - 1; i++) afterAttack(state, vanguard);
+    ventHeat(state);
     expect(vanguard.heat).toBe(venting.everyAttacks - 1);
     expect(skills(state, 'vent')).toHaveLength(0);
     afterAttack(state, vanguard);
+    ventHeat(state);
     expect(vanguard.heat).toBe(0);
     expect(skills(state, 'vent')[0]!.targetIds).toEqual([near!.id]);
     expect(near!.hp).toBe(near!.stats.maxHp - venting.damage);
     expect(far!.hp).toBe(far!.stats.maxHp);
     expect(vanguard.hp).toBe(vanguard.stats.maxHp - Math.round(vanguard.stats.maxHp * venting.selfDamageShare));
+  });
+
+  it('Venting (Engineer): every burn of a tick lands before anyone pays, so two troops venting at each other end even', () => {
+    const venting = TROOP_SKILLS.venting;
+    const state = battleWith([{ cls: 'vanguard', x: 300, y: 300 }], [{ cls: 'vanguard', x: 330, y: 300 }], {
+      general: 'engineer',
+      enemyGeneral: 'engineer',
+    });
+    const [left, right] = state.units;
+    for (const unit of [left!, right!]) {
+      unit.heat = venting.everyAttacks;
+      unit.hp = 40;
+    }
+    ventHeat(state);
+    // Each takes the other's burn first, then pays what it can without falling.
+    expect(left!.hp).toBe(1);
+    expect(right!.hp).toBe(1);
   });
 
   it('Assimilation (Hive Mother): a troop that kills grows a shell from a tank, claws from anyone else', () => {
@@ -85,6 +104,17 @@ describe("the Generals' troop skills", () => {
     const clawed = kill('ranger');
     expect(clawed.adaptation?.kind).toBe('claws');
     expect(damageFactor(clawed)).toBeCloseTo(1 + TROOP_SKILLS.assimilation.clawsDamageBonus);
+  });
+
+  it('Assimilation (Hive Mother): a killer that falls in the same tick grows nothing', () => {
+    const state = battleWith([{ cls: 'ranger', x: 300, y: 300 }], [{ cls: 'vanguard', x: 330, y: 300 }], { enemyGeneral: 'hiveMother' });
+    freeze(...state.units);
+    const [ranger, vanguard] = state.units;
+    dealDamage(state, vanguard!.id, ranger!, 10_000, 1, 'attack');
+    dealDamage(state, ranger!.id, vanguard!, 10_000, 1, 'attack');
+    stepBattle(state);
+    expect(state.result?.winner).toBe('draw');
+    expect(skills(state, 'assimilation')).toHaveLength(0);
   });
 
   it('Phase Shift (Strategist): once per battle, a troop about to fall teleports behind its attacker and stuns it', () => {

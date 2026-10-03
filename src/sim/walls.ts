@@ -25,12 +25,14 @@ export function rebuildNav(state: BattleState): void {
   for (const unit of state.units) unit.path = [];
 }
 
-/** The first standing wall the segment from a to b runs into, if any. Ties go to the lower id. */
-export function firstWallOnSegment(state: BattleState, ax: number, ay: number, bx: number, by: number): Wall | undefined {
+/**
+ * The first of these walls the segment from a to b runs into, if any. Ties go to the lower id.
+ * Shots pass the walls that stood when the tick's shots started flying (see updateProjectiles).
+ */
+export function firstWallOnSegment(walls: readonly Wall[], ax: number, ay: number, bx: number, by: number): Wall | undefined {
   let hit: Wall | undefined;
   let hitAt = Infinity;
-  for (const wall of state.walls) {
-    if (wall.hp <= 0) continue;
+  for (const wall of walls) {
     const t = segmentEntry(ax, ay, bx, by, wall);
     if (t !== null && t < hitAt) {
       hit = wall;

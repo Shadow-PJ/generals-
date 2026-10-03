@@ -50,6 +50,21 @@ describe('walls', () => {
     expect(target.hp).toBeLessThan(target.stats.maxHp);
   });
 
+  it('stop every shot that reaches them in the same tick, even when the first of them breaks them', () => {
+    // Two Rangers shoot at each other across a worn wall at the same moment. Whichever shot is
+    // handled first breaks the wall; the other must not fly through, or that side would gain.
+    const state = battleWith([{ cls: 'ranger', x: 380, y: 300 }], [{ cls: 'ranger', x: 620, y: 300 }], {
+      walls: [{ ...wall, hp: 1 }],
+    });
+    const [left, right] = state.units;
+    performAttack(state, left!, right!);
+    performAttack(state, right!, left!);
+    while (state.projectiles.length > 0) updateProjectiles(state);
+    expect(state.walls[0]!.hp).toBe(0);
+    expect(left!.hp).toBe(left!.stats.maxHp);
+    expect(right!.hp).toBe(right!.stats.maxHp);
+  });
+
   it('wear down in a real battle until the troops behind them can be hit', () => {
     // This wall spans the whole map, so the Guardian can't walk around it.
     const state = battleWith([{ cls: 'ranger', x: 380, y: 300 }], [{ cls: 'guardian', x: 600, y: 300 }], {

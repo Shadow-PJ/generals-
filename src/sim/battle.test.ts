@@ -126,37 +126,7 @@ describe('determinism', () => {
   });
 });
 
-/** 60 full battles take about 2 s here and 3 s on the Windows runner, more when it is busy: give them room. */
-const MANY_BATTLES_MS = 30_000;
-
-describe('fairness', () => {
-  it("doesn't favor either side in a mirror match", () => {
-    const wins = { player: 0, enemy: 0, draw: 0 };
-    for (let seed = 0; seed < 60; seed++) wins[runBattle(presetBattle(seed)).result!.winner] += 1;
-    expect(wins.player).toBeLessThanOrEqual(39);
-    expect(wins.enemy).toBeLessThanOrEqual(39);
-  }, MANY_BATTLES_MS);
-
-  it('is an exact mirror when there is no randomness left to break the tie', () => {
-    // With equal first-attack timers and no damage spread, mirrored armies must stay mirrored.
-    const state = createBattle(presetBattle(1));
-    for (let k = 0; k < 5; k++) state.units[2 * k + 1]!.attackCooldown = state.units[2 * k]!.attackCooldown;
-    const spread = BATTLE_RULES.damageVariance;
-    try {
-      (BATTLE_RULES as { damageVariance: number }).damageVariance = 0;
-      for (let i = 0; i < 200; i++) stepBattle(state);
-    } finally {
-      (BATTLE_RULES as { damageVariance: number }).damageVariance = spread;
-    }
-    for (let k = 0; k < 5; k++) {
-      const p = state.units[2 * k]!;
-      const e = state.units[2 * k + 1]!;
-      expect(p.hp).toBe(e.hp);
-      expect(p.x).toBeCloseTo(OPEN_FIELD.width - e.x, 3);
-      expect(p.y).toBeCloseTo(e.y, 3);
-    }
-  });
-});
+// Mirror matches and fairness: fairness.test.ts.
 
 describe('replays', () => {
   const healer: Card = {

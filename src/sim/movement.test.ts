@@ -47,6 +47,32 @@ describe('movement', () => {
     expect(distance(unit.x, unit.y, goal.x, goal.y)).toBeLessThanOrEqual(1);
   });
 
+  it('ends every move on the position grid', () => {
+    const to = slideMove(walledBattle(), 100, 100, 10, 0.1, 1 / 3);
+    expect(to.x * 1024).toBe(Math.floor(to.x * 1024));
+    expect(to.y * 1024).toBe(Math.floor(to.y * 1024));
+  });
+
+  it('splits units on the exact same spot toward their own side, mirrored for the two sides', () => {
+    // Two of your Rangers share a spot, and so do two enemy Rangers at its mirror image.
+    const state = battleWith(
+      [
+        { cls: 'ranger', x: 300, y: 300 },
+        { cls: 'ranger', x: 300, y: 300 },
+      ],
+      [
+        { cls: 'ranger', x: 700, y: 300 },
+        { cls: 'ranger', x: 700, y: 300 },
+      ],
+    );
+    separateUnits(state);
+    const [mine, theirs, mine2, theirs2] = state.units;
+    expect(mine!.x).toBeLessThan(300);
+    expect(theirs!.x).toBeGreaterThan(700);
+    expect(mine!.x).toBe(1000 - theirs!.x);
+    expect(mine2!.x).toBe(1000 - theirs2!.x);
+  });
+
   it('pushes overlapping units apart, the same way whatever their order', () => {
     const state = battleWith(
       [{ cls: 'ranger', x: 300, y: 300 }],

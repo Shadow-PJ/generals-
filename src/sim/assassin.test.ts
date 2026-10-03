@@ -4,6 +4,7 @@ import { UNIT_CLASSES } from '../data/units';
 import { stepBattle } from './battle';
 import { critMultiplier, dealDamage } from './combat';
 import { choosePrey, castShadowstep } from './shadowstep';
+import { spotBehind } from './spots';
 import { battleWith, cardOf, freeze, sideUnits } from './testing/fixtures';
 import { secondsToTicks } from './time';
 import type { BattleEvent, BattleState } from './types';
@@ -144,5 +145,46 @@ describe('the Assassin', () => {
     stepBattle(state, [{ tick: 0, kind: 'slot', slot: 0 }]);
     expect(damageBy(state, 'shadowstep')).toHaveLength(1);
     expect(sideUnits(state, 'player')[0]!.x).toBeGreaterThan(900);
+  });
+
+  it('lands once every skill is cast, so two Assassins Shadowstepping to each other land alike', () => {
+    const state = battleWith([{ cls: 'assassin', x: 400, y: 300 }], [{ cls: 'assassin', x: 600, y: 300 }]);
+    const [left, right] = state.units;
+    left!.skillCooldown = 0;
+    right!.skillCooldown = 0;
+    stepBattle(state);
+    expect(damageBy(state, 'shadowstep')).toHaveLength(2);
+    // Each lands behind where the other stood, not behind where the other just landed.
+    expect(left!.x).toBeGreaterThan(600);
+    expect(right!.x).toBeLessThan(400);
+    expect(left!.x).toBe(1000 - right!.x);
+    expect(left!.y).toBe(right!.y);
+  });
+
+  it('steps to the same side of its prey whichever army it fights for, when straight behind is blocked', () => {
+    // Your Assassin and an enemy one at mirrored spots, each facing a prey with a post just behind it.
+    const state = battleWith(
+      [
+        { cls: 'assassin', x: 300, y: 300 },
+        { cls: 'guardian', x: 560, y: 300 },
+      ],
+      [
+        { cls: 'assassin', x: 700, y: 300 },
+        { cls: 'guardian', x: 440, y: 300 },
+      ],
+      {
+        walls: [
+          { x: 469, y: 296, w: 8, h: 8 },
+          { x: 523, y: 296, w: 8, h: 8 },
+        ],
+      },
+    );
+    const [mine, theirs] = sideUnits(state, 'player');
+    const [enemyAssassin, enemyGuardian] = sideUnits(state, 'enemy');
+    const a = spotBehind(state, mine!, enemyGuardian!)!;
+    const b = spotBehind(state, enemyAssassin!, theirs!)!;
+    expect(a.y).not.toBe(300);
+    expect(a.x).toBe(1000 - b.x);
+    expect(a.y).toBe(b.y);
   });
 });

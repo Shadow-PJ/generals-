@@ -31,28 +31,38 @@ export function vampiricLinks(state: BattleState): void {
 }
 
 /**
- * Engineer's Venting, after each attack: the troop heats up, and every few attacks it vents,
- * burning the enemies around it and taking a little damage itself. Thermal Detonation uses the heat.
+ * Engineer's Venting, after each attack: the troop heats up, and every few attacks it vents
+ * (ventHeat). Thermal Detonation uses the heat.
  */
 export function afterAttack(state: BattleState, unit: Unit): void {
-  if (state.generals[unit.side] !== 'engineer') return;
+  if (state.generals[unit.side] === 'engineer') unit.heat += 1;
+}
+
+/**
+ * Engineer's Venting, once every troop has acted: each troop hot enough vents, burning the enemies
+ * around it, and then takes a little damage itself. Every burn lands before anyone pays, so the HP a
+ * troop keeps (it never pays its last point) doesn't depend on which side acted first.
+ */
+export function ventHeat(state: BattleState): void {
   const venting = TROOP_SKILLS.venting;
-  unit.heat += 1;
-  if (unit.heat < venting.everyAttacks) return;
-  unit.heat = 0;
-  const burned = livingEnemies(state, unit).filter((e) => centerDistance(unit, e) <= venting.radius + e.stats.radius);
-  state.events.push({ tick: state.tick, type: 'skill', unitId: unit.id, skill: 'vent', targetIds: burned.map((e) => e.id) });
-  for (const enemy of burned) dealDamage(state, unit.id, enemy, venting.damage, 0, 'vent');
-  payHp(state, unit, unit.stats.maxHp * venting.selfDamageShare, 'vent');
+  const venters = state.units.filter((u) => u.alive && u.heat >= venting.everyAttacks);
+  for (const unit of venters) {
+    unit.heat = 0;
+    const burned = livingEnemies(state, unit).filter((e) => centerDistance(unit, e) <= venting.radius + e.stats.radius);
+    state.events.push({ tick: state.tick, type: 'skill', unitId: unit.id, skill: 'vent', targetIds: burned.map((e) => e.id) });
+    for (const enemy of burned) dealDamage(state, unit.id, enemy, venting.damage, 0, 'vent');
+  }
+  for (const unit of venters) payHp(state, unit, unit.stats.maxHp * venting.selfDamageShare, 'vent');
 }
 
 /**
  * Hive Mother's Assimilation, when a troop falls: the enemy that killed it grows a shell (from a
- * Vanguard or Guardian) or claws (from anyone else) for a while.
+ * Vanguard or Guardian) or claws (from anyone else) for a while. A killer falling in the same tick
+ * grows nothing, whichever of the two falls is handled first.
  */
 export function assimilate(state: BattleState, fallen: Unit): void {
   const killer = findUnit(state, fallen.lastHitBy);
-  if (!killer?.alive || killer.side === fallen.side || state.generals[killer.side] !== 'hiveMother') return;
+  if (!killer?.alive || killer.hp <= 0 || killer.side === fallen.side || state.generals[killer.side] !== 'hiveMother') return;
   const assimilation = TROOP_SKILLS.assimilation;
   const kind = assimilation.shellFrom.includes(fallen.cls) ? 'shell' : 'claws';
   killer.adaptation = { kind, ticksLeft: secondsToTicks(assimilation.durationSeconds) };

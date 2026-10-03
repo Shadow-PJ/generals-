@@ -33,18 +33,33 @@ export function choosePrey(state: BattleState, assassin: Unit): Unit | undefined
   return undefined;
 }
 
+/** Where an Assassin lands after a Shadowstep cast in the tick's skill phase. */
+export interface Landing {
+  unit: Unit;
+  x: number;
+  y: number;
+}
+
 /**
  * Shadowstep: blink behind the target and strike it at once; a target left below the execute
  * share of its HP dies. `power` above 1 (a Perfect Overcharge, Overload) strikes harder.
  * False, and nothing happens, if there is no room behind the target.
+ * Given `landings` (the tick's skill phase), the Assassin doesn't move yet: its spot goes on the
+ * list and it lands once every skill is cast. So every spot is worked out from where troops stood
+ * before anyone blinked, and two Assassins blinking to each other land the same way whichever
+ * side cast first.
  */
-export function castShadowstep(state: BattleState, assassin: Unit, target: Unit, power = 1): boolean {
+export function castShadowstep(state: BattleState, assassin: Unit, target: Unit, power = 1, landings?: Landing[]): boolean {
   const spot = spotBehind(state, assassin, target);
   if (!spot) return false;
   const shadowstep = UNIT_CLASSES.assassin.shadowstep;
   const blade = assassin.spec === 'blade';
-  assassin.x = spot.x;
-  assassin.y = spot.y;
+  if (landings) {
+    landings.push({ unit: assassin, x: spot.x, y: spot.y });
+  } else {
+    assassin.x = spot.x;
+    assassin.y = spot.y;
+  }
   assassin.path = [];
   assassin.targetId = target.id;
   assassin.skillCooldown = skillCooldownTicks('assassin');

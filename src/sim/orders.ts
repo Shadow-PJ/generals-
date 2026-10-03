@@ -7,7 +7,7 @@ import { COMBO_BONUSES, type SignatureComboId } from '../data/combos';
 import { ORDER_RULES } from '../data/command';
 import { UNIT_CLASSES } from '../data/units';
 import type { Actors, Card, Place, Step, Target } from '../cards/types';
-import { clamp, distance, type Point } from './geometry';
+import { clamp, distance, snap, type Point } from './geometry';
 import {
   centerDistance,
   edgeDistance,
@@ -102,10 +102,11 @@ function placeBehind(state: BattleState, unit: Unit, enemy: Unit): void {
   const dx = d === 0 ? (unit.side === 'player' ? 1 : -1) : (enemy.x - from.x) / d;
   const dy = d === 0 ? 0 : (enemy.y - from.y) / d;
   const reach = enemy.stats.radius + unit.stats.radius + COMBO_BONUSES.ambush.behindDistance;
-  // Straight behind first, then a little to either side.
+  // Straight behind first, then a little to either side, in mirrored order for the enemy (as spotBehind).
+  const hand = unit.side === 'player' ? 1 : -1;
   for (const turn of [0, 0.5, -0.5, 1, -1]) {
-    const rx = dx - dy * turn;
-    const ry = dy + dx * turn;
+    const rx = dx - dy * turn * hand;
+    const ry = dy + dx * turn * hand;
     const len = Math.sqrt(rx * rx + ry * ry);
     const spot = clampToMap(state, unit, enemy.x + (rx / len) * reach, enemy.y + (ry / len) * reach);
     if (isSpaceFree(state, spot.x, spot.y, unit.stats.radius)) {
@@ -461,7 +462,8 @@ function between(ward: Unit, threat: Unit, offset: number): Point {
   return { x: ward.x + ((threat.x - ward.x) / d) * offset, y: ward.y + ((threat.y - ward.y) / d) * offset };
 }
 
+/** The point kept inside the map for this unit's body, on the position grid. */
 function clampToMap(state: BattleState, unit: Unit, x: number, y: number): Point {
   const r = unit.stats.radius;
-  return { x: clamp(x, r, state.map.width - r), y: clamp(y, r, state.map.height - r) };
+  return { x: snap(clamp(x, r, state.map.width - r)), y: snap(clamp(y, r, state.map.height - r)) };
 }

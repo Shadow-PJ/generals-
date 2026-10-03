@@ -2,7 +2,7 @@
 // bodies from overlapping. Standing walls and the map edge always block movement.
 
 import { BATTLE_RULES } from '../data/battle';
-import { circleOverlapsRect, distance, type Point } from './geometry';
+import { circleOverlapsRect, distance, snap, type Point } from './geometry';
 import { findPath, isLineClear } from './navigation';
 import { orderPower } from './queries';
 import { speedFactor } from './status';
@@ -20,8 +20,8 @@ export function isSpaceFree(state: BattleState, x: number, y: number, radius: nu
 }
 
 /**
- * Where a body ends up after trying to move by (dx, dy). If the full move is blocked
- * it slides along the wall on one axis; if both are blocked it stays put.
+ * Where a body ends up after trying to move by (dx, dy), on the position grid. If the full move
+ * is blocked it slides along the wall on one axis; if both are blocked it stays put.
  */
 export function slideMove(
   state: BattleState,
@@ -31,9 +31,11 @@ export function slideMove(
   dx: number,
   dy: number,
 ): Point {
-  if (isSpaceFree(state, x + dx, y + dy, radius)) return { x: x + dx, y: y + dy };
-  if (dx !== 0 && isSpaceFree(state, x + dx, y, radius)) return { x: x + dx, y };
-  if (dy !== 0 && isSpaceFree(state, x, y + dy, radius)) return { x, y: y + dy };
+  const toX = snap(x + dx);
+  const toY = snap(y + dy);
+  if (isSpaceFree(state, toX, toY, radius)) return { x: toX, y: toY };
+  if (dx !== 0 && isSpaceFree(state, toX, y, radius)) return { x: toX, y };
+  if (dy !== 0 && isSpaceFree(state, x, toY, radius)) return { x, y: toY };
   return { x, y };
 }
 
@@ -99,7 +101,8 @@ export function updateKnockbacks(state: BattleState): { unit: Unit; push: Knockb
 /**
  * Pushes overlapping bodies apart, half each. Every push is worked out from the same
  * positions and then applied together, so the order units are listed in doesn't matter.
- * Two units on the exact same spot are split along the x axis, the lower id to the left.
+ * Two units on the exact same spot are split along the x axis, the lower id toward its own side's
+ * edge of the map (the player's is the left), so a mirror match splits them the mirrored way.
  */
 export function separateUnits(state: BattleState): void {
   const units = state.units;
@@ -114,7 +117,7 @@ export function separateUnits(state: BattleState): void {
       const minGap = a.stats.radius + b.stats.radius;
       const d = distance(a.x, a.y, b.x, b.y);
       if (d >= minGap) continue;
-      const nx = d === 0 ? 1 : (b.x - a.x) / d;
+      const nx = d === 0 ? (a.side === 'player' ? 1 : -1) : (b.x - a.x) / d;
       const ny = d === 0 ? 0 : (b.y - a.y) / d;
       const push = (minGap - d) / 2;
       pushX[i]! -= nx * push;

@@ -1,6 +1,6 @@
 // Finding a spot to blink to.
 
-import { clamp, distance, type Point } from './geometry';
+import { clamp, distance, snap, type Point } from './geometry';
 import { isSpaceFree } from './movement';
 import type { BattleState, Unit } from './types';
 
@@ -14,13 +14,15 @@ export function spotBehind(state: BattleState, mover: Unit, target: Unit): Point
   const dy = d === 0 ? 0 : (target.y - mover.y) / d;
   const reach = target.stats.radius + mover.stats.radius + 2;
   const r = mover.stats.radius;
-  // Straight behind first, then a little to either side.
+  // Straight behind first, then a little to either side. The enemy, facing the other way, tries
+  // the sides in the mirrored order, so neither side's troops lean one way.
+  const hand = mover.side === 'player' ? 1 : -1;
   for (const turn of [0, 0.5, -0.5, 1, -1]) {
-    const rx = dx - dy * turn;
-    const ry = dy + dx * turn;
+    const rx = dx - dy * turn * hand;
+    const ry = dy + dx * turn * hand;
     const len = Math.sqrt(rx * rx + ry * ry);
-    const x = clamp(target.x + (rx / len) * reach, r, state.map.width - r);
-    const y = clamp(target.y + (ry / len) * reach, r, state.map.height - r);
+    const x = snap(clamp(target.x + (rx / len) * reach, r, state.map.width - r));
+    const y = snap(clamp(target.y + (ry / len) * reach, r, state.map.height - r));
     if (isSpaceFree(state, x, y, r)) return { x, y };
   }
   return null;
