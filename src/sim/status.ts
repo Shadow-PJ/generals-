@@ -1,6 +1,7 @@
 // Effects that last a while on a troop: slows, taunts, silences, a broken Rift cast, and what
 // the Generals' skills do to a troop's armor, damage and attack speed.
 
+import { BOSS_RULES } from '../data/bosses';
 import { TROOP_SKILLS, ULTIMATE_RULES } from '../data/generals';
 import { UNIT_CLASSES } from '../data/units';
 import { secondsToTicks } from './time';
@@ -50,14 +51,17 @@ export function effectiveArmor(unit: Unit): number {
 export function damageFactor(unit: Unit): number {
   const claws = unit.adaptation?.kind === 'claws' ? TROOP_SKILLS.assimilation.clawsDamageBonus : 0;
   const wraith = unit.wraithTicks > 0 ? ULTIMATE_RULES.reapersToll.wraithDamageBonus : 0;
-  return (1 + claws) * (1 + wraith);
+  // The Warlord boss's rage at his army's losses.
+  const rage = unit.rage ? BOSS_RULES.warlord.rage.damage * unit.rage.stacks : 0;
+  return (1 + claws) * (1 + wraith) * (1 + rage);
 }
 
 /** How much faster the troop attacks: Rally and Vampiric Link. */
 export function attackSpeedFactor(unit: Unit): number {
   const rally = unit.rallyTicks > 0 ? 1 + unit.rallyBonus : 1;
   const haste = unit.haste ? 1 + unit.haste.bonus : 1;
-  return rally * haste;
+  const rage = unit.rage ? 1 + BOSS_RULES.warlord.rage.attackSpeed * unit.rage.stacks : 1;
+  return rally * haste * rage;
 }
 
 /**

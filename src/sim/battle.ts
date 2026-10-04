@@ -16,6 +16,7 @@ import { createRng } from './rng';
 import { castShadowstep } from './shadowstep';
 import { castBarrier, castMark, castShove, ironWallTaunts } from './skills';
 import { specFor } from './specs';
+import { bossAfterDeath, prepareForBoss } from './bosses';
 import { factionCounts } from './factions';
 import { createUnit } from './spawn';
 import { activeSynergies } from './synergies';
@@ -92,10 +93,12 @@ export function createBattle(setup: BattleSetup): BattleState {
     reserves,
     boons,
     factions: { player: factionCounts([...setup.player, ...reserves.player], boons.player), enemy: factionCounts([...setup.enemy, ...reserves.enemy], boons.enemy) },
+    boss: setup.boss ?? null,
     tactical: setup.tactical ?? false,
     inputLog: [],
   };
   rebuildNav(state);
+  for (const unit of units) prepareForBoss(state, unit);
 
   for (const unit of units) {
     if (!isSpaceFree(state, unit.x, unit.y, unit.stats.radius)) {
@@ -197,6 +200,7 @@ function tickTimers(state: BattleState): void {
     if (unit.adaptation && --unit.adaptation.ticksLeft <= 0) unit.adaptation = null;
     if (unit.vibration && --unit.vibration.ticksLeft <= 0) unit.vibration = null;
     if (unit.shatterTicks > 0) unit.shatterTicks -= 1;
+    if (unit.rage && --unit.rage.ticksLeft <= 0) unit.rage = null;
     if (unit.wraithTicks > 0 && --unit.wraithTicks === 0) wraithFades(state, unit);
     if (unit.regen) tickRegen(unit);
     tickCast(state, unit);
@@ -290,9 +294,11 @@ function resolveDeaths(state: BattleState): void {
     unit.shatterTicks = 0;
     unit.wraithTicks = 0;
     unit.hijackTicks = 0;
+    unit.rage = null;
     state.events.push({ tick: state.tick, type: 'death', unitId: unit.id, killerId: unit.lastHitBy });
     assimilate(state, unit);
     fed(state, unit);
+    bossAfterDeath(state, unit);
   }
 }
 

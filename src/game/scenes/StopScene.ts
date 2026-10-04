@@ -279,7 +279,9 @@ export class StopScene extends Phaser.Scene {
     if (stop.won) {
       lines.push({ text: `You beat ${GENERALS[region.ruler].name} and won the run through ${region.name}.`, bold: true });
       if (stop.learned) {
+        // A first win over a ruler recruits them and teaches their Legendary action, together.
         const action = LEGENDARY_ACTION_DATA[stop.learned];
+        lines.push({ text: `${GENERALS[action.teacher].name} joins you: lead with them from the General screen (G) in the Capital.`, color: TEXT.victory });
         lines.push({ text: `Learned ${action.name}: ${action.text}. Put it on a card in your Legendary slot (5).`, color: TEXT.combo });
       }
       if (stop.unlocked) lines.push({ text: `Runs can now offer ${TROOP_NAMES[stop.unlocked].many}.`, color: TEXT.combo });

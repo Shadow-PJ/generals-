@@ -7,6 +7,7 @@ import { cardCost } from '../../cards/cost';
 import { shortCard } from '../../cards/describe';
 import { COMMAND_RULES, CONDITION_RULES } from '../../data/command';
 import type { CodexEntryId } from '../../data/combos';
+import { BOSS_RULES, BOSSES } from '../../data/bosses';
 import { GENERALS } from '../../data/generals';
 import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { MAPS, OPEN_FIELD } from '../../data/maps';
@@ -74,7 +75,7 @@ import type { MatchSetup } from '../match';
 import { battleXp } from '../progress';
 import { recordCombo } from '../session';
 import { threats } from '../threats';
-import { fightOutcome } from '../campaignFlow';
+import { bossOf, fightOutcome } from '../campaignFlow';
 import { enemyArmyOf, yourReserves } from '../troops';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle, type Button } from '../ui';
@@ -85,6 +86,8 @@ export interface BattleData extends MatchSetup {
 
 /** How long a troop flashes white after a hit, in milliseconds. */
 const HIT_FLASH_MS = 120;
+/** How long the boss banner, with its rule to read, stays before it fades, in milliseconds. */
+const BOSS_BANNER_MS = 4000;
 /** How long a combo banner stays before the next one may show, in milliseconds. */
 const COMBO_BANNER_MS = 2000;
 /** Pause between the last blow and the result screen, in milliseconds. */
@@ -185,6 +188,7 @@ export class BattleScene extends Phaser.Scene {
       specs: { player: data.specs, enemy: enemy.specs },
       learned: learnedActions(data.bossesBeaten),
       boons: { player: data.fight?.boons ?? [] },
+      boss: bossOf(data),
     });
     this.clock = createClock();
     this.pending = [];
@@ -235,7 +239,9 @@ export class BattleScene extends Phaser.Scene {
       .on('ultimate', () => this.pending.push({ kind: 'ultimate' }));
     SLOT_ACTIONS.forEach((action, slot) => input.on(action, () => this.pending.push({ kind: 'slot', slot })));
 
-    this.banner('FIGHT!', TEXT.title, this.setup.tactical ? 'Tactical mode: the battle pauses every 10 s' : undefined);
+    const boss = this.state.boss;
+    if (boss) this.banner(`BOSS: ${GENERALS[boss].name.toUpperCase()}`, TEXT.threat, BOSSES[boss].rule, BOSS_BANNER_MS);
+    else this.banner('FIGHT!', TEXT.title, this.setup.tactical ? 'Tactical mode: the battle pauses every 10 s' : undefined);
   }
 
   override update(time: number, delta: number): void {
@@ -305,6 +311,12 @@ export class BattleScene extends Phaser.Scene {
       } else if (e.type === 'phased') {
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 26, 'Phased!', TEXT.combo);
+      } else if (e.type === 'stolen') {
+        const victim = this.unit(e.victimId);
+        const trait = BOSS_RULES.hiveMother.steals[e.trait];
+        if (victim) this.popup(victim.x, victim.y - 34, `Stolen: ${trait.name}`, TEXT.threat);
+      } else if (e.type === 'enraged') {
+        if (e.stacks > 1) this.banner(`RAGE ×${e.stacks}`, TEXT.threat, 'His army hits harder for every troop it loses');
       } else if (e.type === 'synergy') {
         const synergy = SYNERGIES.find((s) => s.id === e.synergy)!;
         if (e.side === 'player') this.comboBanner(`${synergy.name.toUpperCase()}!`, synergy.bonusText, this.found(e.synergy));
@@ -410,6 +422,10 @@ export class BattleScene extends Phaser.Scene {
       if (taunter?.alive) drawTaunted(g, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
       drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash, alpha });
       drawRarity(g, at.x, at.y, r, u.rarity, alpha);
+      // Boss fights: a turret's base, the Warlord's rage, the Strategist's phases left.
+      if (u.rooted) g.lineStyle(3, COLORS.wallEdge, alpha).strokeRect(at.x - r - 5, at.y - r - 5, 2 * r + 10, 2 * r + 10);
+      if (u.rage) g.lineStyle(1 + u.rage.stacks, COLORS.haste, 0.85).strokeCircle(at.x, at.y, r + 8);
+      for (let i = 0; i < u.bossPhases; i++) g.fillStyle(COLORS.chased, 1).fillCircle(at.x - 5 * (u.bossPhases - 1) + i * 10, at.y - r - 17, 3);
       if (u.casting) {
         const total = secondsToTicks(UNIT_CLASSES.invoker.rift.castSeconds);
         drawCasting(g, at.x, at.y, r, u.casting, 1 - u.casting.ticksLeft / total);
@@ -692,14 +708,15 @@ export class BattleScene extends Phaser.Scene {
     this.tweens.add({ targets: items, alpha: 0, delay: 1400, duration: 700, onComplete: () => items.forEach((t) => t.destroy()) });
   }
 
-  /** Big text across the middle of the battlefield. */
-  private banner(title: string, color: string, subtitle?: string): void {
+  /** Big text across the middle of the battlefield, gone after `holdMs`. */
+  private banner(title: string, color: string, subtitle?: string, holdMs = 1200): void {
     const cx = OPEN_FIELD.width / 2;
     const cy = OPEN_FIELD.height / 2;
     const items = [this.add.text(cx, cy - 12, title, textStyle(44, color, true)).setOrigin(0.5)];
-    if (subtitle) items.push(this.add.text(cx, cy + 26, subtitle, textStyle(16, TEXT.body)).setOrigin(0.5));
+    const wrap = { width: OPEN_FIELD.width - 160 };
+    if (subtitle) items.push(this.add.text(cx, cy + 16, subtitle, { ...textStyle(16, TEXT.body), wordWrap: wrap, align: 'center' }).setOrigin(0.5, 0));
     this.world.add(items);
-    this.tweens.add({ targets: items, alpha: 0, delay: 1200, duration: 800, onComplete: () => items.forEach((t) => t.destroy()) });
+    this.tweens.add({ targets: items, alpha: 0, delay: holdMs, duration: 800, onComplete: () => items.forEach((t) => t.destroy()) });
   }
 }
 

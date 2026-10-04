@@ -4,6 +4,9 @@
 // ruler's own army. Every boss you had beaten before the run makes its fights harder still.
 
 import type { Rarity } from '../data/rarity';
+import { BOSS_RULES } from '../data/bosses';
+import type { TroopPlacement } from '../data/armies';
+import type { GeneralId } from '../data/generals';
 import { REGIONS } from '../data/regions';
 import { BOSS_FIGHT, ELITE_FIGHT, FIGHT_TIERS, RUN_LEVEL_STEP, type FightTier } from '../data/runs';
 import { MAPS } from '../data/maps';
@@ -51,7 +54,13 @@ export function makeEncounter(rng: RngState, run: RunState, kind: Encounter['kin
     map: region.map,
     general: region.ruler,
     commander: tier.commander,
-    troops: formation(MAPS[region.map], 'enemy', troops.slice(0, tier.troops)),
+    troops: [...formation(MAPS[region.map], 'enemy', troops.slice(0, tier.troops)), ...bossExtras(kind, region.ruler)],
     reserves: troops.slice(tier.troops),
   };
+}
+
+/** What a boss brings on top of their army: the Engineer's turrets. */
+function bossExtras(kind: Encounter['kind'], ruler: GeneralId): TroopPlacement[] {
+  if (kind !== 'boss' || ruler !== 'engineer') return [];
+  return BOSS_RULES.engineer.turrets.map((t) => ({ ...t, rarity: 'common', turret: true }));
 }

@@ -1,9 +1,12 @@
 // Choosing your General: who reads your cards, and what your troops can do in battle (troop
-// skill, doctrine, ultimate and mana twist). Every General is open until you recruit them in
-// the campaign (phase 5). Up and Down pick one, Enter leads with them, Esc goes back unchanged.
+// skill, doctrine, ultimate and mana twist). You start with the Captain; each region's ruler
+// joins you once you beat them at the end of a run (session 5D). Every General can be read here,
+// but only those you have can lead. Up and Down pick one, Enter leads with them, Esc goes back.
 
 import Phaser from 'phaser';
+import { recruitedGenerals } from '../../data/bosses';
 import { GENERAL_IDS, GENERALS, type GeneralId } from '../../data/generals';
+import { REGIONS, regionOf } from '../../data/regions';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -22,6 +25,8 @@ export class GeneralsScene extends Phaser.Scene {
   private selected = 0;
   private boxes: Phaser.GameObjects.Rectangle[] = [];
   private panel!: Phaser.GameObjects.Container;
+  private recruited: GeneralId[] = [];
+  private lead!: Phaser.GameObjects.Text;
 
   constructor() {
     super('Generals');
@@ -29,6 +34,7 @@ export class GeneralsScene extends Phaser.Scene {
 
   init(data: MatchSetup): void {
     this.setup = data;
+    this.recruited = recruitedGenerals(data.bossesBeaten);
     this.selected = Math.max(0, GENERAL_IDS.indexOf(data.general));
     this.boxes = [];
   }
@@ -36,7 +42,7 @@ export class GeneralsScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'CHOOSE YOUR GENERAL', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Every General is open for now. ↑↓ pick, Enter: lead with them, Esc: back.', textStyle(13, TEXT.muted));
+    this.add.text(16, 38, 'Beat a region’s ruler to recruit them. ↑↓ pick, Enter: lead with them, Esc: back.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Back  Esc', () => this.goBack(), 150, 34);
 
     GENERAL_IDS.forEach((id, i) => {
@@ -51,10 +57,13 @@ export class GeneralsScene extends Phaser.Scene {
       this.add.text(LIST_X + 12, y + 8, general.name, textStyle(15, TEXT.title, true));
       this.add.text(LIST_X + 12, y + 30, general.faction ?? 'No faction', textStyle(12, TEXT.muted));
       if (id === this.setup.general) this.add.text(LIST_X + LIST_W - 12, y + 10, 'Leading', textStyle(12, TEXT.victory, true)).setOrigin(1, 0);
+      else if (!this.recruited.includes(id)) this.add.text(LIST_X + LIST_W - 12, y + 10, 'Locked', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     });
 
     this.panel = this.add.container(0, 0);
-    addButton(this, PANEL_X + 110, TOP_BAR_HEIGHT + 12 + GENERAL_IDS.length * ROW_H - 22, 'Lead with them  ⏎', () => this.choose(), 220, 34);
+    const buttonY = TOP_BAR_HEIGHT + 12 + GENERAL_IDS.length * ROW_H - 22;
+    addButton(this, PANEL_X + 110, buttonY, 'Lead with them  ⏎', () => this.choose(), 220, 34);
+    this.lead = this.add.text(PANEL_X + 236, buttonY, '', textStyle(13, TEXT.muted)).setOrigin(0, 0.5);
 
     new InputLayer(this)
       .on('up', () => this.select(this.selected - 1))
@@ -74,7 +83,9 @@ export class GeneralsScene extends Phaser.Scene {
       const on = i === this.selected;
       box.setFillStyle(on ? 0x2b3a50 : 0x1d2939).setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : 0x34465e);
     });
-    this.showGeneral(GENERAL_IDS[this.selected]!);
+    const id = GENERAL_IDS[this.selected]!;
+    this.showGeneral(id);
+    this.lead.setText(this.recruited.includes(id) ? '' : lockedText(id));
   }
 
   /** The chosen General's parts, top to bottom in the panel on the right. */
@@ -103,7 +114,12 @@ export class GeneralsScene extends Phaser.Scene {
   }
 
   private choose(): void {
-    const setup = { ...this.setup, general: GENERAL_IDS[this.selected]! };
+    const general = GENERAL_IDS[this.selected]!;
+    if (!this.recruited.includes(general)) {
+      this.cameras.main.shake(120, 0.004);
+      return;
+    }
+    const setup = { ...this.setup, general };
     void remember(setup).catch(() => undefined);
     this.scene.start(setup.returnTo ?? 'Prep', setup);
   }
@@ -111,4 +127,10 @@ export class GeneralsScene extends Phaser.Scene {
   private goBack(): void {
     this.scene.start(this.setup.returnTo ?? 'Prep', this.setup);
   }
+}
+
+/** Where to beat a General you don't have yet. */
+function lockedText(id: GeneralId): string {
+  const region = regionOf(id);
+  return region ? `Locked: beat ${GENERALS[id].name} at the end of a ${REGIONS[region].name} run.` : 'Locked.';
 }

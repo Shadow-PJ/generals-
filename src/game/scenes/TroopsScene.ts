@@ -1,14 +1,13 @@
 // The Skirmish screen: practice battles, earning no Command XP. Pick the class of each of your
-// 5 troops and 3 reserves, a specialization for each class, and the battle: the map, both
-// Generals, the enemy's army and its commander. It also sets your specializations for the
-// campaign until the Tech Web sells them (5E), and, for testing until the boss fights (5D),
-// which bosses you have beaten: the Legendary actions you know and the regions open to you.
+// 5 troops and 3 reserves, a specialization for each class, and the battle: the map, your
+// General (one you have recruited), the enemy's General (any), its army and its commander. It
+// also sets your specializations for the campaign until the Tech Web sells them (5E).
 // Up and Down pick a row, Left and Right change it; a click changes it too.
 
 import Phaser from 'phaser';
 import { RESERVE_COUNT, type EnemyArmy } from '../../data/armies';
+import { recruitedGenerals } from '../../data/bosses';
 import { GENERAL_IDS, GENERALS } from '../../data/generals';
-import { BOSS_ORDER, LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { MAP_IDS, MAPS } from '../../data/maps';
 import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
 import { SPECIALIZATIONS } from '../../data/specializations';
@@ -18,7 +17,7 @@ import { drawBody, drawField, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
-import { earnedRank, remember, setBossesBeaten } from '../session';
+import { earnedRank, remember } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { cycle, nextClass, specOptions, withClass, withSpec, yourSynergies } from '../troops';
 import { addButton, textStyle } from '../ui';
@@ -32,7 +31,6 @@ type Row =
   | { kind: 'enemy' }
   | { kind: 'enemyCommander' }
   | { kind: 'spec'; cls: UnitClass }
-  | { kind: 'bosses' }
   | { kind: 'practice' };
 
 /** No commander, or one of each rank. */
@@ -83,7 +81,6 @@ export class TroopsScene extends Phaser.Scene {
       { kind: 'enemy' },
       { kind: 'enemyCommander' },
       ...TROOP_CLASSES.map((cls) => ({ kind: 'spec', cls }) as const),
-      { kind: 'bosses' },
       { kind: 'practice' },
     ];
     this.selected = 0;
@@ -121,7 +118,7 @@ export class TroopsScene extends Phaser.Scene {
         this.add.text(RIGHT_X, y, 'SPECIALIZATIONS (one per class)', textStyle(12, TEXT.muted, true));
         y += 20;
       }
-      const x = row.kind === 'spec' || row.kind === 'bosses' || row.kind === 'practice' ? RIGHT_X : LEFT_X;
+      const x = row.kind === 'spec' || row.kind === 'practice' ? RIGHT_X : LEFT_X;
       const h = row.kind === 'spec' ? SPEC_ROW_H : ROW_H;
       const box = this.add.rectangle(x, y, COLUMN_W, h - 4, 0x1d2939).setOrigin(0).setStrokeStyle(1, 0x34465e);
       box.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
@@ -130,13 +127,13 @@ export class TroopsScene extends Phaser.Scene {
       });
       this.boxes.push(box);
       this.add.text(x + 12, y + 6, this.rowLabel(row), textStyle(13, TEXT.muted));
-      this.values.push(this.add.text(x + 150, y + 6, '', textStyle(row.kind === 'bosses' || row.kind === 'practice' ? 12 : 13, TEXT.body, true)));
+      this.values.push(this.add.text(x + 150, y + 6, '', textStyle(row.kind === 'practice' ? 12 : 13, TEXT.body, true)));
       this.notes.push(row.kind === 'spec' ? this.add.text(x + 12, y + 25, '', textStyle(11, TEXT.muted)) : null);
       y += h;
     });
 
     // The chosen map, small, under the specializations, with how its terrain plays.
-    const previewY = TOP_BAR_HEIGHT + 14 + 20 + TROOP_CLASSES.length * SPEC_ROW_H + 2 * ROW_H + 10;
+    const previewY = TOP_BAR_HEIGHT + 14 + 20 + TROOP_CLASSES.length * SPEC_ROW_H + ROW_H + 10;
     this.preview = this.add.graphics().setPosition(RIGHT_X, previewY).setScale(PREVIEW_SCALE);
     const previewW = MAPS.openField.width * PREVIEW_SCALE;
     this.terrainText = this.add.text(RIGHT_X + previewW + 10, previewY, '', {
@@ -178,8 +175,6 @@ export class TroopsScene extends Phaser.Scene {
         return 'Enemy commander';
       case 'spec':
         return UNIT_CLASSES[row.cls].name;
-      case 'bosses':
-        return 'Bosses (debug)';
       case 'practice':
         return 'Your rank';
     }
@@ -205,7 +200,8 @@ export class TroopsScene extends Phaser.Scene {
         setup.map = cycle(MAP_IDS, setup.map, step);
         break;
       case 'general':
-        setup.general = cycle(GENERAL_IDS, setup.general, step);
+        // Only Generals you have recruited by beating them; the Captain from the start.
+        setup.general = cycle(recruitedGenerals(setup.bossesBeaten), setup.general, step);
         break;
       case 'enemyGeneral':
         setup.enemyGeneral = cycle(GENERAL_IDS, setup.enemyGeneral, step);
@@ -219,13 +215,6 @@ export class TroopsScene extends Phaser.Scene {
       case 'spec': {
         const options = specOptions(row.cls);
         setup.specs = withSpec(setup.specs, row.cls, cycle(options, setup.specs[row.cls] ?? null, step));
-        break;
-      }
-      case 'bosses': {
-        // In campaign order: none, then the first boss, the first two, ... all five.
-        const count = (setup.bossesBeaten.length + step + BOSS_ORDER.length + 1) % (BOSS_ORDER.length + 1);
-        setup.bossesBeaten = BOSS_ORDER.slice(0, count);
-        void setBossesBeaten(setup.bossesBeaten).catch(() => undefined);
         break;
       }
       case 'practice':
@@ -277,11 +266,6 @@ export class TroopsScene extends Phaser.Scene {
           const earned = rankRules(earnedRank());
           const practice = this.setup.practiceRank === null ? null : rankRules(this.setup.practiceRank);
           value.setText(`◀  ${practice ? `Practice at Rank ${practice.numeral}: no XP` : `Earned: Rank ${earned.numeral}`}  ▶`);
-          break;
-        }
-        case 'bosses': {
-          const learned = learnedActions(this.setup.bossesBeaten).map((a) => LEGENDARY_ACTION_DATA[a].name);
-          value.setText(`◀  ${learned.length === 0 ? 'None: no Legendary slot' : learned.join(', ')}  ▶`);
           break;
         }
         case 'spec': {

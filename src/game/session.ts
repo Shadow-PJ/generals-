@@ -17,8 +17,7 @@ import {
   type Profile,
 } from '../save/profile';
 import { defaultSettings, readSettings, SETTINGS_FILE, writeSettings, type Settings } from '../save/settings';
-import type { GeneralId } from '../data/generals';
-import { BOSS_ORDER } from '../data/legendary';
+import { recruitedGenerals } from '../data/bosses';
 import type { RankNumber } from '../data/ranks';
 import type { MatchSetup } from './match';
 import { GAME_HEIGHT, GAME_WIDTH } from './theme';
@@ -57,6 +56,7 @@ export function savedSetup(): MatchSetup {
   const { placement, loadout, xp, bossesBeaten, practiceRank, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander } =
     structuredClone(profile);
   const rank = practiceRank ?? rankForXp(xp);
+  // You lead with a General you have recruited; the Captain until then.
   return {
     placement,
     loadout,
@@ -64,7 +64,7 @@ export function savedSetup(): MatchSetup {
     practiceRank,
     bossesBeaten,
     tactical,
-    general,
+    general: recruitedGenerals(bossesBeaten).includes(general) ? general : 'captain',
     reserves,
     specs,
     map,
@@ -119,15 +119,6 @@ export function currentCampaign(): Campaign {
 /** Saves the campaign after a step of a run. Resolves once the file is written. */
 export function saveCampaign(campaign: Campaign): Promise<void> {
   profile = { ...profile, ...structuredClone(campaign) };
-  return write(PROFILE_FILE, writeProfile(profile));
-}
-
-/**
- * Debug, on the Skirmish screen until the boss fights arrive (5D): which bosses you have beaten,
- * in campaign order. It sets the Legendary actions you know and the regions open to you.
- */
-export function setBossesBeaten(bosses: readonly GeneralId[]): Promise<void> {
-  profile = { ...profile, bossesBeaten: BOSS_ORDER.filter((g) => bosses.includes(g)) };
   return write(PROFILE_FILE, writeProfile(profile));
 }
 

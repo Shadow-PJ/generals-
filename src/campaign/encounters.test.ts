@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BOSS_RULES } from '../data/bosses';
 import { MAPS } from '../data/maps';
 import { REGION_IDS, REGIONS } from '../data/regions';
 import { FIGHT_TIERS } from '../data/runs';
@@ -40,9 +41,12 @@ describe('enemies along a run', () => {
         const encounter = makeEncounter(createRng(9), { ...run, region }, kind, floor);
         const tier = fightTier(kind, floor, 0);
         expect(encounter).toMatchObject({ kind, map: REGIONS[region].map, general: REGIONS[region].ruler, commander: tier.commander });
-        expect(encounter.troops).toHaveLength(tier.troops);
+        // The Engineer brings her turrets on top of her army.
+        const turrets = encounter.troops.filter((t) => t.turret);
+        expect(turrets).toHaveLength(kind === 'boss' && region === 'ironFortress' ? BOSS_RULES.engineer.turrets.length : 0);
+        expect(encounter.troops.length - turrets.length).toBe(tier.troops);
         expect(encounter.reserves).toHaveLength(tier.reserves);
-        const all = [...encounter.troops, ...encounter.reserves];
+        const all = [...encounter.troops.filter((t) => !t.turret), ...encounter.reserves];
         expect(all.filter((t) => t.rarity === 'epic')).toHaveLength(tier.epic);
         expect(all.filter((t) => t.rarity === 'rare')).toHaveLength(Math.min(tier.rare, all.length - tier.epic));
         expect(isArmyPlaced(MAPS[encounter.map], 'enemy', encounter.troops)).toBe(true);
