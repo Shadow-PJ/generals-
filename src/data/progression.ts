@@ -1,6 +1,6 @@
 // Command XP and Ranks (session 5A): every battle earns Command XP, with bonuses for Perfect
 // timings, signature combos and Finishers; enough XP raises your Command Rank. Expect about one
-// rank per region. Starting values to tune; Battle IQ grades add XP from session 5D.
+// rank per region. Starting values to tune; Battle IQ grades add XP from session 5E.
 
 import type { RankNumber } from './ranks';
 

@@ -11,9 +11,11 @@ import type { UnitClass } from '../data/units';
 export interface MatchSetup {
   placement: TroopPlacement[];
   loadout: Loadout;
-  /** Your Command Rank, earned with Command XP (session 5A). Screens read it; only battles change it. */
+  /** The rank you fight at: your Command Rank, earned with Command XP (session 5A), or your practice rank. */
   rank: RankNumber;
-  /** Boss Generals you have beaten: each teaches a Legendary action. Set on the Skirmish screen until the bosses arrive (5C). */
+  /** Skirmish practice at any rank, earning no Command XP; null to fight at your own rank. */
+  practiceRank: RankNumber | null;
+  /** Boss Generals you have beaten: each teaches a Legendary action. Set on the Skirmish screen until the bosses arrive (5D). */
   bossesBeaten: GeneralId[];
   /** Tactical mode: the battle pauses every 10 s so you can choose cards calmly; no Perfect timing. */
   tactical: boolean;

@@ -9,6 +9,7 @@ import {
   changeSettings,
   chosenWindowScale,
   currentXp,
+  earnedRank,
   foundCombos,
   gainXp,
   recordCombo,
@@ -93,6 +94,17 @@ describe('the session', () => {
     expect(currentXp()).toBe(RANK_XP[2]);
     expect(savedSetup().rank).toBe(2);
     expect(readProfile(fake.files.get('saves/profile.json') ?? null).xp).toBe(RANK_XP[2]);
+  });
+
+  it('lets you practise at any rank in skirmish, and goes back to your earned rank after', async () => {
+    await gainXp(RANK_XP[2]);
+    await remember({ ...savedSetup(), practiceRank: 5 });
+    expect(savedSetup()).toMatchObject({ rank: 5, practiceRank: 5 });
+    expect(earnedRank()).toBe(2);
+    await startSession(fake.platform);
+    expect(savedSetup().rank).toBe(5);
+    await remember({ ...savedSetup(), practiceRank: null });
+    expect(savedSetup()).toMatchObject({ rank: 2, practiceRank: null });
   });
 
   it('brings an older save up to date, keeping the old file as a backup', async () => {

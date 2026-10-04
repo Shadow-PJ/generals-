@@ -131,7 +131,7 @@ export function actorsOf(state: BattleState, side: Side, actors: Actors): Unit[]
   const mine = livingUnits(state, side);
   if (actors.kind === 'all') return mine;
   if (actors.kind === 'class') return mine.filter((u) => u.cls === actors.cls);
-  return []; // Named veterans arrive in session 5D.
+  return []; // Named veterans arrive in session 5E.
 }
 
 function orderFor(

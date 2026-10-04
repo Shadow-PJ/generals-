@@ -1,6 +1,6 @@
 # Build plan
 
-Seven phases, 23 sessions. Each session ends with a pull request that the owner play-tests and merges before the next one starts. Tick items here as they are finished; "Owner checks" and the owner's release checklist are for the owner, not for Claude.
+Seven phases, 24 sessions. Each session ends with a pull request that the owner play-tests and merges before the next one starts. Tick items here as they are finished; "Owner checks" and the owner's release checklist are for the owner, not for Claude.
 
 | Phase | Sessions | Playable after it |
 | --- | --- | --- |
@@ -8,7 +8,7 @@ Seven phases, 23 sessions. Each session ends with a pull request that the owner 
 | 2. Command Slots and desktop | 2A to 2C | Write cards, fire them and win battles, in the browser or as a Windows app; no AI needed |
 | 3. Personalities and the small model | 3A to 3D | Generals read orders their way; plain-language and voice orders |
 | 4. Combos and content | 4A to 4D | Every General, class, combo and map in skirmish mode |
-| 5. Progression and campaign | 5A to 5D | The full campaign from Squad Leader to Legend |
+| 5. Progression and campaign | 5A to 5E | The full campaign from Squad Leader to Legend, as roguelite runs |
 | 6. Polish and multiplayer | 6A to 6D | Real art and sound, balance, controller and Steam Deck play, battles against friends |
 | 7. Release | 7A, 7B | Generals on Steam, then on the Epic Games Store |
 
@@ -177,23 +177,36 @@ Goal: the full journey from Squad Leader to Legend.
 - [x] Command XP and Ranks I to V; the validator uses the player's real rank
 - [x] The Legendary slot, unlocked by the first boss win, and the 5 Legendary actions
 
-### 5B. World map and expeditions
+### 5B. World map and runs
 
 - [ ] The Capital hub and the 5 regions, in their unlock order
-- [ ] Expedition maps made from a seed: battles, elite fights, events, a merchant, rest camps and the boss
+- [ ] Run maps made from a seed: battles, elite fights, events, a merchant, rest camps and the boss, with enemies that grow stronger along the path
+- [ ] Spoils after each won fight: gold, and a pick of 1 of 3 offers (fighters and boons) rolled by rarity
+- [ ] The run roster: picked fighters join it; choose 5 to field and 3 reserves before each fight
+- [ ] The merchant (fighters, boons, healing, rerolls) and rest camps
 - [ ] Artifacts kept at a camp or on a win, lost on a defeat
 - [ ] 10 hard-choice events
+- [ ] Only campaign battles earn Command XP; skirmish becomes practice
 
-### 5C. Boss Generals
+### 5C. Fighters, factions and boons
+
+- [ ] Fighters: a class, a faction and a rarity (Common, Rare, Epic, Legendary), each rarity with its own chance to appear; rarer fighters have better stats and a perk
+- [ ] Faction bonuses at 2, 4 and 6 fighters of a faction, one per faction, in the spirit of its General
+- [ ] 30 boons by rarity: troop, Command and faction boons
+- [ ] Offer chances that shift toward rarer ones deeper in a run and after elite fights
+
+Owner checks: build a run around one faction and feel it grow strong.
+
+### 5D. Boss Generals
 
 - [ ] The 5 boss fights, each testing its idea from the design
 - [ ] Beating a boss recruits that General and teaches their Legendary action
 
-### 5D. Growing your army
+### 5E. Growing your army
 
 - [ ] Tech Web for each class, paid with Insight, with free respec between runs
 - [ ] 10 artifacts
-- [ ] Veterans: names, records, ranks, perks, wounded status and Ironman mode
+- [ ] Veterans: names, records, ranks, perks, wounded status and Ironman mode; fighters who finish a won run can stay as veterans
 - [ ] General Mastery challenges
 - [ ] Battle IQ report built from the battle event log
 
@@ -208,6 +221,7 @@ Goal: a balanced, good-looking game that plays well with a controller and agains
 - [ ] Balance script that runs thousands of headless battles per matchup and reports what wins too often
 - [ ] Number changes proposed in the pull request, not applied silently
 - [ ] A tutorial with the Captain for the first battles
+- [ ] The order reader learns Legendary orders: new generated training sentences, retrained, checked by the eval
 
 ### 6B. Art, sound and UI
 

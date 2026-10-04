@@ -18,6 +18,7 @@ function saved(): Profile {
   profile.placement[0] = { cls: 'vanguard', x: 230, y: 150 };
   profile.xp = 1234;
   profile.bossesBeaten = ['hiveMother', 'warlord'];
+  profile.practiceRank = 4;
   profile.tactical = true;
   profile.general = 'warlord';
   profile.codex = ['feignedRetreat', 'finisher', 'ironWall'];
@@ -92,10 +93,10 @@ describe('the saved profile', () => {
   });
 
   it('loads a version 1 save: the debug rank it had becomes the XP for that rank, and everything else stays', () => {
-    const { xp: _xp, bossesBeaten: _b, ...rest } = saved();
+    const { xp: _xp, bossesBeaten: _b, practiceRank: _p, ...rest } = saved();
     const v1 = { ...rest, version: 1, rank: 4 };
     const profile = readProfile(JSON.stringify(v1));
-    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [] });
+    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [], practiceRank: null });
     // A version 1 save with no rank (or a broken one) had the debug default, Rank III.
     expect(readProfile(JSON.stringify({ ...v1, rank: 'high' })).xp).toBe(RANK_XP[3]);
     // The very first saves wrote no version at all.
@@ -107,7 +108,8 @@ describe('the saved profile', () => {
     const data = JSON.parse(writeProfile(saved()));
     data.bossesBeaten = ['warlord', 'captain', 'napoleon', 'hiveMother', 'warlord'];
     data.xp = -5;
-    expect(readProfile(JSON.stringify(data))).toMatchObject({ bossesBeaten: ['hiveMother', 'warlord'], xp: 0 });
+    data.practiceRank = 7;
+    expect(readProfile(JSON.stringify(data))).toMatchObject({ bossesBeaten: ['hiveMother', 'warlord'], xp: 0, practiceRank: null });
     data.xp = 'lots';
     expect(readProfile(JSON.stringify(data)).xp).toBe(0);
   });

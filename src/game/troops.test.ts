@@ -13,6 +13,7 @@ function setup(change: Partial<MatchSetup> = {}): MatchSetup {
     loadout: emptyLoadout(),
     rank: 3,
     bossesBeaten: [],
+    practiceRank: null,
     tactical: false,
     general: 'captain',
     reserves: [...STARTER_RESERVES],

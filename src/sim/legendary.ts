@@ -197,19 +197,25 @@ function raiseWall(state: BattleState, side: Side, at: Place, triggers: CardTrig
   return wall;
 }
 
-/** Troops standing where the wall rises step out of it, to the side they were already on. */
+/**
+ * Troops standing where the wall rises step out of it, to their own army's side of it (the side
+ * the middle of their army is on), so the wall parts the armies rather than trapping anyone.
+ */
 function pushOutOf(state: BattleState, rect: Rect, upright: boolean): void {
+  const middle = { x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 };
+  const near = (p: Point) => (upright ? p.x < middle.x : p.y < middle.y);
+  const armySide = new Map<Side, boolean>();
+  for (const side of ['player', 'enemy'] as const) {
+    const army = livingUnits(state, side);
+    if (army.length > 0) armySide.set(side, near(centroid(army)));
+  }
   for (const u of state.units) {
     if (!u.alive) continue;
     const r = u.stats.radius;
     if (!circleOverlapsRect(u.x, u.y, r, rect)) continue;
-    if (upright) {
-      const before = u.x < rect.x + rect.w / 2;
-      u.x = clamp(before ? rect.x - r - 1 : rect.x + rect.w + r + 1, r, state.map.width - r);
-    } else {
-      const above = u.y < rect.y + rect.h / 2;
-      u.y = clamp(above ? rect.y - r - 1 : rect.y + rect.h + r + 1, r, state.map.height - r);
-    }
+    const toNear = armySide.get(u.side) ?? near(u);
+    if (upright) u.x = clamp(toNear ? rect.x - r - 1 : rect.x + rect.w + r + 1, r, state.map.width - r);
+    else u.y = clamp(toNear ? rect.y - r - 1 : rect.y + rect.h + r + 1, r, state.map.height - r);
     u.path = [];
   }
 }

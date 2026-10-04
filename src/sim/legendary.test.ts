@@ -114,23 +114,36 @@ describe('Legendary actions', () => {
     expect(slotReadiness(state, LEGENDARY_SLOT)).toBe('waiting');
   });
 
-  it('Fortify: a wall rises in front of your army, stops shots and paths, pushes troops out of its way, and falls after 8 s', () => {
-    const state = battleWith([{ cls: 'ranger', x: 300, y: 300 }], [{ cls: 'vanguard', x: 520, y: 300 }], {
-      legendary: legendary({ action: 'fortify', at: { kind: 'forward' } }),
-      learned: ['fortify'],
-    });
+  it('Fortify: a wall rises in front of your army, stops shots and paths, sends troops in its way to their own side, and falls after 8 s', () => {
+    // Both Vanguards stand where the wall will rise (its middle is near x 409): the enemy one on
+    // your side of the middle, yours on theirs.
+    const state = battleWith(
+      [
+        { cls: 'ranger', x: 300, y: 260 },
+        { cls: 'guardian', x: 185, y: 340 },
+        { cls: 'vanguard', x: 415, y: 320 },
+      ],
+      [
+        { cls: 'vanguard', x: 405, y: 280 },
+        { cls: 'ranger', x: 600, y: 280 },
+      ],
+      { legendary: legendary({ action: 'fortify', at: { kind: 'forward' } }), learned: ['fortify'] },
+    );
     state.command.pips = 5;
     freeze(...state.units);
     const [vanguard] = sideUnits(state, 'enemy');
-    vanguard!.x = 410;
+    const [, , yours] = sideUnits(state, 'player');
     fire(state);
     const raised = state.events.find((e) => e.type === 'legendary');
     expect(raised).toMatchObject({ action: 'fortify', wallId: 1 });
     const wall = state.walls[0]!;
     expect(wall).toMatchObject({ w: LEGENDARY_RULES.fortify.thickness, h: LEGENDARY_RULES.fortify.length, hp: LEGENDARY_RULES.fortify.hp });
-    // Between the Ranger and the Vanguard, which was standing where it rose and stepped out.
+    // In front of your army; each Vanguard stepped out to its own army's side.
     expect(wall.x).toBeGreaterThan(300);
     expect(circleOverlapsRect(vanguard!.x, vanguard!.y, vanguard!.stats.radius, wall)).toBe(false);
+    expect(circleOverlapsRect(yours!.x, yours!.y, yours!.stats.radius, wall)).toBe(false);
+    expect(vanguard!.x).toBeGreaterThan(wall.x + wall.w);
+    expect(yours!.x).toBeLessThan(wall.x);
     expect(isLineClear(state.nav, 300, 300, 600, 300)).toBe(false);
     while (state.walls[0]!.hp > 0 && state.tick < 400) stepBattle(state);
     expect(state.tick).toBeLessThanOrEqual(secondsToTicks(LEGENDARY_RULES.fortify.seconds) + 2);

@@ -31,6 +31,8 @@ export interface Profile {
   xp: number;
   /** Boss Generals you have beaten, in the order the campaign meets them; the first opens the Legendary slot. */
   bossesBeaten: GeneralId[];
+  /** A rank to practise at in skirmish, earning no XP; null to fight at your own rank. */
+  practiceRank: RankNumber | null;
   tactical: boolean;
   /** Your cards are stored as you wrote them; the General's rules are applied when they are read. */
   general: GeneralId;
@@ -52,6 +54,7 @@ export function newProfile(): Profile {
     placement: STARTER_ARMY.map((t) => ({ ...t })),
     xp: 0,
     bossesBeaten: [],
+    practiceRank: null,
     tactical: false,
     general: STARTING_GENERAL,
     codex: [],
@@ -95,6 +98,7 @@ export function readProfile(text: string | null): Profile {
   profile.placement = readPlacement(saved.placement) ?? profile.placement;
   if (typeof saved.xp === 'number' && Number.isFinite(saved.xp) && saved.xp >= 0) profile.xp = Math.floor(saved.xp);
   if (Array.isArray(saved.bossesBeaten)) profile.bossesBeaten = BOSS_ORDER.filter((g) => (saved.bossesBeaten as unknown[]).includes(g));
+  if (RANKS.some((r) => r.rank === saved.practiceRank)) profile.practiceRank = saved.practiceRank as RankNumber;
   if (typeof saved.tactical === 'boolean') profile.tactical = saved.tactical;
   if ((GENERAL_IDS as readonly unknown[]).includes(saved.general)) profile.general = saved.general as GeneralId;
   if (Array.isArray(saved.codex)) profile.codex = CODEX_ENTRY_IDS.filter((id) => (saved.codex as unknown[]).includes(id));

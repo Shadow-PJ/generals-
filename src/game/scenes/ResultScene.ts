@@ -46,7 +46,14 @@ export class ResultScene extends Phaser.Scene {
       .text(cx, cy - 46, `Battle time ${formatBattleTime(result.durationTicks).slice(0, -3)}   ·   seed ${seed}`, textStyle(13, TEXT.muted))
       .setOrigin(0.5);
 
-    // Command XP: what earned it, then your rank, or the rank you just reached.
+    // Command XP: what earned it, then your rank, or the rank you just reached. Practice earns none.
+    if (this.setup.practiceRank !== null) {
+      const practice = rankRules(this.setup.practiceRank);
+      this.add.text(cx, cy - 16, 'Practice battle: no Command XP', textStyle(16, TEXT.muted, true)).setOrigin(0.5);
+      this.add.text(cx, cy + 10, `You practised at Rank ${practice.numeral} · ${practice.name} (set on the Skirmish screen).`, textStyle(12, TEXT.muted)).setOrigin(0.5, 0);
+      this.addButtons(cx, cy);
+      return;
+    }
     const before = rankForXp(currentXp());
     const saving = gainXp(xp.total);
     void saving.catch(() => undefined);
@@ -66,10 +73,13 @@ export class ResultScene extends Phaser.Scene {
       this.add.text(cx, cy + 34, `Rank ${rules.numeral} · ${rules.name}  ·  ${next}`, textStyle(13, TEXT.body)).setOrigin(0.5, 0);
     }
 
+    this.addButtons(cx, cy);
+  }
+
+  private addButtons(cx: number, cy: number): void {
     addButton(this, cx - 105, cy + 108, 'Rematch  ⏎', () => this.rematch(), 180, 38);
     addButton(this, cx + 105, cy + 108, 'Move troops  Esc', () => this.moveTroops(), 180, 38);
     this.add.text(cx, cy + 140, 'Rematch keeps your placement; the battle plays out differently each time.', textStyle(12, TEXT.muted)).setOrigin(0.5);
-
     new InputLayer(this).on('confirm', () => this.rematch()).on('back', () => this.moveTroops());
   }
 

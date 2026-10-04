@@ -16,6 +16,7 @@ import {
   type Profile,
 } from '../save/profile';
 import { defaultSettings, readSettings, SETTINGS_FILE, writeSettings, type Settings } from '../save/settings';
+import type { RankNumber } from '../data/ranks';
 import type { MatchSetup } from './match';
 import { GAME_HEIGHT, GAME_WIDTH } from './theme';
 
@@ -50,10 +51,15 @@ export function currentPlatform(): Platform {
 
 /** Your troops, cards, rank, Tactical mode and General as last saved. */
 export function savedSetup(): MatchSetup {
-  const { placement, loadout, xp, bossesBeaten, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander } =
+  const { placement, loadout, xp, bossesBeaten, practiceRank, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander } =
     structuredClone(profile);
-  const rank = rankForXp(xp);
-  return { placement, loadout, rank, bossesBeaten, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander };
+  const rank = practiceRank ?? rankForXp(xp);
+  return { placement, loadout, rank, practiceRank, bossesBeaten, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander };
+}
+
+/** The rank your Command XP has earned. */
+export function earnedRank(): RankNumber {
+  return rankForXp(profile.xp);
 }
 
 /**
@@ -67,6 +73,7 @@ export function remember(setup: MatchSetup): Promise<void> {
     placement: setup.placement.map((t) => ({ ...t })),
     xp: profile.xp,
     bossesBeaten: [...setup.bossesBeaten],
+    practiceRank: setup.practiceRank,
     tactical: setup.tactical,
     general: setup.general,
     codex: profile.codex,

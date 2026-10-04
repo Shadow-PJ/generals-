@@ -364,10 +364,11 @@ export class OrdersScene extends Phaser.Scene {
   private renderSwitches(): void {
     const rules = rankRules(this.setup.rank);
     const x = GAME_WIDTH - 300;
-    // Your rank is earned in battle: shown here, not switched.
+    // Your rank is earned in battle: shown here, not switched (practice ranks are set on the Skirmish screen).
     const progress = rankProgress(currentXp());
-    const xp = progress ? `${progress.into}/${progress.span} XP to the next` : 'the highest rank';
-    this.ui.add(this.add.text(x, 5, `Rank ${rules.numeral} · ${rules.name}`, textStyle(12, TEXT.title, true)));
+    const practice = this.setup.practiceRank !== null;
+    const xp = practice ? 'practice: no XP' : progress ? `${progress.into}/${progress.span} XP to the next` : 'the highest rank';
+    this.ui.add(this.add.text(x, 5, `${practice ? 'Practice ' : ''}Rank ${rules.numeral} · ${rules.name}`, textStyle(12, TEXT.title, true)));
     this.ui.add(this.add.text(x + 284, 5, xp, textStyle(11, TEXT.muted)).setOrigin(1, 0));
     const lines: [number, string, string][] = [
       [TACTICAL_ROW, 'Tactical mode', this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
