@@ -348,7 +348,8 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   private startBattle(): void {
-    this.scene.start('Battle', { ...this.setup, seed: newSeed() });
+    // A campaign fight's seed was fixed when you reached its node.
+    this.scene.start('Battle', { ...this.setup, seed: this.setup.fight?.encounter.seed ?? newSeed() });
   }
 
   // Drawing ----------------------------------------------------------------------------------

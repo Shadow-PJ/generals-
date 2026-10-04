@@ -3,6 +3,7 @@ import { parseOrder } from '../cards/parser';
 import type { Card } from '../cards/types';
 import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
 import { RANK_XP } from '../data/progression';
+import { finishFight, enterNode, newRun } from '../campaign/run';
 import { newProfile, profileVersion, readProfile, writeProfile, type Profile } from './profile';
 
 function card(text: string): Card {
@@ -29,6 +30,14 @@ function saved(): Profile {
   profile.map = 'redCanyon';
   profile.enemyGeneral = 'conductor';
   profile.enemyCommander = 4;
+  profile.artifacts = ['ironHeart', 'warHorn'];
+  // A run with a few steps taken: the spoils of its first fight wait.
+  const campaign = finishFight(enterNode(newRun({ run: null, artifacts: [], bossesBeaten: [] }, 'voidRuins', 31), 0), {
+    won: true,
+    fighters: [{ id: 2, hp: 0.35 }],
+    xp: 55,
+  });
+  profile.run = campaign.run;
   return profile;
 }
 
@@ -86,17 +95,23 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(2);
-    expect(profileVersion(writeProfile(saved()))).toBe(2);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(3);
+    expect(profileVersion(writeProfile(saved()))).toBe(3);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
 
+  it('loads a version 2 save: no run yet, and nothing banked', () => {
+    const { run: _r, artifacts: _a, ...rest } = saved();
+    const v2 = { ...rest, version: 2 };
+    expect(readProfile(JSON.stringify(v2))).toEqual({ ...saved(), run: null, artifacts: [] });
+  });
+
   it('loads a version 1 save: the debug rank it had becomes the XP for that rank, and everything else stays', () => {
-    const { xp: _xp, bossesBeaten: _b, practiceRank: _p, ...rest } = saved();
+    const { xp: _xp, bossesBeaten: _b, practiceRank: _p, run: _r, artifacts: _a, ...rest } = saved();
     const v1 = { ...rest, version: 1, rank: 4 };
     const profile = readProfile(JSON.stringify(v1));
-    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [], practiceRank: null });
+    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [], practiceRank: null, run: null, artifacts: [] });
     // A version 1 save with no rank (or a broken one) had the debug default, Rank III.
     expect(readProfile(JSON.stringify({ ...v1, rank: 'high' })).xp).toBe(RANK_XP[3]);
     // The very first saves wrote no version at all.
@@ -112,6 +127,34 @@ describe('the saved profile', () => {
     expect(readProfile(JSON.stringify(data))).toMatchObject({ bossesBeaten: ['hiveMother', 'warlord'], xp: 0, practiceRank: null });
     data.xp = 'lots';
     expect(readProfile(JSON.stringify(data)).xp).toBe(0);
+  });
+
+  it('drops a damaged run, but keeps the rest; keeps only known artifacts', () => {
+    const breakages: ((run: Record<string, any>) => void)[] = [
+      (run) => (run.region = 'atlantis'),
+      (run) => (run.roster = []),
+      (run) => (run.roster[0].hp = 0),
+      (run) => (run.field = [99]),
+      (run) => (run.field = [1, 2, 3, 4, 5, 6]),
+      (run) => (run.reserves = [1]),
+      (run) => (run.path = [0, 7]),
+      (run) => (run.map[0][0].next = [42]),
+      (run) => (run.stop = { kind: 'feast' }),
+      (run) => (run.stop.offers[0] = { kind: 'boon', boon: 'infinitePower' }),
+      (run) => (run.boons = ['whetstones', 'whetstones']),
+      (run) => (run.rng = { a: 1, b: 2, c: 'three', d: 4 }),
+      (run) => (run.nextFighterId = 1),
+    ];
+    for (const breakIt of breakages) {
+      const data = JSON.parse(writeProfile(saved()));
+      breakIt(data.run);
+      const profile = readProfile(JSON.stringify(data));
+      expect(profile.run, String(breakIt)).toBeNull();
+      expect(profile.general).toBe('warlord');
+    }
+    const data = JSON.parse(writeProfile(saved()));
+    data.artifacts = ['warHorn', 'excalibur', 'warHorn', 'lifestealCore'];
+    expect(readProfile(JSON.stringify(data)).artifacts).toEqual(['lifestealCore', 'warHorn']);
   });
 
   it('starts fresh from a damaged file instead of failing', () => {

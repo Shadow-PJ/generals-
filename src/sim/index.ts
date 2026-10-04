@@ -38,3 +38,4 @@ export type {
   Zone,
 } from './types';
 export { isArmyPlaced, placementProblem, type PlacementProblem } from './placement';
+export { createRng, nextFloat, nextInt, nextUint32, type RngState } from './rng';

@@ -1,6 +1,8 @@
 // The battle loop: create a battle from a setup, then advance it one fixed tick at a time.
 
+import type { Troop } from '../data/armies';
 import { BATTLE_RULES } from '../data/battle';
+import type { UnitClass } from '../data/units';
 import { tauntIntent, think } from './behaviors';
 import { aroundRock, type Action, type SkillCast } from './intents';
 import { applyInput, createCommand, fed, updateCommand } from './command';
@@ -37,18 +39,22 @@ export function createBattle(setup: BattleSetup): BattleState {
   const units: Unit[] = [];
   const specs = { player: { ...setup.specs?.player }, enemy: { ...setup.specs?.enemy } };
   const generals = { player: setup.general ?? 'captain', enemy: setup.enemyGeneral ?? 'captain' };
-  const reserves = { player: [...(setup.reserves?.player ?? [])], enemy: [...(setup.reserves?.enemy ?? [])] };
+  const asTroop = (r: UnitClass | Troop): Troop => (typeof r === 'string' ? { cls: r } : { ...r });
+  const reserves = { player: (setup.reserves?.player ?? []).map(asTroop), enemy: (setup.reserves?.enemy ?? []).map(asTroop) };
+  const boons = { player: [...(setup.boons?.player ?? [])], enemy: [...(setup.boons?.enemy ?? [])] };
 
   // Ids alternate between the sides (player, enemy, player, ...) so neither side always acts first.
   const count = Math.max(setup.player.length, setup.enemy.length);
   for (let i = 0; i < count; i++) {
     for (const side of SIDES) {
       const placement = setup[side][i];
-      if (placement) units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side], setup.map));
+      if (placement) {
+        units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side], setup.map, boons[side]));
+      }
     }
   }
   // The army each side brought, troops and reserves, switches its synergies on.
-  const army = (side: Side) => [...setup[side].map((t) => t.cls), ...reserves[side]];
+  const army = (side: Side) => [...setup[side].map((t) => t.cls), ...reserves[side].map((t) => t.cls)];
 
   const walls: Wall[] = setup.map.walls.map((w, i) => {
     const hp = w.hp ?? BATTLE_RULES.walls.hp;
@@ -73,16 +79,17 @@ export function createBattle(setup: BattleSetup): BattleState {
     synergies: { player: activeSynergies(army('player'), specs.player), enemy: activeSynergies(army('enemy'), specs.enemy) },
     synergiesSeen: { player: [], enemy: [] },
     startHp: {
-      player: totalMaxHp(units, 'player'),
-      enemy: totalMaxHp(units, 'enemy'),
+      player: totalHp(units, 'player'),
+      enemy: totalHp(units, 'enemy'),
     },
     events: [],
     result: null,
-    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general, setup.learned),
+    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general, setup.learned, boons.player),
     enemyCommand: setup.enemyCommander
-      ? createCommand('enemy', setup.enemyCommander.rank, setup.enemyCommander.loadout, generals.enemy)
+      ? createCommand('enemy', setup.enemyCommander.rank, setup.enemyCommander.loadout, generals.enemy, [], boons.enemy)
       : null,
     reserves,
+    boons,
     tactical: setup.tactical ?? false,
     inputLog: [],
   };
@@ -96,8 +103,9 @@ export function createBattle(setup: BattleSetup): BattleState {
   return state;
 }
 
-function totalMaxHp(units: Unit[], side: Side): number {
-  return units.filter((u) => u.side === side).reduce((sum, u) => sum + u.stats.maxHp, 0);
+/** The HP a side brings onto the field: full for fresh troops, less for wounded run fighters. */
+function totalHp(units: Unit[], side: Side): number {
+  return units.filter((u) => u.side === side).reduce((sum, u) => sum + u.hp, 0);
 }
 
 /**

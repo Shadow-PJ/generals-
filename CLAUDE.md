@@ -26,6 +26,8 @@ It ships as a Windows desktop game (Electron) on Steam first, then the Epic Game
 ```
 src/sim/     battle engine: pure logic, no Phaser, no DOM, no clock
 src/cards/   card format, rule parser, validator, personality rules, translator
+src/campaign/  world map and roguelite runs: run maps, enemies, spoils, merchant, events (5B);
+               pure and seeded like src/sim
 src/game/    Phaser scenes and UI; reads sim state and sends player inputs
 src/data/    every number and table: units, ranks, Generals, combos, maps, reply lines
 src/save/    save format and migrations (phase 5)

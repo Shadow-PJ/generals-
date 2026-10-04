@@ -36,7 +36,7 @@ export class GeneralsScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'CHOOSE YOUR GENERAL', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Every General is open until the campaign. ↑↓ pick, Enter: lead with them, Esc: back.', textStyle(13, TEXT.muted));
+    this.add.text(16, 38, 'Every General is open for now. ↑↓ pick, Enter: lead with them, Esc: back.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Back  Esc', () => this.goBack(), 150, 34);
 
     GENERAL_IDS.forEach((id, i) => {
@@ -105,10 +105,10 @@ export class GeneralsScene extends Phaser.Scene {
   private choose(): void {
     const setup = { ...this.setup, general: GENERAL_IDS[this.selected]! };
     void remember(setup).catch(() => undefined);
-    this.scene.start('Prep', setup);
+    this.scene.start(setup.returnTo ?? 'Prep', setup);
   }
 
   private goBack(): void {
-    this.scene.start('Prep', this.setup);
+    this.scene.start(this.setup.returnTo ?? 'Prep', this.setup);
   }
 }

@@ -179,20 +179,22 @@ Goal: the full journey from Squad Leader to Legend.
 
 ### 5B. World map and runs
 
-- [ ] The Capital hub and the 5 regions, in their unlock order
-- [ ] Run maps made from a seed: battles, elite fights, events, a merchant, rest camps and the boss, with enemies that grow stronger along the path
-- [ ] Spoils after each won fight: gold, and a pick of 1 of 3 offers (fighters and boons) rolled by rarity
-- [ ] The run roster: picked fighters join it; choose 5 to field and 3 reserves before each fight
-- [ ] The merchant (fighters, boons, healing, rerolls) and rest camps
-- [ ] Artifacts kept at a camp or on a win, lost on a defeat
-- [ ] 10 hard-choice events
-- [ ] Only campaign battles earn Command XP; skirmish becomes practice
+- [x] The Capital hub and the 5 regions, in their unlock order
+- [x] Run maps made from a seed: battles, elite fights, events, a merchant, rest camps and the boss, with enemies that grow stronger along the path
+- [x] Spoils after each won fight: gold, and a pick of 1 of 3 offers (fighters and boons) rolled by rarity
+- [x] The run roster: picked fighters join it; choose 5 to field and 3 reserves before each fight
+- [x] The merchant (fighters, boons, healing, rerolls) and rest camps
+- [x] Artifacts kept at a camp or on a win, lost on a defeat
+- [x] 10 hard-choice events
+- [x] Only campaign battles earn Command XP; skirmish becomes practice
+
+Owner checks: set out from the Capital, play a run to its ruler, and lose one on purpose.
 
 ### 5C. Fighters, factions and boons
 
-- [ ] Fighters: a class, a faction and a rarity (Common, Rare, Epic, Legendary), each rarity with its own chance to appear; rarer fighters have better stats and a perk
+- [ ] Fighters: a class, a faction and a rarity (Common, Rare, Epic, Legendary), each rarity with its own chance to appear; rarer fighters have better stats and a perk (5B brought rarities, their chances and the stat bonus; perks and factions are left)
 - [ ] Faction bonuses at 2, 4 and 6 fighters of a faction, one per faction, in the spirit of its General
-- [ ] 30 boons by rarity: troop, Command and faction boons
+- [ ] 30 boons by rarity: troop, Command and faction boons (5B brought the first 14)
 - [ ] Offer chances that shift toward rarer ones deeper in a run and after elite fights
 
 Owner checks: build a run around one faction and feel it grow strong.
@@ -200,12 +202,12 @@ Owner checks: build a run around one faction and feel it grow strong.
 ### 5D. Boss Generals
 
 - [ ] The 5 boss fights, each testing its idea from the design
-- [ ] Beating a boss recruits that General and teaches their Legendary action
+- [ ] Beating a boss recruits that General and teaches their Legendary action (since 5B, beating a run's ruler already teaches the action and opens the next region; recruiting is left)
 
 ### 5E. Growing your army
 
 - [ ] Tech Web for each class, paid with Insight, with free respec between runs
-- [ ] 10 artifacts
+- [ ] 10 artifacts, equipped on troops in the Capital (5B brought 5 to find, carry and bank, with no effect in battle yet)
 - [ ] Veterans: names, records, ranks, perks, wounded status and Ironman mode; fighters who finish a won run can stay as veterans
 - [ ] General Mastery challenges
 - [ ] Battle IQ report built from the battle event log

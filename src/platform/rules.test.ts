@@ -20,7 +20,9 @@ const FORBIDDEN = [
   /\blocalStorage\b|\bsessionStorage\b|\bindexedDB\b/,
   /requestFullscreen|exitFullscreen/,
   /from\s+['"](node:|fs|path|child_process)/,
-  /\bsteam|\bepic\b/i,
+  /\bsteam/i,
+  // The Epic Games Store and its online services; "Epic" alone is also a rarity (session 5B).
+  /\bepic[\s_-]*(games|store|online|services|launcher|sdk)|\beos[\s_-]*sdk/i,
   /SpeechRecognition|getUserMedia/,
 ];
 

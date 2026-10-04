@@ -2,9 +2,20 @@
 
 import type { UnitClass } from './units';
 import { OPEN_FIELD } from './maps';
+import type { Rarity } from './rarity';
 
-export interface TroopPlacement {
+/** A troop as it joins a battle. In a run (session 5B) it is one of your fighters, with a rarity and the wounds it carries. */
+export interface Troop {
   cls: UnitClass;
+  /** Rarer troops have more HP and damage. Common when left out. */
+  rarity?: Rarity;
+  /** The share of its max HP it starts with, for a fighter still hurt from an earlier fight. Full when left out. */
+  hp?: number;
+  /** The run fighter this troop is, so the game can carry its wounds to the next fight. The battle doesn't use it. */
+  fighterId?: number;
+}
+
+export interface TroopPlacement extends Troop {
   x: number;
   y: number;
 }

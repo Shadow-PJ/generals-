@@ -192,7 +192,7 @@ describe('reserves', () => {
     const arrived = state.units.at(-1)!;
     expect(arrived).toMatchObject({ side: 'player', cls: 'ranger', alive: true });
     expect(arrived.x).toBeLessThan(80);
-    expect(state.reserves.player).toEqual(['vanguard', 'guardian']);
+    expect(state.reserves.player.map((t) => t.cls)).toEqual(['vanguard', 'guardian']);
     expect(state.startHp.player).toBe(before + arrived.stats.maxHp);
     expect(state.events).toContainEqual({ tick: 0, type: 'reserveCalled', side: 'player', unitId: arrived.id });
   });

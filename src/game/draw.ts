@@ -4,6 +4,7 @@
 
 import type Phaser from 'phaser';
 import type { MapData, Rect } from '../data/maps';
+import type { Rarity } from '../data/rarity';
 import type { UnitClass } from '../data/units';
 import type { Side, Zone } from '../sim';
 import { COLORS } from './theme';
@@ -147,6 +148,12 @@ function polygon(g: Graphics, points: readonly { x: number; y: number }[]): void
     const next = points[(i + 1) % points.length]!;
     g.lineBetween(p.x, p.y, next.x, next.y);
   });
+}
+
+/** A ring in the rarity's color around a Rare, Epic or Legendary troop; nothing for a Common one. */
+export function drawRarity(g: Graphics, x: number, y: number, r: number, rarity: Rarity, alpha = 1): void {
+  if (rarity === 'common') return;
+  g.lineStyle(rarity === 'legendary' ? 3 : 2, COLORS.rarity[rarity], 0.9 * alpha).strokeCircle(x, y, r + 5);
 }
 
 /** A small bar centered on x, filled to `share` (0 to 1), green to red. */
