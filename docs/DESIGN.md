@@ -225,7 +225,7 @@ Each class controls one thing on the battlefield, so how you mix them matters. E
 | Invoker | Areas | Casts at groups of enemies | Rift: a damaging zone on the ground | Long cast that can be interrupted | Pyromancer (fire zones) or Frostcaller (slowing zones) |
 | Assassin | Priority targets | Hunts the weakest or backline enemy | Shadowstep: blinks behind its target and executes it below 15% HP | Fragile; weak to area damage | Blade (burst kills) or Saboteur (silences enemy skills) |
 
-An army is 5 active troops plus 3 in reserve. You start with Vanguard, Ranger and Guardian; Invoker and Assassin are unlocked in the campaign. Until the campaign and the Tech Web exist, a debug Troops screen picks the class of every troop and reserve, one specialization per class (all troops of a class share it), and whether the enemy brings the starter army or a mirror of yours.
+An army is 5 active troops plus 3 in reserve. You start with Vanguard, Ranger and Guardian; Invoker and Assassin are unlocked in the campaign. Until the campaign and the Tech Web exist, the Skirmish screen (see Skirmish below) picks the class of every troop and reserve, one specialization per class (all troops of a class share it), and the battle: the map, both Generals, the enemy's army and its commander.
 
 **Invoker in detail.** It keeps its distance like a Ranger (it backs away from enemies closer than 80) and shoots the nearest enemy. When the Rift is ready, it looks for the enemy within 230 with the most other enemies within 60 of it, and casts there if that is 2 or more (or everyone left). The cast takes 1.5 s, standing still; then a Rift of radius 60 opens on that spot for 4 s and hurts every enemy touching it every 0.5 s. A Shove, a stun, a silence, or losing 10% of its max HP during the cast breaks it: no Rift, and the skill is ready again 3 s later instead of 9 s. Overcharge opens the Rift at once, with no cast, on the biggest group anywhere. Invokers count as your backline, like Rangers and Guardians, for "when an enemy reaches my backline".
 
@@ -314,7 +314,7 @@ Everything echoes. Combo chaining and stacking.
 
 ### How the Generals play in detail (session 4C)
 
-Your General's troop skill and doctrine work on every troop you field, with or without cards; the ultimate and the mana twist work through your Command bar. Until enemy commanders arrive (4D), a mirrored enemy army fights with your General's troop skill and doctrine, and the starter enemy with the Captain's. You choose your General on the General screen (G on the troop screen); every General is open until the campaign.
+Your General's troop skill and doctrine work on every troop you field, with or without cards; the ultimate and the mana twist work through your Command bar. The enemy army fights with its own General's troop skill and doctrine, and only an enemy commander (session 4D) fires its ultimate and pays for cards under its mana twist. You choose your General on the General screen (G on the troop screen) or on the Skirmish screen; every General is open until the campaign.
 
 - **Warlord.** Vampiric Link: a troop with at least half its HP, every 14 s (first after 6 s), pays 10% of its max HP to make the nearest ally within 140 that has an enemy in reach attack three times as fast for 1.5 s. Doctrine: Vanguards attack the strongest enemy in reach (most HP left), else go for the strongest enemy; Assassins start with Shadowstep ready and use it on their prey at any distance. Reaper's Toll: your troops below 20% HP become wraiths for 10 s: they take no damage and hit 50% harder, then fall. It waits until a troop is that low. Blood Price: a card you lack pips for still fires if your healthiest troop (by share of HP) can pay the missing pips with 10% of its max HP each and keep at least 1 HP; pips go first.
 - **Engineer.** Venting: every 5th attack a troop vents, dealing 30 burn damage to every enemy within 55 and losing 2% of its max HP. Its attacks since the last vent are its heat. Doctrine, for the first 40 s of a battle only (so two Engineers can't wait each other out): Vanguards stay at their spot (where they started, or where a Move or Fall Back left them) unless an enemy comes within 260 of it; Rangers stand 45 behind the nearest Vanguard until an enemy is within their range plus 80. Thermal Detonation: every troop heals 8% of its max HP plus 3% per point of heat, then all the heat fires as a beam from the middle of your army through the middle of the enemy's, hitting every enemy within 30 of the line for 60 damage plus 12 per point of heat. Build-Up: max pips +1 at 30, 60 and 90 s.
@@ -322,6 +322,32 @@ Your General's troop skill and doctrine work on every troop you field, with or w
 - **Strategist.** Phase Shift: once per battle, a blow that would make a troop fall misses; the troop takes no more damage that tick, and at the end of the tick it teleports behind its attacker and stuns it for 1.5 s. Doctrine: Vanguards stand between the nearest non-Vanguard ally and the enemy closest to it; Rangers back away from enemies within 85% of their range while they reload. Gravity Well: every unit within 240 of the middle of the enemy army, yours too, is pulled up to 150 toward that point over 0.6 s and can't act meanwhile (Iron Wall Vanguards stand fast). Prepared: you start with full pips; they refill at 75% speed.
 - **Conductor.** Echo Strike: every attack that lands adds a Vibration stack (up to 3, fading 4 s after the last hit); the 3rd shatters the enemy: 0.1 less armor for 4 s. Doctrine: a troop about to hit an enemy with 3 stacks hits the nearest enemy in reach with fewer instead (Assassins keep to their prey). Shatterstorm: every enemy with stacks takes 45 damage per stack, and the enemies within 60 of it half that; the stacks are used up. It waits until an enemy has stacks. Rhythm: a Perfect timing gives 2 pips back, and cards glow 2.5 s after their condition ends instead of 1.5 s.
 - **Ultimates as Finishers** are 50% stronger: Rally heals and speeds more, wraiths last 50% longer, Thermal Detonation heals and burns more, the elite gets more damage, Gravity Well pulls further, Shatterstorm hurts more.
+
+## Maps, enemy commanders and skirmish (session 4D)
+
+**The region maps.** Every map is 960 by 540 with the same deploy zones, and is a mirror image left to right so neither side starts better off. Walls stop movement and shots until they break (500 HP unless the map says otherwise); rock and iron never break.
+
+| Map | Terrain rule |
+| --- | --- |
+| Open Field | A few walls in the middle and on the flanks; no special rule |
+| Deep Forest | Five woods across the middle. A troop whose middle stands in the woods is seen by an enemy only from within 100: from farther away it can't be attacked, or picked as a target by a pack or a card |
+| Void Ruins | Thirteen broken walls of 200 HP cut every line across the middle; they block shots until shot down, which doesn't take long |
+| Red Canyon | Two bands of rock that never break leave three narrow paths: top, middle and bottom |
+| Iron Fortress | Each army stands behind an iron wall that never breaks, with two gates out; one breakable wall stands in the middle |
+| Glass Plains | No walls at all; troops that shoot (Rangers, Guardians, Invokers) reach 15% further |
+
+Two small rules keep battles from stalling on these maps. A troop that sees no enemy walks toward the nearest one hiding in the woods (it knows roughly where they are, but can only attack once it sees them). A troop whose shot would only hit rock or iron walks toward its target until it has a clear line; shots at walls that break still go ahead, since they wear the wall down. On the battle screen, an enemy none of your troops can see is only a faint shape, with no HP bar.
+
+**Enemy commanders.** An enemy commander has a Command bar like yours, at its rank: pips, Momentum, slots, chains and combos, plus its General's mana twist and personality rules (the cards go through the validator, then the personality rules, like yours). Its cards are Auto cards from a simple script, best first, so a rank with fewer slots keeps the best:
+
+1. Its General's signature card: the Captain's Vanguards Overcharge (Shove) when a Vanguard drops below 70%; the Warlord's army focuses the weakest enemy when an ally drops below 60%; the Engineer's army falls back, then holds, when an ally drops below 60%; the Hive Mother's pack focuses the nearest enemy when an ally drops below 70%; the Strategist falls back, then focuses the nearest (Feigned Retreat), when an ally drops below 50%; the Conductor's Guardians protect the Vanguards, then hold (Iron Shell), when your ultimate charges.
+2. When an enemy reaches its backline, everyone focuses that enemy.
+3. When an ally drops below 40%, the Guardians protect it.
+4. When an ally drops below 30%, it calls a reserve.
+
+None of these is met while the armies still stand in their starting lines, so no card is spent before the fight. A lower-rank commander keeps the first steps of a card its rank allows and drops actions it hasn't unlocked (the Strategist's Feigned Retreat is only a Fall Back at Rank II); a Rank I commander can't set cards to Auto, so it fires only its ultimate. The commander fires its ultimate the moment it is ready. "When their ultimate charges" is met once the other side's Momentum is at 80% or more, both for your cards and the commander's. Without a commander the enemy fires no cards and no ultimate.
+
+**Skirmish.** Until the campaign, any General and army can fight any other on any map. The Skirmish screen (T on the troop screen) sets your 5 troops and 3 reserves, a specialization per class, the map, your General, the enemy General, the enemy army (the starter army, or a mirror of your troops, reserves and specializations) and the enemy commander (none, or Rank I to V). Your choices are saved. The troop screen draws the chosen map with its terrain rule and names who leads the enemy; in battle the top bar shows the enemy General, its commander's pips and Momentum (CHARGING! from 80%), the cards and combos it fires, and a banner when its ultimate goes off.
 
 ## Campaign
 

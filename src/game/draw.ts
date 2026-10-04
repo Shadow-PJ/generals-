@@ -10,12 +10,20 @@ import { COLORS } from './theme';
 
 type Graphics = Phaser.GameObjects.Graphics;
 
+/** The ground: a grid, the middle line, and the map's forests (dark green, with a few trees drawn as dots). */
 export function drawField(g: Graphics, map: MapData): void {
-  g.fillStyle(COLORS.field, 1).fillRect(0, 0, map.width, map.height);
+  g.fillStyle(map.rangedReachBonus ? COLORS.plains : COLORS.field, 1).fillRect(0, 0, map.width, map.height);
   g.lineStyle(1, COLORS.fieldLine, 1);
   for (let x = 60; x < map.width; x += 60) g.lineBetween(x, 0, x, map.height);
   for (let y = 60; y < map.height; y += 60) g.lineBetween(0, y, map.width, y);
   g.lineStyle(2, COLORS.fieldLine, 1).lineBetween(map.width / 2, 0, map.width / 2, map.height);
+  for (const f of map.forests ?? []) {
+    g.fillStyle(COLORS.forest, 0.55).fillRect(f.x, f.y, f.w, f.h);
+    g.fillStyle(COLORS.tree, 0.8);
+    for (let x = f.x + 12; x < f.x + f.w - 6; x += 26) {
+      for (let y = f.y + 12 + ((x - f.x) % 52 === 12 ? 0 : 13); y < f.y + f.h - 6; y += 26) g.fillCircle(x, y, 5);
+    }
+  }
 }
 
 /** A deploy zone: a tinted area with an outline. */
@@ -24,8 +32,13 @@ export function drawZone(g: Graphics, zone: Rect, side: Side, strength: number):
   g.lineStyle(2, COLORS.side[side], 0.45 * strength).strokeRect(zone.x, zone.y, zone.w, zone.h);
 }
 
-/** A wall, cracked as it loses HP; a broken wall is left as rubble. */
-export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number }): void {
+/** A wall, cracked as it loses HP; a broken wall is left as rubble. Unbreakable walls are dark and never crack. */
+export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number; unbreakable?: boolean }): void {
+  if (wall.unbreakable) {
+    g.fillStyle(COLORS.rock, 1).fillRect(wall.x, wall.y, wall.w, wall.h);
+    g.lineStyle(2, COLORS.rockEdge, 1).strokeRect(wall.x, wall.y, wall.w, wall.h);
+    return;
+  }
   const share = wall.hp !== undefined && wall.maxHp ? wall.hp / wall.maxHp : 1;
   if (share <= 0) {
     g.fillStyle(COLORS.wallEdge, 0.5);

@@ -24,6 +24,9 @@ function saved(): Profile {
   profile.reserves = ['invoker', 'assassin', 'guardian'];
   profile.specs = { vanguard: 'bulwark', invoker: 'pyromancer' };
   profile.enemyArmy = 'mirror';
+  profile.map = 'redCanyon';
+  profile.enemyGeneral = 'conductor';
+  profile.enemyCommander = 4;
   return profile;
 }
 
@@ -40,6 +43,18 @@ describe('the saved profile', () => {
     expect(profile.reserves).toEqual(STARTER_RESERVES);
     expect(profile.specs).toEqual({});
     expect(profile.enemyArmy).toBe('starter');
+    expect(profile).toMatchObject({ map: 'openField', enemyGeneral: 'captain', enemyCommander: null });
+  });
+
+  it('keeps the skirmish: map, enemy General and enemy commander, if they are real; older saves have the Open Field and no commander', () => {
+    expect(readProfile(writeProfile(saved()))).toMatchObject({ map: 'redCanyon', enemyGeneral: 'conductor', enemyCommander: 4 });
+    const data = JSON.parse(writeProfile(saved()));
+    data.map = 'moon';
+    data.enemyGeneral = 'napoleon';
+    data.enemyCommander = 6;
+    expect(readProfile(JSON.stringify(data))).toMatchObject({ map: 'openField', enemyGeneral: 'captain', enemyCommander: null });
+    const { map: _m, enemyGeneral: _g, enemyCommander: _c, ...older } = saved();
+    expect(readProfile(JSON.stringify(older))).toMatchObject({ map: 'openField', enemyGeneral: 'captain', enemyCommander: null });
   });
 
   it('keeps only reserves of real classes, specializations of the right class and a known enemy army', () => {

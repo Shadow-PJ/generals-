@@ -5,8 +5,9 @@
 import { BATTLE_RULES } from '../data/battle';
 import { distance, type Point } from './geometry';
 import { slideMove, stepAwayFrom, stepLength } from './movement';
-import { edgeDistance } from './queries';
+import { edgeDistance, findUnit } from './queries';
 import type { BattleState, Unit } from './types';
+import { firstWallOnSegment } from './walls';
 
 export type Action =
   | { kind: 'hold' }
@@ -46,4 +47,17 @@ export function backAway(state: BattleState, unit: Unit, threat: Unit, retreatDi
   const moved = distance(unit.x, unit.y, to.x, to.y);
   if (moved < stepLength(unit) * BATTLE_RULES.corneredMoveShare) return null;
   return { kind: 'backAway', from: { x: threat.x, y: threat.y }, targetId: threat.id };
+}
+
+/**
+ * A ranged troop whose shot would only hit rock or iron that never breaks (Red Canyon, Iron
+ * Fortress) walks toward its target instead, to find a clear line. Shots at walls that break
+ * still go ahead: they wear the wall down.
+ */
+export function aroundRock(state: BattleState, unit: Unit, intent: Intent): Intent {
+  const action = intent.action;
+  if (action.kind !== 'attack' || unit.stats.projectileSpeed <= 0) return intent;
+  const target = findUnit(state, action.targetId);
+  if (!target || !firstWallOnSegment(state, unit.x, unit.y, target.x, target.y)?.unbreakable) return intent;
+  return { ...intent, action: { kind: 'walk', to: { x: target.x, y: target.y }, targetId: target.id } };
 }

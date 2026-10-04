@@ -6,7 +6,16 @@ import { DOCTRINES, TROOP_SKILLS } from '../data/generals';
 import { UNIT_CLASSES } from '../data/units';
 import { distance, type Point } from './geometry';
 import { attackOrApproach, backAway, type Intent } from './intents';
-import { centerDistance, edgeDistance, findUnit, livingAllies, livingUnits, nearestTo, visibleEnemies } from './queries';
+import {
+  centerDistance,
+  edgeDistance,
+  findUnit,
+  hiddenFromSide,
+  livingAllies,
+  livingUnits,
+  nearestTo,
+  visibleEnemies,
+} from './queries';
 import { choosePrey } from './shadowstep';
 import { secondsToTicks } from './time';
 import { SIDES, type BattleState, type Unit } from './types';
@@ -123,7 +132,7 @@ export function updatePacks(state: BattleState): void {
   for (const side of SIDES) {
     if (state.generals[side] !== 'hiveMother') continue;
     const current = findUnit(state, state.packPrey[side]);
-    if (current?.alive && current.invisibleTicks <= 0) continue;
+    if (current?.alive && !hiddenFromSide(state, current, side)) continue;
     const pack = livingUnits(state, side);
     if (pack.length === 0) {
       state.packPrey[side] = null;
@@ -131,7 +140,8 @@ export function updatePacks(state: BattleState): void {
     }
     const x = pack.reduce((sum, u) => sum + u.x, 0) / pack.length;
     const y = pack.reduce((sum, u) => sum + u.y, 0) / pack.length;
-    state.packPrey[side] = nearestTo(visibleEnemies(state, pack[0]!), x, y)?.id ?? null;
+    const seen = state.units.filter((u) => u.alive && u.side !== side && !hiddenFromSide(state, u, side));
+    state.packPrey[side] = nearestTo(seen, x, y)?.id ?? null;
   }
 }
 

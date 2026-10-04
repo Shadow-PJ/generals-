@@ -1,6 +1,7 @@
 // Creating troops: the armies at the start, and reserves called in during the battle.
 
 import type { TroopPlacement } from '../data/armies';
+import type { MapData } from '../data/maps';
 import { TROOP_SKILLS, type GeneralId } from '../data/generals';
 import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
@@ -18,8 +19,11 @@ export function createUnit(
   rng: RngState,
   spec: SpecializationId | null = null,
   general: GeneralId = 'captain',
+  map: MapData | null = null,
 ): Unit {
   const stats = specStats(UNIT_CLASSES[placement.cls].stats, spec);
+  // Open ground (Glass Plains): ranged troops reach further.
+  if (stats.projectileSpeed > 0 && map?.rangedReachBonus) stats.range *= 1 + map.rangedReachBonus;
   const unit: Unit = {
     id,
     side,
@@ -99,7 +103,7 @@ export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | n
 
   waiting.splice(index, 1);
   const spec = specFor(state.specs[side], chosen);
-  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng, spec, state.generals[side]);
+  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng, spec, state.generals[side], state.map);
   state.units.push(unit);
   state.startHp[side] += unit.stats.maxHp;
   state.events.push({ tick: state.tick, type: 'reserveCalled', side, unitId: unit.id });

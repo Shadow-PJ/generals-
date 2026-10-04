@@ -5,10 +5,10 @@
 import Phaser from 'phaser';
 import { cardCost } from '../../cards/cost';
 import { shortCard } from '../../cards/describe';
-import { COMMAND_RULES } from '../../data/command';
+import { COMMAND_RULES, CONDITION_RULES } from '../../data/command';
 import type { CodexEntryId } from '../../data/combos';
 import { GENERALS } from '../../data/generals';
-import { OPEN_FIELD } from '../../data/maps';
+import { MAPS, OPEN_FIELD } from '../../data/maps';
 import { rankRules, RANKS } from '../../data/ranks';
 import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
@@ -16,9 +16,11 @@ import {
   bloodPayer,
   chainTicksLeft,
   createBattle,
+  hiddenFromSide,
   LEGENDARY_SLOT,
   momentumFull,
   nextLink,
+  otherSide,
   overtimeMultiplier,
   secondsToTicks,
   SLOT_COUNT,
@@ -150,6 +152,8 @@ export class BattleScene extends Phaser.Scene {
   private slotTexts: SlotTexts[] = [];
   private pipsText!: Phaser.GameObjects.Text;
   private ultimateText!: Phaser.GameObjects.Text;
+  /** The enemy commander's Momentum, and a warning when its ultimate is close. */
+  private enemyCommandText!: Phaser.GameObjects.Text;
   private chainText!: Phaser.GameObjects.Text;
   private chainBar!: Phaser.GameObjects.Graphics;
   private threatTexts = new Map<number, Phaser.GameObjects.Text>();
@@ -163,7 +167,7 @@ export class BattleScene extends Phaser.Scene {
     const enemy = enemyArmyOf(data);
     this.state = createBattle({
       seed: data.seed,
-      map: OPEN_FIELD,
+      map: MAPS[data.map],
       player: data.placement,
       enemy: enemy.placement,
       loadout: data.loadout,
@@ -172,6 +176,7 @@ export class BattleScene extends Phaser.Scene {
       tactical: data.tactical,
       general: data.general,
       enemyGeneral: enemy.general,
+      enemyCommander: enemy.commander,
       specs: { player: data.specs, enemy: enemy.specs },
     });
     this.clock = createClock();
@@ -192,14 +197,15 @@ export class BattleScene extends Phaser.Scene {
     fitCamera(this);
     this.world = this.add.container(0, TOP_BAR_HEIGHT);
     const field = this.add.graphics();
-    drawField(field, OPEN_FIELD);
+    drawField(field, this.state.map);
     this.wallsLayer = this.add.graphics();
     this.unitsLayer = this.add.graphics();
     this.world.add([field, this.wallsLayer, this.unitsLayer]);
 
     this.topBar = this.add.graphics();
     this.add.text(16, 8, `YOU · ${GENERALS[this.setup.general].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
-    this.add.text(GAME_WIDTH - 16, 8, 'ENEMY', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
+    this.add.text(GAME_WIDTH - 16, 8, `${GENERALS[this.state.generals.enemy].name.toUpperCase()} · ENEMY`, textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
+    this.enemyCommandText = this.add.text(GAME_WIDTH - 16, 44, '', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     this.clockText = this.add.text(GAME_WIDTH / 2, 6, '0:00', textStyle(22, TEXT.title, true)).setOrigin(0.5, 0);
     this.overtimeText = this.add.text(GAME_WIDTH / 2 + 50, 12, '', textStyle(13, TEXT.overtime, true));
     this.pausedText = this.add.text(GAME_WIDTH / 2 - 50, 12, 'PAUSED · Space to go on', textStyle(13, TEXT.perfect, true)).setOrigin(1, 0);
@@ -304,13 +310,19 @@ export class BattleScene extends Phaser.Scene {
         const x = 16 + e.slot * (SLOT_W + SLOT_GAP) + SLOT_W / 2;
         const label = (e.perfect ? 'PERFECT!' : e.auto ? 'Auto' : 'Go!') + (e.link > 1 ? `  x${e.link}` : '');
         this.screenPopup(x, SLOT_Y - 6, label, e.perfect ? TEXT.perfect : e.link > 1 ? TEXT.combo : TEXT.body, e.perfect || e.link > 1 ? 18 : 13);
-      } else if (e.type === 'combo' && e.side === 'player') {
+      } else if (e.type === 'cardFired') {
+        // The enemy commander's cards: what it ordered, under its HP bar.
+        const card = this.state.enemyCommand?.slots[e.slot]?.card;
+        if (card) this.screenPopup(GAME_WIDTH - 166, TOP_BAR_HEIGHT + 30, `Enemy: ${shortCard(card)}`, TEXT.threat, 13);
+      } else if (e.type === 'combo') {
         const entry = codexEntry(e.combo);
-        this.comboBanner(`${entry.name.toUpperCase()}!`, entry.bonusText, this.found(e.combo));
+        if (e.side === 'player') this.comboBanner(`${entry.name.toUpperCase()}!`, entry.bonusText, this.found(e.combo));
+        else this.screenPopup(GAME_WIDTH - 166, TOP_BAR_HEIGHT + 52, `Enemy combo: ${entry.name}!`, TEXT.threat, 15);
       } else if (e.type === 'ultimate') {
-        const ultimate = GENERALS[this.setup.general].ultimate;
+        const ultimate = GENERALS[this.state.generals[e.side]].ultimate;
         const name = ultimate.name.toUpperCase();
-        if (e.finisher) this.comboBanner(`FINISHER: ${name}!`, `${ultimate.text}. 50% stronger.`, this.found('finisher'));
+        if (e.side === 'enemy') this.banner(`ENEMY ${name}!`, TEXT.threat, ultimate.text);
+        else if (e.finisher) this.comboBanner(`FINISHER: ${name}!`, `${ultimate.text}. 50% stronger.`, this.found('finisher'));
         else this.banner(`${name}!`, TEXT.perfect, ultimate.text);
         if (e.name === 'thermalDetonation' && e.at && e.to) this.strikes.push({ kind: 'beam', at: e.at, to: e.to, until: time + STRIKE_MS });
         if (e.name === 'gravityWell' && e.at) this.strikes.push({ kind: 'well', at: e.at, to: null, until: time + STRIKE_MS });
@@ -352,8 +364,14 @@ export class BattleScene extends Phaser.Scene {
       const r = u.stats.radius;
       const face = this.facing(u, at);
       const flash = Math.max(0, ((this.flashUntil.get(u.id) ?? 0) - time) / HIT_FLASH_MS);
-      // Invisible troops (Shadow Escort) show as a faint outline: yours a little clearer.
-      const alpha = u.invisibleTicks > 0 ? (u.side === 'player' ? 0.35 : 0.15) : 1;
+      // Troops the other side can't see (Shadow Escort, or deep in the woods) show faintly: yours a little clearer.
+      const hidden = u.invisibleTicks > 0 || (!this.state.result && hiddenFromSide(this.state, u, otherSide(u.side)));
+      const alpha = hidden ? (u.side === 'player' ? 0.35 : 0.15) : 1;
+      if (hidden && u.side === 'enemy') {
+        // Only a faint shape: no HP bar or effects to give it away.
+        drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash: 0, alpha });
+        continue;
+      }
       if (u.slow) drawSlowed(g, at.x, at.y, r);
       drawGeneralEffects(g, at.x, at.y, r, u);
       if (u.barrier) drawBarrier(g, at.x, at.y, r, u.barrier.amount / UNIT_CLASSES.guardian.barrier.amount);
@@ -381,7 +399,7 @@ export class BattleScene extends Phaser.Scene {
     }
     for (const id of focused) {
       const t = this.unit(id);
-      if (!t?.alive) continue;
+      if (!t?.alive || t.invisibleTicks > 0 || hiddenFromSide(this.state, t, otherSide(t.side))) continue;
       const at = this.smoothed(`u${t.id}`, t.x, t.y, blend);
       g.lineStyle(2, COLORS.invalid, 0.9).strokeCircle(at.x, at.y, t.stats.radius + 12);
     }
@@ -459,6 +477,16 @@ export class BattleScene extends Phaser.Scene {
     this.clockText.setText(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
     const boost = overtimeMultiplier(this.state.tick) - 1;
     this.overtimeText.setText(boost > 0 ? `OVERTIME +${Math.round(boost * 100)}%` : '');
+
+    const enemy = this.state.enemyCommand;
+    if (enemy) {
+      const share = enemy.momentum / COMMAND_RULES.momentum.max;
+      const ultimate = GENERALS[this.state.generals.enemy].ultimate.name;
+      const charging = share >= CONDITION_RULES.ultimateChargingShare;
+      this.enemyCommandText
+        .setText(`Commander: ${enemy.pips} pips · ${ultimate} ${Math.floor(Math.min(1, share) * 100)}%${charging ? '  CHARGING!' : ''}`)
+        .setColor(charging ? TEXT.threat : TEXT.muted);
+    }
 
     this.pausedText.setVisible(this.clock.paused && !this.state.result);
     this.speedButtons.pause.setHighlighted(this.clock.paused);

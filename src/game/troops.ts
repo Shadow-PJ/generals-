@@ -2,12 +2,11 @@
 // the enemy you face. The debug Troops screen changes them until the campaign unlocks classes
 // and the Tech Web sells specializations (phase 5).
 
-import {
-  STARTER_ARMY,
-  STARTER_ARMY_MIRRORED,
-  type TroopPlacement,
-} from '../data/armies';
+import type { Loadout } from '../cards/types';
+import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES, type TroopPlacement } from '../data/armies';
+import { enemyScript } from '../data/enemyScripts';
 import type { GeneralId } from '../data/generals';
+import type { RankNumber } from '../data/ranks';
 import { OPEN_FIELD } from '../data/maps';
 import { SPECIALIZATIONS_OF, type SpecChoice, type SpecializationId } from '../data/specializations';
 import type { SynergyId } from '../data/synergies';
@@ -53,19 +52,29 @@ export function withSpec(specs: SpecChoice, cls: UnitClass, spec: Specialization
   return next;
 }
 
+/** What the enemy brings to the skirmish: its army, its General, and its commander's cards if it has one. */
+export interface EnemySide {
+  placement: TroopPlacement[];
+  reserves: UnitClass[];
+  specs: SpecChoice;
+  general: GeneralId;
+  /** Its commander's rank and script, or undefined for no commander. */
+  commander: { rank: RankNumber; loadout: Loadout } | undefined;
+}
+
 /**
- * The army the enemy brings: the starter army under the Captain, or a mirror of yours, with
- * your specializations and your General's troop skill and doctrine.
+ * The enemy in a skirmish: the starter army, or a mirror of yours (troops, reserves and
+ * specializations), under the chosen enemy General, with a commander firing its General's
+ * script if you set one.
  */
-export function enemyArmyOf(setup: MatchSetup): { placement: TroopPlacement[]; reserves: UnitClass[]; specs: SpecChoice; general: GeneralId } {
-  if (setup.enemyArmy === 'starter') {
-    return { placement: STARTER_ARMY_MIRRORED.map((t) => ({ ...t })), reserves: [], specs: {}, general: 'captain' };
-  }
+export function enemyArmyOf(setup: MatchSetup): EnemySide {
+  const mirror = setup.enemyArmy === 'mirror';
   return {
-    placement: setup.placement.map((t, i) => ({ ...STARTER_ARMY_MIRRORED[i]!, cls: t.cls })),
-    reserves: [...setup.reserves],
-    specs: { ...setup.specs },
-    general: setup.general,
+    placement: mirror ? setup.placement.map((t, i) => ({ ...STARTER_ARMY_MIRRORED[i]!, cls: t.cls })) : STARTER_ARMY_MIRRORED.map((t) => ({ ...t })),
+    reserves: mirror ? [...setup.reserves] : [...STARTER_RESERVES],
+    specs: mirror ? { ...setup.specs } : {},
+    general: setup.enemyGeneral,
+    commander: setup.enemyCommander === null ? undefined : { rank: setup.enemyCommander, loadout: enemyScript(setup.enemyGeneral, setup.enemyCommander) },
   };
 }
 
