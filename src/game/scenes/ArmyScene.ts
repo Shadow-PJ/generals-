@@ -9,6 +9,7 @@ import { FACTION_IDS, FACTION_TIERS, FACTIONS, factionText, factionTier } from '
 import { currentFight } from '../../campaign/run';
 import type { RunState } from '../../campaign/types';
 import { BOONS } from '../../data/boons';
+import { BOSSES, isBoss } from '../../data/bosses';
 import { GENERALS } from '../../data/generals';
 import { MAPS } from '../../data/maps';
 import { rankRules } from '../../data/ranks';
@@ -163,10 +164,17 @@ export class ArmyScene extends Phaser.Scene {
       .map((r) => [r, all.filter((t) => t.rarity === r).length] as const)
       .filter(([, n]) => n > 0)
       .map(([r, n]) => `${n} ${RARITY_RULES[r].name}`);
-    add(`${encounter.troops.length} troops${encounter.reserves.length > 0 ? ` + ${encounter.reserves.length} in reserve` : ''}${rarer.length > 0 ? ` (${rarer.join(', ')})` : ''}`, 13, TEXT.body, false, 6);
+    const turrets = encounter.troops.filter((t) => t.turret).length;
+    const extra = `${turrets > 0 ? ` + ${turrets} turrets` : ''}${encounter.reserves.length > 0 ? ` + ${encounter.reserves.length} in reserve` : ''}`;
+    add(`${encounter.troops.length - turrets} troops${extra}${rarer.length > 0 ? ` (${rarer.join(', ')})` : ''}`, 13, TEXT.body, false, 6);
     all.forEach((t, i) => drawFighter(g, t.cls, t.rarity ?? 'common', PANEL_X + 14 + i * 34, y + 10, 1, i < encounter.troops.length ? 1 : 0.45, 'enemy'));
     y += 34;
-    add(`${MAPS[encounter.map].name}: ${MAPS[encounter.map].terrainText}`, 12, TEXT.muted, false, 14);
+    add(`${MAPS[encounter.map].name}: ${MAPS[encounter.map].terrainText}`, 12, TEXT.muted, false, encounter.kind === 'boss' ? 6 : 14);
+    if (encounter.kind === 'boss' && isBoss(encounter.general)) {
+      const boss = BOSSES[encounter.general];
+      add(`BOSS RULE: ${boss.rule}`, 12, TEXT.threat, false, 2);
+      add(`To beat it: ${boss.counter}`, 12, TEXT.combo, false, 12);
+    }
 
     const classes = [...run.field, ...run.reserves].flatMap((id) => fighterById(run, id)?.cls ?? []);
     const synergies = activeSynergies(classes, savedSetup().specs).map((id) => SYNERGIES.find((s) => s.id === id)!.name);

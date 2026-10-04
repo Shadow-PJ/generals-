@@ -201,8 +201,8 @@ Owner checks: build a run around one faction and feel it grow strong.
 
 ### 5D. Boss Generals
 
-- [ ] The 5 boss fights, each testing its idea from the design
-- [ ] Beating a boss recruits that General and teaches their Legendary action (since 5B, beating a run's ruler already teaches the action and opens the next region; recruiting is left)
+- [x] The 5 boss fights, each testing its idea from the design
+- [x] Beating a boss recruits that General and teaches their Legendary action (the action and the next region came in 5B; 5D adds recruiting: you lead with the Captain and the rulers you have beaten)
 
 ### 5E. Growing your army
 

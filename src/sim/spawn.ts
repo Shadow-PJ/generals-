@@ -2,11 +2,13 @@
 
 import type { TroopPlacement } from '../data/armies';
 import type { BoonId } from '../data/boons';
+import { BOSS_RULES } from '../data/bosses';
 import type { MapData } from '../data/maps';
 import { TROOP_SKILLS, type GeneralId } from '../data/generals';
 import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
 import { boostedStats, troopLifesteal, troopSkillHaste } from './boons';
+import { prepareForBoss } from './bosses';
 import { isSpaceFree } from './movement';
 import { nextInt, type RngState } from './rng';
 import { initialSkillCooldownTicks } from './skills';
@@ -29,6 +31,14 @@ export function createUnit(
   const stats = boostedStats(specStats(UNIT_CLASSES[placement.cls].stats, spec), placement.cls, rarity, boons, perks);
   // Open ground (Glass Plains): ranged troops reach further.
   if (stats.projectileSpeed > 0 && map?.rangedReachBonus) stats.range *= 1 + map.rangedReachBonus;
+  // A turret (the Engineer's boss fight): tougher and longer-reaching, but weak to area damage.
+  if (placement.turret) {
+    const t = BOSS_RULES.engineer.turret;
+    stats.maxHp = Math.round(stats.maxHp * (1 + t.maxHp));
+    stats.armor = Math.min(0.9, stats.armor + t.armor);
+    stats.range *= 1 + t.range;
+    stats.areaDamageTaken *= t.areaDamageTaken;
+  }
   const unit: Unit = {
     id,
     side,
@@ -81,6 +91,9 @@ export function createUnit(
     forgeArmor: 0,
     hitsTaken: 0,
     attacksMade: 0,
+    rooted: placement.turret ?? false,
+    bossPhases: 0,
+    rage: null,
   };
   // Warlord doctrine: Assassins dive at once.
   if (general === 'warlord' && unit.cls === 'assassin') unit.skillCooldown = 0;
@@ -119,6 +132,7 @@ export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | n
   waiting.splice(index, 1);
   const spec = specFor(state.specs[side], chosen.cls);
   const unit = createUnit(state.units.length + 1, side, { ...chosen, x, y }, state.rng, spec, state.generals[side], state.map, state.boons[side]);
+  prepareForBoss(state, unit);
   state.units.push(unit);
   state.startHp[side] += unit.hp;
   state.events.push({ tick: state.tick, type: 'reserveCalled', side, unitId: unit.id });

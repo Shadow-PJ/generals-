@@ -19,6 +19,8 @@ export interface Troop {
   perks?: PerkId[];
   /** The run fighter this troop is, so the game can carry its wounds to the next fight. The battle doesn't use it. */
   fighterId?: number;
+  /** A turret (the Engineer's boss fight): it never moves, with a turret's stats. */
+  turret?: boolean;
 }
 
 export interface TroopPlacement extends Troop {

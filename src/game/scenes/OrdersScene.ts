@@ -13,7 +13,8 @@ import { generalReply, reply, replyToVerdict } from '../../cards/replies';
 import { REGULAR_ACTIONS, type ActionName, type Card, type LegendaryAction } from '../../cards/types';
 import { slotUnlockRank, validateCard, type SlotContext } from '../../cards/validator';
 import { TRANSLATOR_RULES } from '../../data/cards';
-import { GENERAL_IDS, GENERALS } from '../../data/generals';
+import { recruitedGenerals } from '../../data/bosses';
+import { GENERALS } from '../../data/generals';
 import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { rankRules } from '../../data/ranks';
 import { keyLabel } from '../bindings';
@@ -236,8 +237,9 @@ export class OrdersScene extends Phaser.Scene {
       this.setup.tactical = !this.setup.tactical;
       this.keep();
     } else if (this.row === GENERAL_ROW) {
-      const i = GENERAL_IDS.indexOf(this.setup.general);
-      this.setup.general = GENERAL_IDS[(i + step + GENERAL_IDS.length) % GENERAL_IDS.length]!;
+      const generals = recruitedGenerals(this.setup.bossesBeaten);
+      const i = generals.indexOf(this.setup.general);
+      this.setup.general = generals[(i + step + generals.length) % generals.length]!;
       this.keep();
     } else if (this.row >= FIRST_MENU_ROW) {
       const r = this.menuRows()[this.row - FIRST_MENU_ROW];

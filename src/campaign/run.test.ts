@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { recruitedGenerals } from '../data/bosses';
 import { BOON_IDS, BOONS, boonClasses } from '../data/boons';
 import { EVENT_IDS, EVENTS } from '../data/events';
 import { RARITIES, RARITY_RULES, type Rarity } from '../data/rarity';
@@ -120,7 +121,7 @@ describe('fights', () => {
     expect(closeRun(c).run).toBeNull();
   });
 
-  it('beating the ruler wins the run: it banks your artifacts, teaches their action, unlocks a class and opens a region', () => {
+  it('beating the ruler wins the run: it banks your artifacts, recruits them, teaches their action, unlocks a class and opens a region', () => {
     let c = finishFight(enterNode(runThrough(['elite', 'boss']), 0), won());
     const carried = runOf(c).artifacts;
     c = enterNode(pickSpoils(c, null), 0);
@@ -128,6 +129,7 @@ describe('fights', () => {
     c = finishFight(c, won());
     expect(runOf(c).stop).toEqual({ kind: 'end', won: true, banked: carried, lost: [], learned: 'hijack', opened: ['redCanyon'], unlocked: 'assassin' });
     expect(c.bossesBeaten).toEqual(['hiveMother']);
+    expect(recruitedGenerals(c.bossesBeaten)).toContain('hiveMother');
     expect(c.artifacts).toEqual(carried);
     expect(closeRun(c)).toEqual({ run: null, bossesBeaten: ['hiveMother'], artifacts: carried });
   });

@@ -5,6 +5,7 @@ import type { Card, LegendaryAction, Loadout, Place, Step, Target } from '../car
 import type { SignatureComboId } from '../data/combos';
 import type { Troop, TroopPlacement } from '../data/armies';
 import type { BoonId } from '../data/boons';
+import type { BossId } from '../data/bosses';
 import type { FactionId } from '../data/factions';
 import type { Rarity } from '../data/rarity';
 import type { GeneralId, UltimateId } from '../data/generals';
@@ -50,6 +51,8 @@ export interface BattleSetup {
   learned?: LegendaryAction[];
   /** Each side's boons from a run (session 5B): stronger troops, more pips and Momentum. None when left out. */
   boons?: { player?: BoonId[]; enemy?: BoonId[] };
+  /** A boss fight (session 5D): the enemy is this ruler, with their boss rule. None when left out. */
+  boss?: BossId;
 }
 
 /** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
@@ -262,6 +265,12 @@ export interface Unit {
   hitsTaken: number;
   /** Resonance: attacks made so far. */
   attacksMade: number;
+  /** A turret: it never moves. */
+  rooted: boolean;
+  /** Strategist boss: big hits it can still phase out of. */
+  bossPhases: number;
+  /** Warlord boss: its rage at its army's losses, stacking, for a while. */
+  rage: { stacks: number; ticksLeft: number } | null;
 }
 
 export interface SlotState {
@@ -416,8 +425,12 @@ export type BattleEvent =
   /** A signature combo landed: inside one card, or across two cards of a chain. */
   | { tick: number; type: 'combo'; side: Side; combo: SignatureComboId; acrossCards: boolean }
   | { tick: number; type: 'reserveCalled'; side: Side; unitId: number }
-  /** Voidweavers: the troop phased out of a hit and took no damage. */
+  /** Voidweavers, or the Strategist boss: the troop phased out of a hit and took no damage. */
   | { tick: number; type: 'phased'; unitId: number; sourceId: number }
+  /** Hive Mother boss: her army stole the trait of the fallen troop's class. */
+  | { tick: number; type: 'stolen'; side: Side; victimId: number; trait: UnitClass }
+  /** Warlord boss: a fallen troop sent his army into a rage, now this many stacks deep. */
+  | { tick: number; type: 'enraged'; side: Side; stacks: number }
   /** A Legendary action: the troops it acted on, and where a Fortify wall rose (`wallId`, its middle `at`). */
   | { tick: number; type: 'legendary'; side: Side; action: LegendaryAction; unitIds: number[]; wallId?: number; at?: Point }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
@@ -469,6 +482,8 @@ export interface BattleState {
   boons: Record<Side, BoonId[]>;
   /** How many fighters of each faction each side counts (troops, reserves and faction boons). */
   factions: Record<Side, Partial<Record<FactionId, number>>>;
+  /** The ruler the enemy is, in a boss fight. */
+  boss: BossId | null;
   tactical: boolean;
   /** Every input applied, in order: with the setup, this replays the battle exactly. */
   inputLog: BattleInput[];

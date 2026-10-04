@@ -37,7 +37,9 @@ export function slideMove(
   return { x, y };
 }
 
+/** Moves the unit by (dx, dy), sliding along walls. A turret (the Engineer's boss fight) never moves: no step, push or shove. */
 export function moveUnitBy(state: BattleState, unit: Unit, dx: number, dy: number): void {
+  if (unit.rooted) return;
   const to = slideMove(state, unit.x, unit.y, unit.stats.radius, dx, dy);
   unit.x = to.x;
   unit.y = to.y;

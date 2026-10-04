@@ -6,6 +6,7 @@ import { TROOP_SKILLS } from '../data/generals';
 import { SPEC_RULES } from '../data/specializations';
 import { SYNERGY_RULES } from '../data/synergies';
 import { UNIT_CLASSES } from '../data/units';
+import { bossPhasesOut, bossSpreadsVibration } from './bosses';
 import { factionAttackFactor, forgeAfterAttack, lifestealOf, phasesOut } from './factions';
 import { distance, segmentNearCircle } from './geometry';
 import { overtimeMultiplier } from './overtime';
@@ -58,6 +59,11 @@ export function dealDamage(
   const bonus = (target.mark?.damageTakenBonus ?? 0) + (target.chased?.damageTakenBonus ?? 0);
   const area = AREA_CAUSES.includes(cause) ? target.stats.areaDamageTaken : 1;
   const total = damageAfterDefenses(raw * overtimeMultiplier(state.tick) * area, effectiveArmor(target), armorPierce, bonus);
+  // The Strategist boss: her troops phase out of their first big hits.
+  if (bossPhasesOut(state, target, total)) {
+    state.events.push({ tick: state.tick, type: 'phased', unitId: target.id, sourceId });
+    return;
+  }
   const shelled = target.barrier !== null && cause !== 'reflect' && ironShellHolds(target);
   let absorbed = 0;
   if (target.barrier) {
@@ -77,7 +83,10 @@ export function dealDamage(
   }
   if (cause === 'attack' && target.hp > 0) {
     const source = findUnit(state, sourceId);
-    if (source && source.side !== target.side && state.generals[source.side] === 'conductor') addVibration(state, target, sourceId);
+    if (source && source.side !== target.side && state.generals[source.side] === 'conductor') {
+      addVibration(state, target, sourceId);
+      bossSpreadsVibration(state, source, target);
+    }
   }
   if (cause === 'attack' && amount > 0) healFromHit(state, sourceId, target, amount);
   if (shelled) {

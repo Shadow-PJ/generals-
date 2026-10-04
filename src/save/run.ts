@@ -78,6 +78,7 @@ function troop(value: unknown): Troop {
   if (d.fighterId !== undefined) t.fighterId = int(d.fighterId);
   if (d.faction !== undefined) t.faction = faction(d.faction);
   if (d.perks !== undefined) t.perks = ids<PerkId>(PERK_IDS, d.perks);
+  if (d.turret !== undefined) t.turret = bool(d.turret);
   return t;
 }
 
