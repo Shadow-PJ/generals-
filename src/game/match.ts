@@ -1,7 +1,9 @@
 // What carries from screen to screen: your troops and where they stand, your cards, your rank and General.
 
+import type { Encounter } from '../campaign/types';
 import type { Loadout } from '../cards/types';
-import type { EnemyArmy, TroopPlacement } from '../data/armies';
+import type { EnemyArmy, Troop, TroopPlacement } from '../data/armies';
+import type { BoonId } from '../data/boons';
 import type { GeneralId } from '../data/generals';
 import type { MapId } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
@@ -30,4 +32,15 @@ export interface MatchSetup {
   enemyArmy: EnemyArmy;
   enemyGeneral: GeneralId;
   enemyCommander: RankNumber | null;
+  /** A campaign fight (session 5B), or null for a skirmish. In a campaign fight the enemy and your reserves come from it. */
+  fight: CampaignFight | null;
+  /** Where the General, Codex and Settings screens go back to: the Prep screen, unless the Capital opened them. */
+  returnTo?: 'Capital';
+}
+
+/** A fight on a run: the enemy at your node, and your run's reserve fighters and boons. */
+export interface CampaignFight {
+  encounter: Encounter;
+  reserves: Troop[];
+  boons: BoonId[];
 }

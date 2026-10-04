@@ -1,8 +1,12 @@
-// Before the battle: you see the map and the enemy army, and place your 5 troops on your half.
-// Drag a troop with the mouse, or pick one with Tab and move it with the arrow keys.
+// Before the battle: you see the map and the enemy army, and place your troops on your half.
+// Drag a troop with the mouse, or pick one with Tab and move it with the arrow keys. In a
+// campaign fight your troops are your run's fighters; in a skirmish, your skirmish army.
 
 import Phaser from 'phaser';
+import { withSpots } from '../../campaign/army';
+import { fighterLabel, NODE_NAMES } from '../../campaign/describe';
 import type { TroopPlacement } from '../../data/armies';
+import { REGION_IDS, REGIONS } from '../../data/regions';
 import { MAPS } from '../../data/maps';
 import { GENERALS } from '../../data/generals';
 import { RANKS } from '../../data/ranks';
@@ -10,13 +14,13 @@ import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
 import { placementProblem } from '../../sim';
-import { CLASS_LEGEND, drawBody, drawField, drawWall, drawZone } from '../draw';
+import { CLASS_LEGEND, drawBar, drawBody, drawField, drawRarity, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
-import { remember, savedSetup } from '../session';
+import { currentCampaign, remember, saveCampaign, savedSetup } from '../session';
 import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { enemyArmyOf, yourSynergies } from '../troops';
+import { enemyArmyOf, yourReserves, yourSynergies } from '../troops';
 import { addButton, textStyle } from '../ui';
 
 /** How fast the arrow keys move a troop, in world units per second. */
@@ -48,17 +52,25 @@ export class PrepScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'PLACE YOUR TROOPS', textStyle(18, TEXT.title, true));
+    const fight = this.setup.fight;
+    const region = fight ? REGION_IDS.find((id) => REGIONS[id].map === fight.encounter.map) : undefined;
+    this.add.text(16, 10, fight ? `PLACE YOUR TROOPS · ${NODE_NAMES[fight.encounter.kind].toUpperCase()}` : 'SKIRMISH', textStyle(18, TEXT.title, true));
     this.add.text(
       16,
       38,
-      'Drag troops, or Tab and the arrows.',
+      fight ? `${region ? REGIONS[region].name : ''} run. Drag troops, or Tab and the arrows.` : 'Practice: no XP. Drag or Tab + arrows.',
       textStyle(13),
     );
-    addButton(this, GAME_WIDTH - 628, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
-    addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.toTroops(), 112, 34);
-    addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
-    addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.toSettings(), 140, 34);
+    if (fight) {
+      addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
+      addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
+      addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Army  Esc', () => this.goBack(), 140, 34);
+    } else {
+      addButton(this, GAME_WIDTH - 628, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
+      addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.toTroops(), 112, 34);
+      addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
+      addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.goBack(), 140, 34);
+    }
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
 
     const world = this.add.container(0, TOP_BAR_HEIGHT);
@@ -68,18 +80,22 @@ export class PrepScene extends Phaser.Scene {
     drawZone(field, map.deployZones.player, 'player', 1);
     drawZone(field, map.deployZones.enemy, 'enemy', 0.6);
     for (const wall of map.walls) drawWall(field, wall);
-    for (const t of enemyArmyOf(this.setup).placement) {
-      drawBody(field, t.cls, 'enemy', t.x, t.y, UNIT_CLASSES[t.cls].stats.radius, t.x - 100, t.y, { alpha: 0.85 });
+    const enemy = enemyArmyOf(this.setup);
+    for (const t of enemy.placement) {
+      const r = UNIT_CLASSES[t.cls].stats.radius;
+      drawBody(field, t.cls, 'enemy', t.x, t.y, r, t.x - 100, t.y, { alpha: 0.85 });
+      drawRarity(field, t.x, t.y, r, t.rarity ?? 'common', 0.85);
     }
     // The map's terrain rule over the field, and who leads the enemy under its deploy zone.
     const terrain = this.add.text(map.width / 2, 10, `${map.name}: ${map.terrainText}`, textStyle(12, TEXT.muted)).setOrigin(0.5, 0);
     const zone = map.deployZones.enemy;
-    const rank = RANKS.find((r) => r.rank === this.setup.enemyCommander);
+    const rank = RANKS.find((r) => r.rank === enemy.commander?.rank);
+    const enemyReserves = enemy.reserves.length > 0 ? ` · ${enemy.reserves.length} in reserve` : '';
     const enemyLead = this.add
       .text(
         zone.x + zone.w / 2,
         zone.y + zone.h + 6,
-        `${GENERALS[this.setup.enemyGeneral].name} · ${rank ? `commander Rank ${rank.numeral}` : 'no commander'}`,
+        `${GENERALS[enemy.general].name} · ${rank ? `commander Rank ${rank.numeral}` : 'no commander'}${enemyReserves}`,
         textStyle(12, TEXT.threat, true),
       )
       .setOrigin(0.5, 0);
@@ -90,15 +106,19 @@ export class PrepScene extends Phaser.Scene {
     // Your 3 reserves wait off the field until a Call Reserve card brings them in.
     this.add.text(16, BOTTOM_BAR_Y + 16, 'RESERVES', textStyle(12, TEXT.muted, true));
     const reserves = this.add.graphics();
-    this.setup.reserves.forEach((cls, i) => {
-      const x = 120 + i * 120;
-      drawBody(reserves, cls, 'player', x, BOTTOM_BAR_Y + 24, UNIT_CLASSES[cls].stats.radius, x + 100, BOTTOM_BAR_Y + 24);
-      this.add.text(x + 22, BOTTOM_BAR_Y + 16, UNIT_CLASSES[cls].name, textStyle(12));
+    const waiting = yourReserves(this.setup);
+    waiting.forEach((t, i) => {
+      const x = 120 + i * 130;
+      const r = UNIT_CLASSES[t.cls].stats.radius;
+      drawBody(reserves, t.cls, 'player', x, BOTTOM_BAR_Y + 24, r, x + 100, BOTTOM_BAR_Y + 24);
+      drawRarity(reserves, x, BOTTOM_BAR_Y + 24, r, t.rarity ?? 'common');
+      if (t.hp !== undefined && t.hp < 1) drawBar(reserves, x, BOTTOM_BAR_Y + 4, 22, t.hp);
+      this.add.text(x + 22, BOTTOM_BAR_Y + 16, fighterLabel(t.cls, t.rarity ?? 'common'), textStyle(12, TEXT.rarity[t.rarity ?? 'common']));
     });
     this.add.text(
       16,
       BOTTOM_BAR_Y + 52,
-      'They join at your edge of the map when you fire a Call Reserve card (Rank III).',
+      waiting.length === 0 ? 'None. Pick reserves on the Army screen.' : 'They join at your edge of the map when you fire a Call Reserve card (Rank III).',
       textStyle(12, TEXT.muted),
     );
     this.add.text(16, BOTTOM_BAR_Y + 76, CLASS_LEGEND, textStyle(12, TEXT.muted));
@@ -111,7 +131,7 @@ export class PrepScene extends Phaser.Scene {
       wordWrap: { width: GAME_WIDTH - 626 },
     });
     this.add.text(520, BOTTOM_BAR_Y + 52, 'SPECIALIZED', textStyle(12, TEXT.muted, true));
-    this.add.text(610, BOTTOM_BAR_Y + 52, specs.length > 0 ? specs.join(', ') : 'None (Skirmish screen: T)', {
+    this.add.text(610, BOTTOM_BAR_Y + 52, specs.length > 0 ? specs.join(', ') : 'None (set on the Skirmish screen)', {
       ...textStyle(12),
       wordWrap: { width: GAME_WIDTH - 626 },
     });
@@ -123,10 +143,10 @@ export class PrepScene extends Phaser.Scene {
       .on('next', () => this.cycleSelection(1))
       .on('prev', () => this.cycleSelection(-1))
       .on('confirm', () => this.toOrders())
-      .on('back', () => this.toSettings())
+      .on('back', () => this.goBack())
       .on('codex', () => this.toCodex())
-      .on('troops', () => this.toTroops())
       .on('general', () => this.toGenerals());
+    if (!fight) this.actions.on('troops', () => this.toTroops());
 
     // World coordinates, so dragging works at any render scale.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.worldX, p.worldY - TOP_BAR_HEIGHT));
@@ -201,7 +221,10 @@ export class PrepScene extends Phaser.Scene {
       const r = UNIT_CLASSES[t.cls].stats.radius;
       const dragged = this.drag?.index === i;
       drawBody(g, t.cls, 'player', t.x, t.y, r, t.x + 100, t.y, { alpha: dragged ? 0.35 : 1 });
-      if (i === this.selected && !dragged) g.lineStyle(2, COLORS.selected, 0.9).strokeCircle(t.x, t.y, r + 6);
+      drawRarity(g, t.x, t.y, r, t.rarity ?? 'common', dragged ? 0.35 : 1);
+      // A run fighter still hurt from an earlier fight shows how much HP it has.
+      if (t.hp !== undefined && t.hp < 1 && !dragged) drawBar(g, t.x, t.y + r + 6, 24, t.hp);
+      if (i === this.selected && !dragged) g.lineStyle(2, COLORS.selected, 0.9).strokeCircle(t.x, t.y, r + 8);
     });
     const selected = this.placement[this.selected]!;
     let labelX = selected.x;
@@ -216,14 +239,36 @@ export class PrepScene extends Phaser.Scene {
       labelY = this.drag.y;
     }
     const r = UNIT_CLASSES[selected.cls].stats.radius;
-    this.label.setText(UNIT_CLASSES[selected.cls].name).setPosition(labelX, labelY - r - 9);
+    const hp = selected.hp !== undefined && selected.hp < 1 ? ` · ${Math.round(selected.hp * 100)}% HP` : '';
+    this.label.setText(`${fighterLabel(selected.cls, selected.rarity ?? 'common')}${hp}`).setPosition(labelX, labelY - r - 9);
   }
 
   private toOrders(): void {
     this.drop();
     const setup = { ...this.setup, placement: this.placement };
     void remember(setup).catch(() => undefined);
+    this.keepSpots();
     this.scene.start('Orders', setup);
+  }
+
+  /** In a run, your fighters remember where you put them, for the next fight. */
+  private keepSpots(): void {
+    const campaign = currentCampaign();
+    if (!this.setup.fight || !campaign.run) return;
+    void saveCampaign({ ...campaign, run: withSpots(campaign.run, this.placement) }).catch(() => undefined);
+  }
+
+  /** Back to the Army screen in a run, or to the Capital from a skirmish. */
+  private goBack(): void {
+    this.drop();
+    if (this.setup.fight) {
+      this.keepSpots();
+      this.scene.start('Army');
+    } else {
+      const setup = { ...this.setup, placement: this.placement };
+      void remember(setup).catch(() => undefined);
+      this.scene.start('Capital');
+    }
   }
 
   private toCodex(): void {
@@ -239,10 +284,5 @@ export class PrepScene extends Phaser.Scene {
   private toTroops(): void {
     this.drop();
     this.scene.start('Troops', { ...this.setup, placement: this.placement });
-  }
-
-  private toSettings(): void {
-    this.drop();
-    this.scene.start('Settings', { ...this.setup, placement: this.placement });
   }
 }

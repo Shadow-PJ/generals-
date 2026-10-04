@@ -1,11 +1,13 @@
 // Your saved progress: the cards in your slots, your troops and where they stand, your Command
-// XP (which sets your rank), the bosses you have beaten, Tactical mode, your General and the
-// combos you have found. It is plain JSON in saves/profile.json. An older save is first brought
+// XP (which sets your rank), the bosses you have beaten, Tactical mode, your General, the
+// combos you have found, the run you are on and the artifacts you have banked. It is plain JSON in saves/profile.json. An older save is first brought
 // up to this version (migrations.ts). Reading is forgiving: anything missing or damaged falls
 // back to the default, so a bad file never stops the game from starting.
 
+import type { RunState } from '../campaign/types';
 import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
+import type { ArtifactId } from '../data/artifacts';
 import { ENEMY_ARMIES, RESERVE_COUNT, STARTER_ARMY, STARTER_RESERVES, type EnemyArmy, type TroopPlacement } from '../data/armies';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { MAP_IDS, OPEN_FIELD, type MapId } from '../data/maps';
@@ -17,8 +19,9 @@ import { TROOP_CLASSES, type UnitClass } from '../data/units';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
+import { readArtifacts, readRun } from './run';
 
-export const PROFILE_VERSION = 2;
+export const PROFILE_VERSION = 3;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
 /** The save as it was before the last migration, in case an update ever goes wrong. */
 export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';
@@ -45,6 +48,10 @@ export interface Profile {
   enemyArmy: EnemyArmy;
   enemyGeneral: GeneralId;
   enemyCommander: RankNumber | null;
+  /** The campaign run you are on, if any (session 5B). A run that doesn't read correctly is dropped. */
+  run: RunState | null;
+  /** Artifacts banked for good, at a rest camp or by winning a run. */
+  artifacts: ArtifactId[];
 }
 
 export function newProfile(): Profile {
@@ -64,6 +71,8 @@ export function newProfile(): Profile {
     enemyArmy: 'starter',
     enemyGeneral: STARTING_GENERAL,
     enemyCommander: null,
+    run: null,
+    artifacts: [],
   };
 }
 
@@ -108,6 +117,8 @@ export function readProfile(text: string | null): Profile {
   if ((MAP_IDS as readonly unknown[]).includes(saved.map)) profile.map = saved.map as MapId;
   if ((GENERAL_IDS as readonly unknown[]).includes(saved.enemyGeneral)) profile.enemyGeneral = saved.enemyGeneral as GeneralId;
   if (RANKS.some((r) => r.rank === saved.enemyCommander)) profile.enemyCommander = saved.enemyCommander as RankNumber;
+  profile.run = readRun(saved.run);
+  profile.artifacts = readArtifacts(saved.artifacts);
   return profile;
 }
 

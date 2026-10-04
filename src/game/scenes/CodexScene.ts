@@ -67,7 +67,7 @@ export class CodexScene extends Phaser.Scene {
   }
 
   private goBack(): void {
-    this.scene.start('Prep', this.setup);
+    this.scene.start(this.setup.returnTo ?? 'Prep', this.setup);
   }
 }
 

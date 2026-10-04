@@ -9,13 +9,17 @@ import { actionForKey } from './bindings';
 import { currentRenderScale, renderScale, setInitialRenderScale, setRenderScale } from './display';
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
 import { loadOrderReader, orderReaderTranslator } from './orderReader';
+import { ArmyScene } from './scenes/ArmyScene';
 import { BattleScene } from './scenes/BattleScene';
+import { CapitalScene } from './scenes/CapitalScene';
 import { CodexScene } from './scenes/CodexScene';
 import { GeneralsScene } from './scenes/GeneralsScene';
 import { OrdersScene } from './scenes/OrdersScene';
 import { PrepScene } from './scenes/PrepScene';
 import { ResultScene } from './scenes/ResultScene';
+import { RunScene } from './scenes/RunScene';
 import { SettingsScene } from './scenes/SettingsScene';
+import { StopScene } from './scenes/StopScene';
 import { TroopsScene } from './scenes/TroopsScene';
 import { applyWindowSettings, currentPlatform, currentSettings, startSession, toggleFullscreen } from './session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from './theme';
@@ -46,7 +50,21 @@ async function boot(): Promise<void> {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     // The order text box on the Orders screen is a real HTML input laid over the canvas.
     dom: { createContainer: true },
-    scene: [PrepScene, OrdersScene, BattleScene, ResultScene, SettingsScene, CodexScene, TroopsScene, GeneralsScene],
+    // The Capital, the world map hub, is the first screen.
+    scene: [
+      CapitalScene,
+      RunScene,
+      ArmyScene,
+      StopScene,
+      PrepScene,
+      OrdersScene,
+      BattleScene,
+      ResultScene,
+      SettingsScene,
+      CodexScene,
+      TroopsScene,
+      GeneralsScene,
+    ],
   });
 
   // The desktop app keeps its window hidden until the first screen is drawn.

@@ -59,6 +59,7 @@ import {
   drawGravityWell,
   drawHeat,
   drawMark,
+  drawRarity,
   drawRift,
   drawSilenced,
   drawSlowed,
@@ -73,7 +74,8 @@ import type { MatchSetup } from '../match';
 import { battleXp } from '../progress';
 import { recordCombo } from '../session';
 import { threats } from '../threats';
-import { enemyArmyOf } from '../troops';
+import { fightOutcome } from '../campaignFlow';
+import { enemyArmyOf, yourReserves } from '../troops';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle, type Button } from '../ui';
 
@@ -175,13 +177,14 @@ export class BattleScene extends Phaser.Scene {
       enemy: enemy.placement,
       loadout: data.loadout,
       rank: data.rank,
-      reserves: { player: [...data.reserves], enemy: enemy.reserves },
+      reserves: { player: yourReserves(data), enemy: enemy.reserves },
       tactical: data.tactical,
       general: data.general,
       enemyGeneral: enemy.general,
       enemyCommander: enemy.commander,
       specs: { player: data.specs, enemy: enemy.specs },
       learned: learnedActions(data.bossesBeaten),
+      boons: { player: data.fight?.boons ?? [] },
     });
     this.clock = createClock();
     this.pending = [];
@@ -248,7 +251,10 @@ export class BattleScene extends Phaser.Scene {
         this.ended = true;
         this.time.delayedCall(RESULT_DELAY_MS, () => {
           const result = this.state.result!;
-          this.scene.launch('Result', { ...this.setup, result, xp: battleXp(this.state.events, result) });
+          const xp = battleXp(this.state.events, result);
+          // A campaign fight also tells the run how each fighter came out of it.
+          const outcome = this.setup.fight ? fightOutcome(this.state, xp.total) : null;
+          this.scene.launch('Result', { ...this.setup, result, xp, outcome });
           this.scene.pause();
         });
       }
@@ -400,6 +406,7 @@ export class BattleScene extends Phaser.Scene {
       const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
       if (taunter?.alive) drawTaunted(g, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
       drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash, alpha });
+      drawRarity(g, at.x, at.y, r, u.rarity, alpha);
       if (u.casting) {
         const total = secondsToTicks(UNIT_CLASSES.invoker.rift.castSeconds);
         drawCasting(g, at.x, at.y, r, u.casting, 1 - u.casting.ticksLeft / total);

@@ -1,4 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { fieldPlacement, withRole } from '../campaign/army';
+import { enterNode, newRun } from '../campaign/run';
+import { MAPS } from '../data/maps';
 import { RANK_XP } from '../data/progression';
 import type { FileName, Platform } from '../platform';
 import { readProfile } from '../save/profile';
@@ -8,13 +11,16 @@ import {
   availableWindowScales,
   changeSettings,
   chosenWindowScale,
+  currentCampaign,
   currentXp,
   earnedRank,
   foundCombos,
   gainXp,
   recordCombo,
   remember,
+  saveCampaign,
   savedSetup,
+  setBossesBeaten,
   startSession,
   toggleFullscreen,
 } from './session';
@@ -69,9 +75,9 @@ describe('the session', () => {
   });
 
   it('remembers your cards, troops, bosses beaten and Tactical mode in saves/profile.json', async () => {
+    await setBossesBeaten(['hiveMother']);
     const setup = savedSetup();
     setup.loadout.slots[1] = { condition: null, steps: [{ action: 'hold', actors: { kind: 'all' } }], auto: false };
-    setup.bossesBeaten = ['hiveMother'];
     setup.tactical = true;
     setup.general = 'conductor';
     await remember(setup);
@@ -113,11 +119,49 @@ describe('the session', () => {
     await startSession(fake.platform);
     expect(savedSetup()).toMatchObject({ rank: 4, tactical: true, bossesBeaten: [] });
     expect(fake.files.get('saves/profile-backup.json')).toBe(v1);
-    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 2, xp: RANK_XP[4] });
+    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 3, xp: RANK_XP[4], run: null, artifacts: [] });
     // Already up to date: no new backup.
     fake.files.delete('saves/profile-backup.json');
     await startSession(fake.platform);
     expect(fake.files.has('saves/profile-backup.json')).toBe(false);
+  });
+
+  it('saves the run you are on and your banked artifacts, and picks them up after a restart', async () => {
+    expect(currentCampaign()).toEqual({ run: null, artifacts: [], bossesBeaten: [] });
+    let campaign = enterNode(newRun(currentCampaign(), 'deepForest', 99), 0);
+    campaign = { ...campaign, artifacts: ['warHorn'], run: withRole(campaign.run!, 8, 'rest') };
+    await saveCampaign(campaign);
+    await startSession(fake.platform);
+    expect(currentCampaign()).toEqual(campaign);
+  });
+
+  it('a campaign fight keeps your cards and General, but never replaces your skirmish army or practice rank', async () => {
+    await remember({ ...savedSetup(), practiceRank: 4 });
+    const skirmish = savedSetup();
+    const campaign = enterNode(newRun(currentCampaign(), 'voidRuins', 5), 0);
+    const run = campaign.run!;
+    const stop = run.stop;
+    const encounter = stop?.kind === 'fight' ? stop.encounter : null;
+    await remember({
+      ...skirmish,
+      general: 'warlord',
+      practiceRank: null,
+      placement: fieldPlacement(run, MAPS.voidRuins),
+      map: 'voidRuins',
+      fight: { encounter: encounter!, reserves: [], boons: [] },
+    });
+    expect(savedSetup()).toEqual({ ...skirmish, general: 'warlord' });
+  });
+
+  it('drops a run that doesn’t read, and keeps the rest of the save', async () => {
+    await saveCampaign(newRun(currentCampaign(), 'deepForest', 3));
+    const damaged = JSON.parse(fake.files.get('saves/profile.json')!);
+    damaged.run.roster[0].cls = 'dragon';
+    damaged.general = 'engineer';
+    fake.files.set('saves/profile.json', JSON.stringify(damaged));
+    await startSession(fake.platform);
+    expect(currentCampaign().run).toBeNull();
+    expect(savedSetup().general).toBe('engineer');
   });
 
   it('adds a combo to the Codex once, saves it, and keeps it when your cards change', async () => {

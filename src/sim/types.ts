@@ -3,7 +3,9 @@
 
 import type { Card, LegendaryAction, Loadout, Place, Step, Target } from '../cards/types';
 import type { SignatureComboId } from '../data/combos';
-import type { TroopPlacement } from '../data/armies';
+import type { Troop, TroopPlacement } from '../data/armies';
+import type { BoonId } from '../data/boons';
+import type { Rarity } from '../data/rarity';
 import type { GeneralId, UltimateId } from '../data/generals';
 import type { MapData, Rect } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
@@ -31,8 +33,8 @@ export interface BattleSetup {
   loadout?: Loadout;
   /** Your Command Rank; sets max pips and which slots are open. Rank I when left out. */
   rank?: RankNumber;
-  /** Troops waiting off the field until a Call Reserve card brings them in. */
-  reserves?: { player: UnitClass[]; enemy: UnitClass[] };
+  /** Troops waiting off the field until a Call Reserve card brings them in: a class, or a run fighter. */
+  reserves?: { player: (UnitClass | Troop)[]; enemy: (UnitClass | Troop)[] };
   /** Tactical mode: the screen pauses every 10 s, and there is no Perfect timing. */
   tactical?: boolean;
   /** Your General: reads your cards by their personality rules, and gives your troops their skill and doctrine. The Captain when left out. */
@@ -45,6 +47,8 @@ export interface BattleSetup {
   specs?: { player?: SpecChoice; enemy?: SpecChoice };
   /** The Legendary actions you have learned from bosses; with one or more the Legendary slot opens. None when left out. */
   learned?: LegendaryAction[];
+  /** Each side's boons from a run (session 5B): stronger troops, more pips and Momentum. None when left out. */
+  boons?: { player?: BoonId[]; enemy?: BoonId[] };
 }
 
 /** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
@@ -241,6 +245,10 @@ export interface Unit {
   rallyBonus: number;
   /** Ticks left under the other side's control (Hijack): it attacks its own army meanwhile. */
   hijackTicks: number;
+  /** Rarer troops (run fighters) have more HP and damage. */
+  rarity: Rarity;
+  /** The run fighter this troop is, if any; the battle doesn't use it. */
+  fighterId: number | null;
 }
 
 export interface SlotState {
@@ -289,6 +297,8 @@ export interface CommandState {
   legendaryOpen: boolean;
   /** The last regular card fired and who set it off, for Echo. */
   lastCard: { card: Card; triggerEnemyId: number | null; triggerAllyId: number | null } | null;
+  /** Boons: pips refill this much faster (0.25 = 25%). */
+  pipRateBonus: number;
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out, unless it is unbreakable. */
@@ -428,7 +438,7 @@ export interface BattleState {
   /** The troop synergies each side's army switched on, and those that have taken effect so far. */
   synergies: Record<Side, SynergyId[]>;
   synergiesSeen: Record<Side, SynergyId[]>;
-  /** Total max HP each side brought onto the field (reserves count once called in). */
+  /** Total HP each side brought onto the field (reserves count once called in); a wounded run fighter brings less. */
   startHp: Record<Side, number>;
   events: BattleEvent[];
   result: BattleResult | null;
@@ -437,7 +447,9 @@ export interface BattleState {
   /** The enemy commander's, when the enemy has one. */
   enemyCommand: CommandState | null;
   /** Troops still waiting in reserve. */
-  reserves: { player: UnitClass[]; enemy: UnitClass[] };
+  reserves: Record<Side, Troop[]>;
+  /** Each side's boons. */
+  boons: Record<Side, BoonId[]>;
   tactical: boolean;
   /** Every input applied, in order: with the setup, this replays the battle exactly. */
   inputLog: BattleInput[];

@@ -1,6 +1,8 @@
-// Shown over the finished battle: who won, how, the Command XP it earned (and a rank up), and a rematch.
+// Shown over the finished battle: who won and how. A campaign battle earns Command XP (and maybe
+// a rank up) and carries on to the spoils, or ends the run; a skirmish is practice, with a rematch.
 
 import Phaser from 'phaser';
+import { finishFight, type FightOutcome } from '../../campaign/run';
 import { rankRules } from '../../data/ranks';
 import { formatBattleTime, type BattleResult } from '../../sim';
 import { fitCamera } from '../display';
@@ -9,15 +11,17 @@ import type { MatchSetup } from '../match';
 import { rankForXp, rankProgress, rankUnlocks, type XpGain } from '../progress';
 import { resultReason, resultTitle } from '../resultText';
 import { newSeed } from '../seed';
-import { currentXp, gainXp } from '../session';
+import { currentCampaign, currentXp, gainXp, saveCampaign } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
 export interface ResultData extends MatchSetup {
   seed: number;
   result: BattleResult;
-  /** The Command XP the battle earned; added to your save when this screen opens. */
+  /** The Command XP the battle earned; added to your save when this screen opens, in a campaign battle. */
   xp: XpGain;
+  /** A campaign battle: how each fighter came out of it, for the run. Null in a skirmish. */
+  outcome: FightOutcome | null;
 }
 
 export class ResultScene extends Phaser.Scene {
@@ -46,17 +50,19 @@ export class ResultScene extends Phaser.Scene {
       .text(cx, cy - 46, `Battle time ${formatBattleTime(result.durationTicks).slice(0, -3)}   ·   seed ${seed}`, textStyle(13, TEXT.muted))
       .setOrigin(0.5);
 
-    // Command XP: what earned it, then your rank, or the rank you just reached. Practice earns none.
-    if (this.setup.practiceRank !== null) {
-      const practice = rankRules(this.setup.practiceRank);
-      this.add.text(cx, cy - 16, 'Practice battle: no Command XP', textStyle(16, TEXT.muted, true)).setOrigin(0.5);
-      this.add.text(cx, cy + 10, `You practised at Rank ${practice.numeral} · ${practice.name} (set on the Skirmish screen).`, textStyle(12, TEXT.muted)).setOrigin(0.5, 0);
+    // Command XP: what earned it, then your rank, or the rank you just reached. Only campaign
+    // battles earn it; a skirmish is practice.
+    if (!this.setup.fight || !this.setup.outcome) {
+      const practice = this.setup.practiceRank === null ? null : rankRules(this.setup.practiceRank);
+      this.add.text(cx, cy - 16, 'Skirmish: practice, no Command XP', textStyle(16, TEXT.muted, true)).setOrigin(0.5);
+      const note = practice ? `You practised at Rank ${practice.numeral} · ${practice.name}. ` : '';
+      this.add.text(cx, cy + 10, `${note}Campaign battles earn Command XP.`, textStyle(12, TEXT.muted)).setOrigin(0.5, 0);
       this.addButtons(cx, cy);
       return;
     }
     const before = rankForXp(currentXp());
-    const saving = gainXp(xp.total);
-    void saving.catch(() => undefined);
+    void gainXp(xp.total).catch(() => undefined);
+    this.carryToRun(this.setup.outcome);
     const after = rankForXp(currentXp());
     this.setup.rank = after;
     this.add.text(cx, cy - 16, `+${xp.total} Command XP`, textStyle(16, TEXT.perfect, true)).setOrigin(0.5);
@@ -73,7 +79,27 @@ export class ResultScene extends Phaser.Scene {
       this.add.text(cx, cy + 34, `Rank ${rules.numeral} · ${rules.name}  ·  ${next}`, textStyle(13, TEXT.body)).setOrigin(0.5, 0);
     }
 
-    this.addButtons(cx, cy);
+    this.addRunButton(cx, cy, result.winner === 'player');
+  }
+
+  /** The battle's outcome goes to the run once: wounds, spoils, or the end of the run. */
+  private carryToRun(outcome: FightOutcome): void {
+    const campaign = currentCampaign();
+    const stop = campaign.run?.stop;
+    if (stop?.kind !== 'fight' || stop.encounter.seed !== this.setup.fight?.encounter.seed) return;
+    void saveCampaign(finishFight(campaign, outcome)).catch(() => undefined);
+  }
+
+  private addRunButton(cx: number, cy: number, won: boolean): void {
+    const go = () => {
+      this.scene.stop('Battle');
+      this.scene.start('Stop');
+    };
+    addButton(this, cx, cy + 108, won ? 'Spoils  ⏎' : 'Run over  ⏎', go, 200, 38);
+    const ended = currentCampaign().run?.stop?.kind === 'end';
+    const note = won ? (ended ? 'You beat the ruler of the region!' : 'Your wounded fighters carry their wounds to the next fight.') : 'Your army fell: the run is over.';
+    this.add.text(cx, cy + 140, note, textStyle(12, TEXT.muted)).setOrigin(0.5);
+    new InputLayer(this).on('confirm', go);
   }
 
   private addButtons(cx: number, cy: number): void {
@@ -95,7 +121,7 @@ export class ResultScene extends Phaser.Scene {
 
   /** Everything you set up for the battle (troops, reserves, cards, General...), without its result. */
   private matchSetup(): MatchSetup {
-    const { result: _result, seed: _seed, xp: _xp, ...setup } = this.setup;
+    const { result: _result, seed: _seed, xp: _xp, outcome: _outcome, ...setup } = this.setup;
     return setup;
   }
 }

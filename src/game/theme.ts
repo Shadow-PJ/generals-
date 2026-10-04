@@ -59,6 +59,18 @@ export const COLORS = {
   rock: 0x4b3a33,
   rockEdge: 0x2b211d,
   plains: 0x24303f,
+  /** Rarity rings on run fighters (Common has none). */
+  rarity: { common: 0x9ca3af, rare: 0x60a5fa, epic: 0xc084fc, legendary: 0xfbbf24 },
+  /** The regions on the world map. */
+  region: { deepForest: 0x15803d, voidRuins: 0x7c3aed, redCanyon: 0xc2410c, ironFortress: 0x64748b, glassPlains: 0x0891b2 },
+  capital: 0xd4a94e,
+  /** Nodes on a run's map, by kind. */
+  node: { battle: 0xf87171, elite: 0xfb923c, event: 0x60a5fa, merchant: 0xfacc15, camp: 0x4ade80, boss: 0xc084fc },
+  panel: 0x1a2230,
+  panelEdge: 0x3a4a60,
+  row: 0x1d2939,
+  rowEdge: 0x34465e,
+  rowSelected: 0x2b3a50,
 } as const;
 
 export const TEXT = {
@@ -71,4 +83,6 @@ export const TEXT = {
   perfect: '#fde047',
   threat: '#fca5a5',
   combo: '#c4b5fd',
+  gold: '#fcd34d',
+  rarity: { common: '#d6dde8', rare: '#93c5fd', epic: '#d8b4fe', legendary: '#fcd34d' },
 } as const;

@@ -10,11 +10,13 @@ import { cardCost } from '../cards/cost';
 import { applyPersonality } from '../cards/personality';
 import type { Card, LegendaryAction, Loadout } from '../cards/types';
 import { slotUnlockRank, validateCard, type SlotContext } from '../cards/validator';
+import type { BoonId } from '../data/boons';
 import { CARD_RULES } from '../data/cards';
 import { COMBO_BONUSES, SIGNATURE_COMBOS } from '../data/combos';
 import { COMMAND_RULES } from '../data/command';
 import { MANA_TWISTS, type GeneralId } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
+import { extraStartingPips, pipRateBonus, startingMomentum } from './boons';
 import { checkCondition } from './conditions';
 import { castLegendary, legendaryReady } from './legendary';
 import { issueCard, type ComboAt } from './orders';
@@ -39,6 +41,7 @@ export function createCommand(
   loadout: Loadout | undefined,
   general: GeneralId = 'captain',
   learned: readonly LegendaryAction[] = [],
+  boons: readonly BoonId[] = [],
 ): CommandState {
   const rules = rankRules(rank);
   const regular = [...(loadout?.slots ?? []).slice(0, LEGENDARY_SLOT), null, null, null, null].slice(0, LEGENDARY_SLOT);
@@ -65,15 +68,16 @@ export function createCommand(
   return {
     side,
     rank,
-    // Prepared (Strategist): every battle starts with full pips.
-    pips: general === 'strategist' ? rules.maxPips : Math.min(COMMAND_RULES.startingPips, rules.maxPips),
+    // Prepared (Strategist): every battle starts with full pips. Boons can add pips and Momentum.
+    pips: general === 'strategist' ? rules.maxPips : Math.min(COMMAND_RULES.startingPips + extraStartingPips(boons), rules.maxPips),
     maxPips: rules.maxPips,
     pipProgress: 0,
-    momentum: 0,
+    momentum: Math.min(COMMAND_RULES.momentum.max, startingMomentum(boons)),
     slots,
     chain: { links: 0, lastTick: 0, lastStep: null, lastReserveIds: [] },
     legendaryOpen,
     lastCard: null,
+    pipRateBonus: pipRateBonus(boons),
   };
 }
 
@@ -128,7 +132,7 @@ function refillPips(state: BattleState, command: CommandState): void {
   }
   const rate = general === 'hiveMother' ? MANA_TWISTS.feeding.refillRate : general === 'strategist' ? MANA_TWISTS.prepared.refillRate : 1;
   const interval = secondsToTicks(COMMAND_RULES.pipRefillSeconds);
-  command.pipProgress += rate * (inComeback(state, command.side) ? COMMAND_RULES.comebackRefillMultiplier : 1);
+  command.pipProgress += rate * (1 + command.pipRateBonus) * (inComeback(state, command.side) ? COMMAND_RULES.comebackRefillMultiplier : 1);
   while (command.pipProgress >= interval) {
     command.pipProgress -= interval;
     // A full bar wastes the pip.

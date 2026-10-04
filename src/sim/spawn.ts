@@ -1,10 +1,12 @@
 // Creating troops: the armies at the start, and reserves called in during the battle.
 
 import type { TroopPlacement } from '../data/armies';
+import type { BoonId } from '../data/boons';
 import type { MapData } from '../data/maps';
 import { TROOP_SKILLS, type GeneralId } from '../data/generals';
 import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
+import { boostedStats } from './boons';
 import { isSpaceFree } from './movement';
 import { nextInt, type RngState } from './rng';
 import { initialSkillCooldownTicks } from './skills';
@@ -20,8 +22,10 @@ export function createUnit(
   spec: SpecializationId | null = null,
   general: GeneralId = 'captain',
   map: MapData | null = null,
+  boons: readonly BoonId[] = [],
 ): Unit {
-  const stats = specStats(UNIT_CLASSES[placement.cls].stats, spec);
+  const rarity = placement.rarity ?? 'common';
+  const stats = boostedStats(specStats(UNIT_CLASSES[placement.cls].stats, spec), placement.cls, rarity, boons);
   // Open ground (Glass Plains): ranged troops reach further.
   if (stats.projectileSpeed > 0 && map?.rangedReachBonus) stats.range *= 1 + map.rangedReachBonus;
   const unit: Unit = {
@@ -32,7 +36,8 @@ export function createUnit(
     spec,
     x: placement.x,
     y: placement.y,
-    hp: stats.maxHp,
+    // A run fighter still hurt from an earlier fight starts with part of its HP, never none.
+    hp: Math.max(1, Math.round(stats.maxHp * Math.min(1, Math.max(0, placement.hp ?? 1)))),
     alive: true,
     targetId: null,
     // Spread first attacks out so a whole army doesn't swing on the same tick.
@@ -67,6 +72,8 @@ export function createUnit(
     rallyTicks: 0,
     rallyBonus: 0,
     hijackTicks: 0,
+    rarity,
+    fighterId: placement.fighterId ?? null,
   };
   // Warlord doctrine: Assassins dive at once.
   if (general === 'warlord' && unit.cls === 'assassin') unit.skillCooldown = 0;
@@ -82,11 +89,11 @@ const SPAWN_STEP = 32;
  */
 export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | null): Unit | null {
   const waiting = state.reserves[side];
-  const index = cls === null ? 0 : waiting.findIndex((c) => c === cls);
+  const index = cls === null ? 0 : waiting.findIndex((t) => t.cls === cls);
   const chosen = waiting[index];
   if (index < 0 || chosen === undefined) return null;
 
-  const radius = UNIT_CLASSES[chosen].stats.radius;
+  const radius = UNIT_CLASSES[chosen.cls].stats.radius;
   const zone = state.map.deployZones[side];
   const x = side === 'player' ? zone.x + radius + 4 : zone.x + zone.w - radius - 4;
   const midY = zone.y + zone.h / 2;
@@ -103,10 +110,10 @@ export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | n
   if (y === null) y = midY;
 
   waiting.splice(index, 1);
-  const spec = specFor(state.specs[side], chosen);
-  const unit = createUnit(state.units.length + 1, side, { cls: chosen, x, y }, state.rng, spec, state.generals[side], state.map);
+  const spec = specFor(state.specs[side], chosen.cls);
+  const unit = createUnit(state.units.length + 1, side, { ...chosen, x, y }, state.rng, spec, state.generals[side], state.map, state.boons[side]);
   state.units.push(unit);
-  state.startHp[side] += unit.stats.maxHp;
+  state.startHp[side] += unit.hp;
   state.events.push({ tick: state.tick, type: 'reserveCalled', side, unitId: unit.id });
   return unit;
 }

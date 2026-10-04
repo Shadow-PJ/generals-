@@ -22,6 +22,7 @@ function setup(change: Partial<MatchSetup> = {}): MatchSetup {
     enemyArmy: 'starter',
     enemyGeneral: 'captain',
     enemyCommander: null,
+    fight: null,
     ...change,
   };
 }

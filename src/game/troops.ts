@@ -3,7 +3,7 @@
 // and the Tech Web sells specializations (phase 5).
 
 import type { Loadout } from '../cards/types';
-import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES, type TroopPlacement } from '../data/armies';
+import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES, type Troop, type TroopPlacement } from '../data/armies';
 import { enemyScript } from '../data/enemyScripts';
 import type { GeneralId } from '../data/generals';
 import type { RankNumber } from '../data/ranks';
@@ -55,7 +55,7 @@ export function withSpec(specs: SpecChoice, cls: UnitClass, spec: Specialization
 /** What the enemy brings to the skirmish: its army, its General, and its commander's cards if it has one. */
 export interface EnemySide {
   placement: TroopPlacement[];
-  reserves: UnitClass[];
+  reserves: (UnitClass | Troop)[];
   specs: SpecChoice;
   general: GeneralId;
   /** Its commander's rank and script, or undefined for no commander. */
@@ -63,11 +63,21 @@ export interface EnemySide {
 }
 
 /**
- * The enemy in a skirmish: the starter army, or a mirror of yours (troops, reserves and
- * specializations), under the chosen enemy General, with a commander firing its General's
- * script if you set one.
+ * The enemy you face. In a campaign fight, the one waiting at your run's node; in a skirmish,
+ * the starter army or a mirror of yours (troops, reserves and specializations), under the chosen
+ * enemy General, with a commander firing its General's script if you set one.
  */
 export function enemyArmyOf(setup: MatchSetup): EnemySide {
+  if (setup.fight) {
+    const e = setup.fight.encounter;
+    return {
+      placement: e.troops.map((t) => ({ ...t })),
+      reserves: e.reserves.map((t) => ({ ...t })),
+      specs: {},
+      general: e.general,
+      commander: e.commander === null ? undefined : { rank: e.commander, loadout: enemyScript(e.general, e.commander) },
+    };
+  }
   const mirror = setup.enemyArmy === 'mirror';
   return {
     placement: mirror ? setup.placement.map((t, i) => ({ ...STARTER_ARMY_MIRRORED[i]!, cls: t.cls })) : STARTER_ARMY_MIRRORED.map((t) => ({ ...t })),
@@ -78,7 +88,12 @@ export function enemyArmyOf(setup: MatchSetup): EnemySide {
   };
 }
 
+/** Your reserves: a campaign fight's reserve fighters, or the skirmish reserves. */
+export function yourReserves(setup: MatchSetup): Troop[] {
+  return setup.fight ? setup.fight.reserves.map((t) => ({ ...t })) : setup.reserves.map((cls) => ({ cls }));
+}
+
 /** The troop synergies your army switches on: troops and reserves. */
 export function yourSynergies(setup: MatchSetup): SynergyId[] {
-  return activeSynergies([...setup.placement.map((t) => t.cls), ...setup.reserves], setup.specs);
+  return activeSynergies([...setup.placement.map((t) => t.cls), ...yourReserves(setup).map((t) => t.cls)], setup.specs);
 }

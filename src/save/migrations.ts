@@ -4,6 +4,7 @@
 //
 // Version 1 (sessions 2C to 4D): the rank was a debug switch on the Orders screen.
 // Version 2 (session 5A): the rank is earned with Command XP; boss wins open the Legendary slot.
+// Version 3 (session 5B): the campaign: the run you are on, and the artifacts you have banked.
 
 import { RANK_XP } from '../data/progression';
 import { RANKS, type RankNumber } from '../data/ranks';
@@ -20,6 +21,8 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
     const kept = RANKS.find((r) => r.rank === rank)?.rank ?? V1_DEFAULT_RANK;
     return { ...rest, version: 2, xp: RANK_XP[kept], bossesBeaten: [] };
   },
+  /** No run yet, and nothing banked. */
+  2: (save) => ({ ...save, version: 3, run: null, artifacts: [] }),
 };
 
 /** The save's version: 1 when it has none (the first saves wrote 1, but be forgiving). */

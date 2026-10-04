@@ -1,9 +1,9 @@
-// The Skirmish screen (debug until the campaign): pick the class of each of your 5 troops and 3
-// reserves, a specialization for each class, and the battle: the map, both Generals, the enemy's
-// army and its commander. It stands in for the campaign (which unlocks the Invoker and Assassin)
-// and the Tech Web (which sells specializations) until phase 5, and until the boss fights (5D) it
-// sets which bosses you have beaten, and so which Legendary actions you know. Up and Down pick a
-// row, Left and Right change it; a click changes it too.
+// The Skirmish screen: practice battles, earning no Command XP. Pick the class of each of your
+// 5 troops and 3 reserves, a specialization for each class, and the battle: the map, both
+// Generals, the enemy's army and its commander. It also sets your specializations for the
+// campaign until the Tech Web sells them (5E), and, for testing until the boss fights (5D),
+// which bosses you have beaten: the Legendary actions you know and the regions open to you.
+// Up and Down pick a row, Left and Right change it; a click changes it too.
 
 import Phaser from 'phaser';
 import { RESERVE_COUNT, type EnemyArmy } from '../../data/armies';
@@ -18,7 +18,7 @@ import { drawBody, drawField, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
-import { earnedRank, remember } from '../session';
+import { earnedRank, remember, setBossesBeaten } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { cycle, nextClass, specOptions, withClass, withSpec, yourSynergies } from '../troops';
 import { addButton, textStyle } from '../ui';
@@ -98,7 +98,7 @@ export class TroopsScene extends Phaser.Scene {
     this.add.text(
       16,
       38,
-      'Your army, its specializations and the battle, until the campaign arrives. ↑↓ pick, ←→ change.',
+      'Practice battles with any army, General and map; no Command XP. ↑↓ pick, ←→ change.',
       textStyle(13, TEXT.muted),
     );
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Done  Esc', () => this.goBack(), 150, 34);
@@ -225,6 +225,7 @@ export class TroopsScene extends Phaser.Scene {
         // In campaign order: none, then the first boss, the first two, ... all five.
         const count = (setup.bossesBeaten.length + step + BOSS_ORDER.length + 1) % (BOSS_ORDER.length + 1);
         setup.bossesBeaten = BOSS_ORDER.slice(0, count);
+        void setBossesBeaten(setup.bossesBeaten).catch(() => undefined);
         break;
       }
       case 'practice':

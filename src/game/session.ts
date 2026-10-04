@@ -2,6 +2,7 @@
 // computer's settings. Screens read from here and call remember() when your cards, troops or
 // rank change, so closing the game at any moment keeps them.
 
+import type { Campaign } from '../campaign/types';
 import { windowScales, type FileName, type Platform } from '../platform';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { rankForXp } from './progress';
@@ -16,6 +17,8 @@ import {
   type Profile,
 } from '../save/profile';
 import { defaultSettings, readSettings, SETTINGS_FILE, writeSettings, type Settings } from '../save/settings';
+import type { GeneralId } from '../data/generals';
+import { BOSS_ORDER } from '../data/legendary';
 import type { RankNumber } from '../data/ranks';
 import type { MatchSetup } from './match';
 import { GAME_HEIGHT, GAME_WIDTH } from './theme';
@@ -54,7 +57,22 @@ export function savedSetup(): MatchSetup {
   const { placement, loadout, xp, bossesBeaten, practiceRank, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander } =
     structuredClone(profile);
   const rank = practiceRank ?? rankForXp(xp);
-  return { placement, loadout, rank, practiceRank, bossesBeaten, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander };
+  return {
+    placement,
+    loadout,
+    rank,
+    practiceRank,
+    bossesBeaten,
+    tactical,
+    general,
+    reserves,
+    specs,
+    map,
+    enemyArmy,
+    enemyGeneral,
+    enemyCommander,
+    fight: null,
+  };
 }
 
 /** The rank your Command XP has earned. */
@@ -63,27 +81,53 @@ export function earnedRank(): RankNumber {
 }
 
 /**
- * Saves your troops, cards, Tactical mode, General and skirmish. Resolves once the file is
- * written. Your rank isn't taken from the setup: only Command XP raises it (gainXp).
+ * Saves your cards, Tactical mode and General, and in a skirmish your troops and the skirmish
+ * itself. A campaign fight's army belongs to the run, so it never replaces your skirmish army.
+ * Resolves once the file is written. Your rank isn't taken from the setup: only Command XP
+ * raises it (gainXp), and only the campaign beats bosses.
  */
 export function remember(setup: MatchSetup): Promise<void> {
+  const skirmish: Partial<Profile> =
+    setup.fight === null
+      ? {
+          placement: setup.placement.map(({ cls, x, y }) => ({ cls, x, y })),
+          practiceRank: setup.practiceRank,
+          reserves: [...setup.reserves],
+          specs: { ...setup.specs },
+          map: setup.map,
+          enemyArmy: setup.enemyArmy,
+          enemyGeneral: setup.enemyGeneral,
+          enemyCommander: setup.enemyCommander,
+        }
+      : {};
   profile = {
+    ...profile,
     version: PROFILE_VERSION,
     loadout: structuredClone(setup.loadout),
-    placement: setup.placement.map((t) => ({ ...t })),
-    xp: profile.xp,
-    bossesBeaten: [...setup.bossesBeaten],
-    practiceRank: setup.practiceRank,
     tactical: setup.tactical,
     general: setup.general,
-    codex: profile.codex,
-    reserves: [...setup.reserves],
-    specs: { ...setup.specs },
-    map: setup.map,
-    enemyArmy: setup.enemyArmy,
-    enemyGeneral: setup.enemyGeneral,
-    enemyCommander: setup.enemyCommander,
+    ...skirmish,
   };
+  return write(PROFILE_FILE, writeProfile(profile));
+}
+
+/** The campaign as saved: your run, your banked artifacts and the bosses you have beaten. */
+export function currentCampaign(): Campaign {
+  return structuredClone({ run: profile.run, artifacts: profile.artifacts, bossesBeaten: profile.bossesBeaten });
+}
+
+/** Saves the campaign after a step of a run. Resolves once the file is written. */
+export function saveCampaign(campaign: Campaign): Promise<void> {
+  profile = { ...profile, ...structuredClone(campaign) };
+  return write(PROFILE_FILE, writeProfile(profile));
+}
+
+/**
+ * Debug, on the Skirmish screen until the boss fights arrive (5D): which bosses you have beaten,
+ * in campaign order. It sets the Legendary actions you know and the regions open to you.
+ */
+export function setBossesBeaten(bosses: readonly GeneralId[]): Promise<void> {
+  profile = { ...profile, bossesBeaten: BOSS_ORDER.filter((g) => bosses.includes(g)) };
   return write(PROFILE_FILE, writeProfile(profile));
 }
 
