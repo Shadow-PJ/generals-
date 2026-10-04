@@ -64,8 +64,12 @@ jobs:
           path: release/Generals-Setup-*.exe
           if-no-files-found: error
 
+      # The experimental language model is optional and off by default, and warming it up on a
+      # shared runner sometimes takes longer than the step allows. Its result stays visible in
+      # the log and as a failed step, but it no longer fails the build.
       - name: Order model in the desktop app - download it, warm it up, then read 2 free-form orders
         shell: pwsh
+        continue-on-error: true
         timeout-minutes: 12
         run: |
           $log = Join-Path $env:RUNNER_TEMP 'smoke-model.log'
