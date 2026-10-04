@@ -16,7 +16,7 @@ import { COMBO_BONUSES, SIGNATURE_COMBOS } from '../data/combos';
 import { COMMAND_RULES } from '../data/command';
 import { MANA_TWISTS, type GeneralId } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
-import { extraStartingPips, pipRateBonus, startingMomentum } from './boons';
+import { extraMaxPips, extraStartingPips, pipRateBonus, startingMomentum } from './boons';
 import { checkCondition } from './conditions';
 import { castLegendary, legendaryReady } from './legendary';
 import { issueCard, type ComboAt } from './orders';
@@ -44,6 +44,7 @@ export function createCommand(
   boons: readonly BoonId[] = [],
 ): CommandState {
   const rules = rankRules(rank);
+  const maxPips = rules.maxPips + extraMaxPips(boons);
   const regular = [...(loadout?.slots ?? []).slice(0, LEGENDARY_SLOT), null, null, null, null].slice(0, LEGENDARY_SLOT);
   const legendaryOpen = learned.length > 0;
   const regularSlot: SlotContext = { legendarySlot: false, learned };
@@ -69,8 +70,8 @@ export function createCommand(
     side,
     rank,
     // Prepared (Strategist): every battle starts with full pips. Boons can add pips and Momentum.
-    pips: general === 'strategist' ? rules.maxPips : Math.min(COMMAND_RULES.startingPips + extraStartingPips(boons), rules.maxPips),
-    maxPips: rules.maxPips,
+    pips: general === 'strategist' ? maxPips : Math.min(COMMAND_RULES.startingPips + extraStartingPips(boons), maxPips),
+    maxPips,
     pipProgress: 0,
     momentum: Math.min(COMMAND_RULES.momentum.max, startingMomentum(boons)),
     slots,
@@ -78,6 +79,7 @@ export function createCommand(
     legendaryOpen,
     lastCard: null,
     pipRateBonus: pipRateBonus(boons),
+    maxPipBonus: extraMaxPips(boons),
   };
 }
 
@@ -128,7 +130,7 @@ function refillPips(state: BattleState, command: CommandState): void {
   if (general === 'engineer') {
     const buildUp = MANA_TWISTS.buildUp;
     const extra = Math.min(buildUp.maxExtraPips, Math.floor(state.tick / secondsToTicks(buildUp.everySeconds)));
-    command.maxPips = rankRules(command.rank).maxPips + extra;
+    command.maxPips = rankRules(command.rank).maxPips + command.maxPipBonus + extra;
   }
   const rate = general === 'hiveMother' ? MANA_TWISTS.feeding.refillRate : general === 'strategist' ? MANA_TWISTS.prepared.refillRate : 1;
   const interval = secondsToTicks(COMMAND_RULES.pipRefillSeconds);

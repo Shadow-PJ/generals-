@@ -17,6 +17,11 @@ export function skillCooldownTicks(cls: UnitClass): number {
   return secondsToTicks(skillTiming(cls).cooldownSeconds);
 }
 
+/** How long this troop waits for its skill again: its class's cooldown, cut by its perks and boons. */
+export function skillCooldownFor(unit: Unit): number {
+  return Math.round(skillCooldownTicks(unit.cls) * (1 - unit.skillHaste));
+}
+
 export function initialSkillCooldownTicks(cls: UnitClass): number {
   return secondsToTicks(skillTiming(cls).initialCooldownSeconds);
 }
@@ -72,7 +77,7 @@ export function castShove(state: BattleState, vanguard: Unit, power = 1, stunTic
     }
     dealDamage(state, vanguard.id, target, shove.damage * power * breaker.shoveDamageMultiplier, vanguard.stats.armorPierce, 'shove');
   }
-  vanguard.skillCooldown = skillCooldownTicks('vanguard');
+  vanguard.skillCooldown = skillCooldownFor(vanguard);
   state.events.push({
     tick: state.tick,
     type: 'skill',
@@ -86,7 +91,7 @@ export function castShove(state: BattleState, vanguard: Unit, power = 1, stunTic
 export function castMark(state: BattleState, ranger: Unit, target: Unit, power = 1): void {
   const mark = UNIT_CLASSES.ranger.mark;
   target.mark = { ticksLeft: secondsToTicks(mark.durationSeconds * power), damageTakenBonus: mark.damageTakenBonus };
-  ranger.skillCooldown = skillCooldownTicks('ranger');
+  ranger.skillCooldown = skillCooldownFor(ranger);
   state.events.push({ tick: state.tick, type: 'skill', unitId: ranger.id, skill: 'mark', targetIds: [target.id] });
 }
 
@@ -100,7 +105,7 @@ export function castBarrier(state: BattleState, guardian: Unit, target: Unit, po
   const size =
     guardian.spec === 'warden' ? SPEC_RULES.warden.barrierMultiplier : guardian.spec === 'mender' ? SPEC_RULES.mender.barrierMultiplier : 1;
   target.barrier = { amount: Math.round(barrier.amount * power * size), ticksLeft: secondsToTicks(barrier.durationSeconds) };
-  guardian.skillCooldown = skillCooldownTicks('guardian');
+  guardian.skillCooldown = skillCooldownFor(guardian);
   state.events.push({ tick: state.tick, type: 'skill', unitId: guardian.id, skill: 'barrier', targetIds: [target.id] });
   if (guardian.spec === 'warden') {
     const warden = SPEC_RULES.warden;

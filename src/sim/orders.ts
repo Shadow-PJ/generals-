@@ -23,7 +23,7 @@ import {
 import { isSpaceFree } from './movement';
 import { openRift, riftSpot } from './rift';
 import { castShadowstep, choosePrey } from './shadowstep';
-import { castBarrier, castMark, castShove, shoveTargets, skillCooldownTicks } from './skills';
+import { castBarrier, castMark, castShove, shoveTargets, skillCooldownFor } from './skills';
 import { spawnReserve } from './spawn';
 import { secondsToTicks } from './time';
 import type { BattleState, Side, Unit, UnitOrder } from './types';
@@ -380,7 +380,7 @@ function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks
       const spot = riftSpot(state, unit, Infinity, 1);
       unit.casting = null;
       if (spot) openRift(state, unit, spot, power);
-      unit.skillCooldown = spot ? skillCooldownTicks('invoker') : 0;
+      unit.skillCooldown = spot ? skillCooldownFor(unit) : 0;
       return;
     }
     case 'assassin': {

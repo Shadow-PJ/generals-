@@ -3,10 +3,9 @@
 
 import { ARMY_SIZE, RESERVE_COUNT, STARTER_ARMY, STARTER_ARMY_MIRRORED, type Troop, type TroopPlacement } from '../data/armies';
 import type { MapData } from '../data/maps';
-import type { Rarity } from '../data/rarity';
-import type { TroopClass, UnitClass } from '../data/units';
+import type { UnitClass } from '../data/units';
 import { placementProblem, type Side } from '../sim';
-import type { Fighter, RunState } from './types';
+import type { Fighter, FighterTraits, RunState } from './types';
 
 export type Role = 'field' | 'reserve' | 'rest';
 
@@ -88,8 +87,8 @@ export function nextRole(run: RunState, id: number, step: number): Role {
 }
 
 /** The run with a new fighter: on the field if there is room, else in reserve, else waiting. */
-export function addFighter(run: RunState, cls: TroopClass, rarity: Rarity, hp = 1): RunState {
-  const fighter: Fighter = { id: run.nextFighterId, cls, rarity, hp, spot: null };
+export function addFighter(run: RunState, traits: FighterTraits, hp = 1): RunState {
+  const fighter: Fighter = { id: run.nextFighterId, cls: traits.cls, rarity: traits.rarity, faction: traits.faction, perks: [...traits.perks], hp, spot: null };
   const field = run.field.length < ARMY_SIZE ? [...run.field, fighter.id] : run.field;
   const reserves = field === run.field && run.reserves.length < RESERVE_COUNT ? [...run.reserves, fighter.id] : run.reserves;
   return { ...run, roster: [...run.roster, fighter], nextFighterId: run.nextFighterId + 1, field, reserves };
@@ -133,7 +132,7 @@ export function reserveTroops(run: RunState): Troop[] {
 
 /** A fighter as a troop for the battle engine. */
 export function troopOf(f: Fighter): Troop {
-  return { cls: f.cls, rarity: f.rarity, hp: f.hp, fighterId: f.id };
+  return { cls: f.cls, rarity: f.rarity, hp: f.hp, faction: f.faction, perks: [...f.perks], fighterId: f.id };
 }
 
 /** The run with each fielded fighter's spot remembered from the placement you made. */

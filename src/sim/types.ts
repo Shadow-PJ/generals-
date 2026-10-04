@@ -5,6 +5,7 @@ import type { Card, LegendaryAction, Loadout, Place, Step, Target } from '../car
 import type { SignatureComboId } from '../data/combos';
 import type { Troop, TroopPlacement } from '../data/armies';
 import type { BoonId } from '../data/boons';
+import type { FactionId } from '../data/factions';
 import type { Rarity } from '../data/rarity';
 import type { GeneralId, UltimateId } from '../data/generals';
 import type { MapData, Rect } from '../data/maps';
@@ -249,6 +250,18 @@ export interface Unit {
   rarity: Rarity;
   /** The run fighter this troop is, if any; the battle doesn't use it. */
   fighterId: number | null;
+  /** Its faction, whose bonus it gets once its side has enough of the faction. */
+  faction: FactionId | null;
+  /** Share of the damage its attacks deal that it heals (perks and boons; Bloodbound adds more). */
+  lifesteal: number;
+  /** How much sooner its skill comes back (perks and boons): 0.25 = a quarter sooner. */
+  skillHaste: number;
+  /** Forgeborn: armor its attacks have added so far. */
+  forgeArmor: number;
+  /** Voidweavers: hits taken from attacks so far. */
+  hitsTaken: number;
+  /** Resonance: attacks made so far. */
+  attacksMade: number;
 }
 
 export interface SlotState {
@@ -299,6 +312,8 @@ export interface CommandState {
   lastCard: { card: Card; triggerEnemyId: number | null; triggerAllyId: number | null } | null;
   /** Boons: pips refill this much faster (0.25 = 25%). */
   pipRateBonus: number;
+  /** Boons: pips you can hold beyond your rank's. */
+  maxPipBonus: number;
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out, unless it is unbreakable. */
@@ -401,6 +416,8 @@ export type BattleEvent =
   /** A signature combo landed: inside one card, or across two cards of a chain. */
   | { tick: number; type: 'combo'; side: Side; combo: SignatureComboId; acrossCards: boolean }
   | { tick: number; type: 'reserveCalled'; side: Side; unitId: number }
+  /** Voidweavers: the troop phased out of a hit and took no damage. */
+  | { tick: number; type: 'phased'; unitId: number; sourceId: number }
   /** A Legendary action: the troops it acted on, and where a Fortify wall rose (`wallId`, its middle `at`). */
   | { tick: number; type: 'legendary'; side: Side; action: LegendaryAction; unitIds: number[]; wallId?: number; at?: Point }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
@@ -450,6 +467,8 @@ export interface BattleState {
   reserves: Record<Side, Troop[]>;
   /** Each side's boons. */
   boons: Record<Side, BoonId[]>;
+  /** How many fighters of each faction each side counts (troops, reserves and faction boons). */
+  factions: Record<Side, Partial<Record<FactionId, number>>>;
   tactical: boolean;
   /** Every input applied, in order: with the setup, this replays the battle exactly. */
   inputLog: BattleInput[];

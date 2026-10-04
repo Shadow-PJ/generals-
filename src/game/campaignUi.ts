@@ -4,6 +4,7 @@
 import type Phaser from 'phaser';
 import type { RunState } from '../campaign/types';
 import { BOONS, type BoonId } from '../data/boons';
+import type { FactionId } from '../data/factions';
 import type { Rarity } from '../data/rarity';
 import { UNIT_CLASSES, type UnitClass } from '../data/units';
 import type { Side } from '../sim';
@@ -12,12 +13,32 @@ import { COLORS } from './theme';
 
 type Graphics = Phaser.GameObjects.Graphics;
 
-/** A fighter as a small icon: its body, its rarity ring and, when hurt, its HP. Enemy troops face left, in red. */
-export function drawFighter(g: Graphics, cls: UnitClass, rarity: Rarity, x: number, y: number, hp = 1, alpha = 1, side: Side = 'player'): void {
+/**
+ * A fighter as a small icon: its body, its rarity ring, a dot in its faction's color and, when
+ * hurt, its HP. Enemy troops face left, in red.
+ */
+export function drawFighter(
+  g: Graphics,
+  cls: UnitClass,
+  rarity: Rarity,
+  x: number,
+  y: number,
+  hp = 1,
+  alpha = 1,
+  side: Side = 'player',
+  faction: FactionId | null = null,
+): void {
   const r = UNIT_CLASSES[cls].stats.radius * 0.8;
   drawBody(g, cls, side, x, y, r, x + (side === 'player' ? 100 : -100), y, { alpha });
   drawRarity(g, x, y, r, rarity, alpha);
+  if (faction) drawFactionDot(g, faction, x + r + 2, y - r - 2, alpha);
   if (hp < 1) drawBar(g, x, y + r + 7, 22, hp);
+}
+
+/** A small dot in a faction's color. */
+export function drawFactionDot(g: Graphics, faction: FactionId, x: number, y: number, alpha = 1): void {
+  g.fillStyle(COLORS.faction[faction], alpha).fillCircle(x, y, 4);
+  g.lineStyle(1, 0x0b0f16, alpha).strokeCircle(x, y, 4);
 }
 
 /** A boon as a small icon: a badge in its rarity's color with a plus. */

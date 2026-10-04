@@ -95,10 +95,27 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(3);
-    expect(profileVersion(writeProfile(saved()))).toBe(3);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(4);
+    expect(profileVersion(writeProfile(saved()))).toBe(4);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
+  });
+
+  it('loads a version 3 save: run fighters, and fighters on offer, join no faction and have no perks', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 3;
+    const strip = (f: Record<string, unknown>) => {
+      delete f.faction;
+      delete f.perks;
+    };
+    data.run.roster.forEach(strip);
+    for (const o of data.run.stop.offers) if (o.kind === 'fighter') strip(o);
+    const profile = readProfile(JSON.stringify(data));
+    expect(profile.run).not.toBeNull();
+    expect(profile.run!.roster.every((f) => f.faction === null && f.perks.length === 0)).toBe(true);
+    const offers = profile.run!.stop?.kind === 'spoils' ? profile.run!.stop.offers : [];
+    expect(offers).toHaveLength(3);
+    for (const o of offers) if (o.kind === 'fighter') expect(o).toMatchObject({ faction: null, perks: [] });
   });
 
   it('loads a version 2 save: no run yet, and nothing banked', () => {

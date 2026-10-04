@@ -1,27 +1,37 @@
 // Words for the campaign's screens: fighters, offers and node kinds.
 
 import { BOONS } from '../data/boons';
+import { FACTIONS, type FactionId } from '../data/factions';
+import { PERKS, type PerkId } from '../data/perks';
 import { RARITY_RULES, type Rarity } from '../data/rarity';
 import type { NodeKind } from '../data/runs';
 import { TROOP_NAMES, type TroopClass } from '../data/units';
 import type { Offer } from './types';
 
-/** "Rare Ranger"; a Common fighter is just "Ranger". */
-export function fighterLabel(cls: TroopClass, rarity: Rarity): string {
-  const name = TROOP_NAMES[cls].one;
-  return rarity === 'common' ? name : `${RARITY_RULES[rarity].name} ${name}`;
+/** "Rare Hive Ranger"; a Common fighter of no faction is just "Ranger". */
+export function fighterLabel(cls: TroopClass, rarity: Rarity, faction: FactionId | null = null): string {
+  const parts = [rarity === 'common' ? '' : RARITY_RULES[rarity].name, faction ? FACTIONS[faction].name : '', TROOP_NAMES[cls].one];
+  return parts.filter((p) => p !== '').join(' ');
 }
 
-/** The offer's name: "Epic Vanguard", "Supply Lines". */
+/** "Tough (15% more HP), Leech (heals 10% of the damage its attacks deal)", or '' for none. */
+export function perksText(perks: readonly PerkId[]): string {
+  return perks.map((p) => `${PERKS[p].name} (${PERKS[p].text})`).join(', ');
+}
+
+/** The offer's name: "Epic Bloodbound Vanguard", "Supply Lines". */
 export function offerLabel(offer: Offer): string {
-  return offer.kind === 'fighter' ? fighterLabel(offer.cls, offer.rarity) : BOONS[offer.boon].name;
+  return offer.kind === 'fighter' ? fighterLabel(offer.cls, offer.rarity, offer.faction) : BOONS[offer.boon].name;
 }
 
-/** What the offer gives, in a line: "Epic fighter: joins your army with 20% more HP and damage." */
+/** What the offer gives, in a line: "Epic fighter, 20% more HP and damage. Fierce (12% more damage)." */
 export function offerText(offer: Offer): string {
   if (offer.kind === 'boon') return `${RARITY_RULES[BOONS[offer.boon].rarity].name} boon for the run: ${BOONS[offer.boon].text}.`;
   const bonus = RARITY_RULES[offer.rarity].statBonus;
-  return `${RARITY_RULES[offer.rarity].name} fighter: joins your army${bonus > 0 ? ` with ${Math.round(bonus * 100)}% more HP and damage` : ''}.`;
+  const parts = [`${RARITY_RULES[offer.rarity].name} fighter${bonus > 0 ? `, ${Math.round(bonus * 100)}% more HP and damage` : ''}`];
+  if (offer.perks.length > 0) parts.push(perksText(offer.perks));
+  if (!offer.faction) parts.push('No faction');
+  return `${parts.join('. ')}.`;
 }
 
 export const NODE_NAMES: Readonly<Record<NodeKind, string>> = {

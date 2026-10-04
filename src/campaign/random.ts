@@ -27,9 +27,9 @@ export function weighted<K extends string>(rng: RngState, weights: Readonly<Reco
   return keys[keys.length - 1]!;
 }
 
-/** A rarity, with the chances in RARITY_RULES. */
-export function rollRarity(rng: RngState): Rarity {
-  const weights = Object.fromEntries(RARITIES.map((r) => [r, RARITY_RULES[r].chance])) as Record<Rarity, number>;
+/** A rarity, with these chances (the starting ones in RARITY_RULES when left out). */
+export function rollRarity(rng: RngState, chances?: Readonly<Record<Rarity, number>>): Rarity {
+  const weights = chances ?? (Object.fromEntries(RARITIES.map((r) => [r, RARITY_RULES[r].chance])) as Record<Rarity, number>);
   return weighted(rng, weights);
 }
 

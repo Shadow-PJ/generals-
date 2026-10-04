@@ -4,7 +4,8 @@
 
 import Phaser from 'phaser';
 import { fighterById, nextRole, roleOf, withRole, type Role } from '../../campaign/army';
-import { fighterLabel, NODE_NAMES } from '../../campaign/describe';
+import { fighterLabel, NODE_NAMES, perksText } from '../../campaign/describe';
+import { FACTION_IDS, FACTION_TIERS, FACTIONS, factionText, factionTier } from '../../data/factions';
 import { currentFight } from '../../campaign/run';
 import type { RunState } from '../../campaign/types';
 import { BOONS } from '../../data/boons';
@@ -13,7 +14,7 @@ import { MAPS } from '../../data/maps';
 import { rankRules } from '../../data/ranks';
 import { RARITIES, RARITY_RULES } from '../../data/rarity';
 import { SYNERGIES } from '../../data/synergies';
-import { activeSynergies } from '../../sim';
+import { activeSynergies, factionCounts } from '../../sim';
 import { fightSetup } from '../campaignFlow';
 import { drawBar } from '../draw';
 import { drawFighter } from '../campaignUi';
@@ -27,7 +28,7 @@ const LIST_X = 16;
 const LIST_W = 580;
 const LIST_Y = TOP_BAR_HEIGHT + 34;
 const ROW_H = 30;
-const VISIBLE_ROWS = 17;
+const VISIBLE_ROWS = 15;
 const PANEL_X = LIST_X + LIST_W + 20;
 const PANEL_W = GAME_WIDTH - PANEL_X - 16;
 
@@ -118,18 +119,30 @@ export class ArmyScene extends Phaser.Scene {
         this.change(1);
       });
       this.ui.add(box);
-      drawFighter(g, f.cls, f.rarity, LIST_X + 22, y + (ROW_H - 4) / 2, 1, role === 'rest' ? 0.5 : 1);
-      this.ui.add(this.add.text(LIST_X + 46, y + 5, fighterLabel(f.cls, f.rarity), textStyle(13, TEXT.rarity[f.rarity], true)));
-      drawBar(g, LIST_X + 270, y + 11, 90, f.hp);
-      this.ui.add(this.add.text(LIST_X + 322, y + 5, `${Math.round(f.hp * 100)}% HP`, textStyle(12, f.hp < 0.5 ? TEXT.defeat : TEXT.body)));
-      this.ui.add(this.add.text(LIST_X + 400, y + 5, `◀  ${ROLE_NAMES[role]}  ▶`, textStyle(13, ROLE_COLORS[role], true)));
+      drawFighter(g, f.cls, f.rarity, LIST_X + 22, y + (ROW_H - 4) / 2, 1, role === 'rest' ? 0.5 : 1, 'player', f.faction);
+      this.ui.add(this.add.text(LIST_X + 46, y + 5, fighterLabel(f.cls, f.rarity, f.faction), textStyle(13, TEXT.rarity[f.rarity], true)));
+      drawBar(g, LIST_X + 330, y + 11, 50, f.hp);
+      this.ui.add(this.add.text(LIST_X + 362, y + 5, `${Math.round(f.hp * 100)}%`, textStyle(12, f.hp < 0.5 ? TEXT.defeat : TEXT.body)));
+      this.ui.add(this.add.text(LIST_X + 410, y + 5, `◀  ${ROLE_NAMES[role]}  ▶`, textStyle(13, ROLE_COLORS[role], true)));
     });
     if (run.roster.length > VISIBLE_ROWS) {
       this.ui.add(this.add.text(LIST_X, LIST_Y + VISIBLE_ROWS * ROW_H, `${first + 1}–${Math.min(run.roster.length, first + VISIBLE_ROWS)} of ${run.roster.length}`, textStyle(11, TEXT.muted)));
     }
+    this.renderChosen(run);
     this.renderPanel(run, g);
     // The icons go over the rows.
     this.ui.bringToTop(g);
+  }
+
+  /** The chosen fighter's perks and faction, under the list. */
+  private renderChosen(run: RunState): void {
+    const f = run.roster[this.selected];
+    if (!f) return;
+    const lines = [
+      `${fighterLabel(f.cls, f.rarity, f.faction)}${f.perks.length > 0 ? ` · ${perksText(f.perks)}` : ' · no perks'}`,
+      f.faction ? `${FACTIONS[f.faction].name}: ${factionText(f.faction, 1)} (with 2), more with 4 and 6.` : 'No faction: counts toward no faction bonus.',
+    ];
+    this.ui.add(this.add.text(LIST_X, GAME_HEIGHT - 66, lines.join('\n'), { ...textStyle(12, TEXT.body), wordWrap: { width: LIST_W }, lineSpacing: 4 }));
   }
 
   /** The enemy you face, and what your chosen army switches on. */
@@ -159,8 +172,25 @@ export class ArmyScene extends Phaser.Scene {
     const synergies = activeSynergies(classes, savedSetup().specs).map((id) => SYNERGIES.find((s) => s.id === id)!.name);
     add('SYNERGIES YOUR ARMY SWITCHES ON', 12, TEXT.muted, true, 2);
     add(synergies.length > 0 ? synergies.join(', ') : 'None', 13, TEXT.combo, false, 10);
+
+    // Factions: fighters on the field and in reserve, plus faction boons.
+    const army = [...run.field, ...run.reserves].flatMap((id) => {
+      const f = fighterById(run, id);
+      return f ? [{ cls: f.cls, faction: f.faction }] : [];
+    });
+    const counts = factionCounts(army, run.boons);
+    const present = FACTION_IDS.filter((f) => (counts[f] ?? 0) > 0);
+    add('FACTIONS IN THIS ARMY (2, 4 and 6 switch bonuses on)', 12, TEXT.muted, true, 2);
+    if (present.length === 0) add('None yet: pick fighters of one faction to build a bonus.', 12, TEXT.muted, false, 10);
+    for (const f of present) {
+      const n = counts[f]!;
+      const tier = factionTier(n);
+      const next = FACTION_TIERS.find((t) => t > n);
+      const text = tier > 0 ? factionText(f, tier) : 'off';
+      add(`${FACTIONS[f].name} ${n}: ${text}${next ? ` (more at ${next})` : ''}`, 12, tier > 0 ? TEXT.faction[f] : TEXT.muted, tier > 0, 3);
+    }
+    y += 6;
     add('BOONS FOR THIS RUN', 12, TEXT.muted, true, 2);
-    add(run.boons.length > 0 ? run.boons.map((b) => `${BOONS[b].name}: ${BOONS[b].text}`).join('\n') : 'None yet', 12, TEXT.body, false, 10);
-    if (y < GAME_HEIGHT - 60) add('Wounds carry from fight to fight. A fighter who falls in a won fight gets back up at 25% HP.', 12, TEXT.muted);
+    add(run.boons.length > 0 ? run.boons.map((b) => BOONS[b].name).join(', ') : 'None yet', 12, TEXT.body, false, 10);
   }
 }

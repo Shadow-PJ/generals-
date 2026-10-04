@@ -193,7 +193,7 @@ export class RunScene extends Phaser.Scene {
     run.roster.slice(0, 15).forEach((f, i) => {
       const x = 30 + i * 36;
       const resting = !run.field.includes(f.id) && !run.reserves.includes(f.id);
-      drawFighter(g, f.cls, f.rarity, x, y + 36, f.hp, resting ? 0.45 : 1);
+      drawFighter(g, f.cls, f.rarity, x, y + 36, f.hp, resting ? 0.45 : 1, 'player', f.faction);
     });
     if (run.roster.length > 15) this.ui.add(this.add.text(30 + 15 * 36, y + 28, `+${run.roster.length - 15}`, textStyle(12, TEXT.muted)));
 

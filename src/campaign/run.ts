@@ -4,8 +4,10 @@
 // generator, so a run is the same for the same seed and the same choices.
 
 import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
+import { boonGold } from '../data/boons';
 import { EVENT_IDS, EVENTS } from '../data/events';
 import { BOSS_ORDER, learnedActions } from '../data/legendary';
+import { rarityChances } from '../data/rarity';
 import { openRegions, REGIONS, type RegionId } from '../data/regions';
 import { RUN_RULES } from '../data/runs';
 import { createRng, nextInt, type RngState } from '../sim';
@@ -57,7 +59,7 @@ export function newRun(campaign: Campaign, region: RegionId, seed: number): Camp
     fightsWon: 0,
     xp: 0,
   };
-  for (const t of [...STARTER_ARMY, ...STARTER_RESERVES.map((cls) => ({ cls }))]) run = addFighter(run, t.cls, 'common');
+  for (const t of [...STARTER_ARMY, ...STARTER_RESERVES.map((cls) => ({ cls }))]) run = addFighter(run, { cls: t.cls, rarity: 'common', faction: null, perks: [] });
   // The starter troops stand where the starter army does.
   run = { ...run, roster: run.roster.map((f, i) => (STARTER_ARMY[i] ? { ...f, spot: { x: STARTER_ARMY[i].x, y: STARTER_ARMY[i].y } } : f)) };
   return { ...campaign, run: { ...run, rng: { ...rng } } };
@@ -104,7 +106,7 @@ export function enterNode(campaign: Campaign, index: number): Campaign {
         return { ...moved, eventsSeen: [...moved.eventsSeen, event], stop: { kind: 'event', event, chosen: null, outcome: [] } };
       }
       case 'merchant':
-        return { ...moved, stop: { kind: 'merchant', stock: rollStock(rng, moved, campaign.bossesBeaten), rerolls: 0 } };
+        return { ...moved, stop: { kind: 'merchant', stock: rollStock(rng, moved, campaign.bossesBeaten, rarityChances(floor)), rerolls: 0 } };
     }
   });
   return { ...campaign, run: next };
@@ -145,9 +147,12 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
   const floor = run.path.length - 1;
   const next = rolling(healed, (rng) => {
     const rules = RUN_RULES.gold;
-    const gold = (encounter.kind === 'elite' ? rules.elite : rules.battle) + rules.perFloor * floor + nextInt(rng, rules.spread + 1);
+    // Plunder (a boon) adds to every won fight's gold.
+    const gold =
+      (encounter.kind === 'elite' ? rules.elite : rules.battle) + rules.perFloor * floor + nextInt(rng, rules.spread + 1) + boonGold(healed.boons);
     const artifact = encounter.kind === 'elite' ? newArtifact(rng, healed, campaign.artifacts) : null;
-    const offers = rollOffers(rng, healed, campaign.bossesBeaten);
+    // Deeper in the run, and after an elite fight, the offers are rarer.
+    const offers = rollOffers(rng, healed, campaign.bossesBeaten, rarityChances(floor, encounter.kind === 'elite'));
     return {
       ...healed,
       gold: healed.gold + gold,
@@ -230,7 +235,8 @@ export function reroll(campaign: Campaign): Campaign {
   if (problem) throw new Error(problem);
   const stop = merchantStop(run);
   const paid: RunState = { ...run, gold: run.gold - merchantPrices(run).reroll };
-  const next = rolling(paid, (rng) => ({ ...paid, stop: { ...stop, stock: rollStock(rng, paid, campaign.bossesBeaten), rerolls: stop.rerolls + 1 } }));
+  const stock = (rng: RngState) => rollStock(rng, paid, campaign.bossesBeaten, rarityChances(paid.path.length - 1));
+  const next = rolling(paid, (rng) => ({ ...paid, stop: { ...stop, stock: stock(rng), rerolls: stop.rerolls + 1 } }));
   return { ...campaign, run: next };
 }
 

@@ -14,6 +14,7 @@ import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES } from '../../data/units';
 import { placementProblem } from '../../sim';
+import { drawFactionDot } from '../campaignUi';
 import { CLASS_LEGEND, drawBar, drawBody, drawField, drawRarity, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
@@ -113,7 +114,9 @@ export class PrepScene extends Phaser.Scene {
       drawBody(reserves, t.cls, 'player', x, BOTTOM_BAR_Y + 24, r, x + 100, BOTTOM_BAR_Y + 24);
       drawRarity(reserves, x, BOTTOM_BAR_Y + 24, r, t.rarity ?? 'common');
       if (t.hp !== undefined && t.hp < 1) drawBar(reserves, x, BOTTOM_BAR_Y + 4, 22, t.hp);
-      this.add.text(x + 22, BOTTOM_BAR_Y + 16, fighterLabel(t.cls, t.rarity ?? 'common'), textStyle(12, TEXT.rarity[t.rarity ?? 'common']));
+      if (t.faction) drawFactionDot(reserves, t.faction, x + r + 2, BOTTOM_BAR_Y + 24 - r - 2);
+      // The class only, in its rarity's color: the full name would crowd the bar.
+      this.add.text(x + 22, BOTTOM_BAR_Y + 16, UNIT_CLASSES[t.cls].name, textStyle(12, TEXT.rarity[t.rarity ?? 'common']));
     });
     this.add.text(
       16,
@@ -222,6 +225,7 @@ export class PrepScene extends Phaser.Scene {
       const dragged = this.drag?.index === i;
       drawBody(g, t.cls, 'player', t.x, t.y, r, t.x + 100, t.y, { alpha: dragged ? 0.35 : 1 });
       drawRarity(g, t.x, t.y, r, t.rarity ?? 'common', dragged ? 0.35 : 1);
+      if (t.faction) drawFactionDot(g, t.faction, t.x + r + 2, t.y - r - 2, dragged ? 0.35 : 1);
       // A run fighter still hurt from an earlier fight shows how much HP it has.
       if (t.hp !== undefined && t.hp < 1 && !dragged) drawBar(g, t.x, t.y + r + 6, 24, t.hp);
       if (i === this.selected && !dragged) g.lineStyle(2, COLORS.selected, 0.9).strokeCircle(t.x, t.y, r + 8);
@@ -240,7 +244,7 @@ export class PrepScene extends Phaser.Scene {
     }
     const r = UNIT_CLASSES[selected.cls].stats.radius;
     const hp = selected.hp !== undefined && selected.hp < 1 ? ` · ${Math.round(selected.hp * 100)}% HP` : '';
-    this.label.setText(`${fighterLabel(selected.cls, selected.rarity ?? 'common')}${hp}`).setPosition(labelX, labelY - r - 9);
+    this.label.setText(`${fighterLabel(selected.cls, selected.rarity ?? 'common', selected.faction ?? null)}${hp}`).setPosition(labelX, labelY - r - 9);
   }
 
   private toOrders(): void {

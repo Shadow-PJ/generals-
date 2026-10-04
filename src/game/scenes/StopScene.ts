@@ -22,6 +22,7 @@ import {
 import type { Campaign, Offer, RunState, Stop } from '../../campaign/types';
 import { ARTIFACTS } from '../../data/artifacts';
 import { EVENTS } from '../../data/events';
+import { FACTIONS } from '../../data/factions';
 import { GENERALS } from '../../data/generals';
 import { LEGENDARY_ACTION_DATA } from '../../data/legendary';
 import { REGIONS } from '../../data/regions';
@@ -58,6 +59,14 @@ interface View {
   options: Option[];
   /** What Esc does, if anything. */
   leave?: () => void;
+}
+
+/** What an offer gives, and for a fighter of a faction how many of it your run has already. */
+function offerDetail(run: RunState, offer: Offer): string {
+  const text = offerText(offer);
+  if (offer.kind !== 'fighter' || !offer.faction) return text;
+  const have = run.roster.filter((f) => f.faction === offer.faction).length;
+  return `${text} ${FACTIONS[offer.faction].name} in your run: ${have}.`;
 }
 
 export class StopScene extends Phaser.Scene {
@@ -155,7 +164,7 @@ export class StopScene extends Phaser.Scene {
         ...stop.offers.map((offer, i) => ({
           label: offerLabel(offer),
           labelColor: TEXT.rarity[offerRarity(offer)],
-          detail: offerText(offer),
+          detail: offerDetail(run, offer),
           icon: offer,
           problem: null,
           act: () => this.step(pickSpoils(campaign, i), 'Run'),
@@ -210,7 +219,7 @@ export class StopScene extends Phaser.Scene {
           return {
             label: offerLabel(item.offer),
             labelColor: TEXT.rarity[offerRarity(item.offer)],
-            detail: offerText(item.offer),
+            detail: offerDetail(run, item.offer),
             note: item.sold ? 'Sold' : `${item.price} gold`,
             icon: item.offer,
             problem,
@@ -313,21 +322,23 @@ export class StopScene extends Phaser.Scene {
     y += 10;
     view.options.forEach((option, i) => {
       const on = i === this.selected;
-      const box = this.add.rectangle(ROW_X, y, ROW_W, ROW_H, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
+      const dim = option.problem ? 0.45 : 1;
+      const textX = ROW_X + (option.icon ? 52 : 16);
+      // The detail wraps, leaving room for the price; a long one makes its row taller.
+      const label = this.add.text(textX, y + 6, option.label, textStyle(15, option.labelColor ?? TEXT.title, true)).setAlpha(dim);
+      const detail = this.add.text(textX, y + 27, option.detail, { ...textStyle(12, TEXT.body), wordWrap: { width: ROW_X + ROW_W - 110 - textX } }).setAlpha(dim);
+      const h = Math.max(ROW_H, detail.height + 34);
+      const box = this.add.rectangle(ROW_X, y, ROW_W, h, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
       box.setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : COLORS.rowEdge).setInteractive({ useHandCursor: !option.problem });
       box.on('pointerdown', () => (this.selected === i ? this.take(i) : ((this.selected = i), this.render())));
-      this.ui.add(box);
-      const dim = option.problem ? 0.45 : 1;
-      if (option.icon?.kind === 'fighter') drawFighter(g, option.icon.cls, option.icon.rarity, ROW_X + 26, y + ROW_H / 2, 1, dim);
-      else if (option.icon?.kind === 'boon') drawBoon(g, option.icon.boon, ROW_X + 26, y + ROW_H / 2);
-      const textX = ROW_X + (option.icon ? 52 : 16);
-      this.ui.add(this.add.text(textX, y + 6, option.label, textStyle(15, option.labelColor ?? TEXT.title, true)).setAlpha(dim));
-      this.ui.add(this.add.text(textX, y + 27, option.detail, textStyle(12, TEXT.body)).setAlpha(dim));
+      this.ui.add([box, label, detail]);
+      if (option.icon?.kind === 'fighter') drawFighter(g, option.icon.cls, option.icon.rarity, ROW_X + 26, y + h / 2, 1, dim, 'player', option.icon.faction);
+      else if (option.icon?.kind === 'boon') drawBoon(g, option.icon.boon, ROW_X + 26, y + h / 2);
       if (option.note) {
         const color = option.problem ? TEXT.defeat : TEXT.gold;
-        this.ui.add(this.add.text(ROW_X + ROW_W - 14, y + ROW_H / 2, option.note, textStyle(13, color, true)).setOrigin(1, 0.5));
+        this.ui.add(this.add.text(ROW_X + ROW_W - 14, y + h / 2, option.note, textStyle(13, color, true)).setOrigin(1, 0.5));
       }
-      y += ROW_H + ROW_GAP;
+      y += h + ROW_GAP;
     });
     // The icons go over the option rows.
     this.ui.bringToTop(g);

@@ -17,6 +17,7 @@ export {
 } from './command';
 export { TICKS_PER_SECOND, formatBattleTime, secondsToTicks, ticksToSeconds } from './time';
 export { activeSynergies } from './synergies';
+export { factionCounts } from './factions';
 export { hiddenFromSide } from './queries';
 export { ultimateOf } from './ultimates';
 export { otherSide, SIDES } from './types';
