@@ -80,6 +80,8 @@ export function createCommand(
     lastCard: null,
     pipRateBonus: pipRateBonus(boons),
     maxPipBonus: extraMaxPips(boons),
+    ultimateWasReady: false,
+    pipsWereFull: false,
   };
 }
 
@@ -111,7 +113,18 @@ export function updateCommand(state: BattleState): void {
       if (shouldAutoFire(state, command, slot)) fireSlot(state, command, i, true);
     });
     if (command !== state.command && ultimateReady(state, command)) fireUltimate(state, command);
+    logReadiness(state, command);
   }
+}
+
+/** For Battle IQ: the moments the ultimate became ready and the pips filled up go in the event log. */
+function logReadiness(state: BattleState, command: CommandState): void {
+  const ready = ultimateReady(state, command);
+  if (ready && !command.ultimateWasReady) state.events.push({ tick: state.tick, type: 'ultimateReady', side: command.side });
+  command.ultimateWasReady = ready;
+  const full = command.pips >= command.maxPips;
+  if (full && !command.pipsWereFull) state.events.push({ tick: state.tick, type: 'pipsFull', side: command.side });
+  command.pipsWereFull = full;
 }
 
 /** True once the side has lost its share of troops for the comeback rule. */

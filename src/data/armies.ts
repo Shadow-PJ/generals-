@@ -2,6 +2,7 @@
 
 import type { UnitClass } from './units';
 import { OPEN_FIELD } from './maps';
+import type { ArtifactId } from './artifacts';
 import type { FactionId } from './factions';
 import type { PerkId } from './perks';
 import type { Rarity } from './rarity';
@@ -21,6 +22,8 @@ export interface Troop {
   fighterId?: number;
   /** A turret (the Engineer's boss fight): it never moves, with a turret's stats. */
   turret?: boolean;
+  /** The artifact it carries (session 5E), if any. */
+  artifact?: ArtifactId;
 }
 
 export interface TroopPlacement extends Troop {

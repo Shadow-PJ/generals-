@@ -6,6 +6,7 @@ import type { SignatureComboId } from '../data/combos';
 import type { Troop, TroopPlacement } from '../data/armies';
 import type { BoonId } from '../data/boons';
 import type { BossId } from '../data/bosses';
+import type { TechChoice } from '../data/tech';
 import type { FactionId } from '../data/factions';
 import type { Rarity } from '../data/rarity';
 import type { GeneralId, UltimateId } from '../data/generals';
@@ -53,6 +54,8 @@ export interface BattleSetup {
   boons?: { player?: BoonId[]; enemy?: BoonId[] };
   /** A boss fight (session 5D): the enemy is this ruler, with their boss rule. None when left out. */
   boss?: BossId;
+  /** Each side's Tech Web nodes by class (session 5E), on top of its specializations. None when left out. */
+  tech?: { player?: TechChoice; enemy?: TechChoice };
 }
 
 /** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
@@ -271,6 +274,8 @@ export interface Unit {
   bossPhases: number;
   /** Warlord boss: its rage at its army's losses, stacking, for a while. */
   rage: { stacks: number; ticksLeft: number } | null;
+  /** A Phoenix Feather (session 5E): the share of max HP it gets back up with once, instead of falling; 0 when used or none. */
+  reviveHp: number;
 }
 
 export interface SlotState {
@@ -323,6 +328,9 @@ export interface CommandState {
   pipRateBonus: number;
   /** Boons: pips you can hold beyond your rank's. */
   maxPipBonus: number;
+  /** For the event log (Battle IQ): the ultimate was ready, and the pips full, at the end of the last tick. */
+  ultimateWasReady: boolean;
+  pipsWereFull: boolean;
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out, unless it is unbreakable. */
@@ -431,6 +439,12 @@ export type BattleEvent =
   | { tick: number; type: 'stolen'; side: Side; victimId: number; trait: UnitClass }
   /** Warlord boss: a fallen troop sent his army into a rage, now this many stacks deep. */
   | { tick: number; type: 'enraged'; side: Side; stacks: number }
+  /** A Phoenix Feather: the troop got back up instead of falling. */
+  | { tick: number; type: 'revived'; unitId: number }
+  /** The side's ultimate became ready to fire (Momentum full, with something to work on). */
+  | { tick: number; type: 'ultimateReady'; side: Side }
+  /** The side's pips filled up: refills are wasted until a card spends them. */
+  | { tick: number; type: 'pipsFull'; side: Side }
   /** A Legendary action: the troops it acted on, and where a Fortify wall rose (`wallId`, its middle `at`). */
   | { tick: number; type: 'legendary'; side: Side; action: LegendaryAction; unitIds: number[]; wallId?: number; at?: Point }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
@@ -484,6 +498,8 @@ export interface BattleState {
   factions: Record<Side, Partial<Record<FactionId, number>>>;
   /** The ruler the enemy is, in a boss fight. */
   boss: BossId | null;
+  /** Each side's Tech Web nodes by class, for its troops and reserves. */
+  tech: Record<Side, TechChoice>;
   tactical: boolean;
   /** Every input applied, in order: with the setup, this replays the battle exactly. */
   inputLog: BattleInput[];

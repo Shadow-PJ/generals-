@@ -4,7 +4,8 @@
 
 import Phaser from 'phaser';
 import { fighterById, nextRole, roleOf, withRole, type Role } from '../../campaign/army';
-import { fighterLabel, NODE_NAMES, perksText } from '../../campaign/describe';
+import { fighterLabel, NODE_NAMES, perksText, recordText } from '../../campaign/describe';
+import { ARTIFACTS } from '../../data/artifacts';
 import { FACTION_IDS, FACTION_TIERS, FACTIONS, factionText, factionTier } from '../../data/factions';
 import { currentFight } from '../../campaign/run';
 import type { RunState } from '../../campaign/types';
@@ -95,7 +96,7 @@ export class ArmyScene extends Phaser.Scene {
   }
 
   private toPrep(): void {
-    const setup = fightSetup(savedSetup(), this.run(), earnedRank());
+    const setup = fightSetup(savedSetup(), this.run(), earnedRank(), currentCampaign().tech);
     if (setup) this.scene.start('Prep', setup);
   }
 
@@ -121,10 +122,14 @@ export class ArmyScene extends Phaser.Scene {
       });
       this.ui.add(box);
       drawFighter(g, f.cls, f.rarity, LIST_X + 22, y + (ROW_H - 4) / 2, 1, role === 'rest' ? 0.5 : 1, 'player', f.faction);
-      this.ui.add(this.add.text(LIST_X + 46, y + 5, fighterLabel(f.cls, f.rarity, f.faction), textStyle(13, TEXT.rarity[f.rarity], true)));
+      const name = this.add.text(LIST_X + 46, y + 5, f.name, textStyle(13, TEXT.title, true));
+      this.ui.add(name);
+      this.ui.add(this.add.text(name.x + name.width + 8, y + 6, fighterLabel(f.cls, f.rarity, f.faction), textStyle(12, TEXT.rarity[f.rarity], true)));
       drawBar(g, LIST_X + 330, y + 11, 50, f.hp);
       this.ui.add(this.add.text(LIST_X + 362, y + 5, `${Math.round(f.hp * 100)}%`, textStyle(12, f.hp < 0.5 ? TEXT.defeat : TEXT.body)));
-      this.ui.add(this.add.text(LIST_X + 410, y + 5, `◀  ${ROLE_NAMES[role]}  ▶`, textStyle(13, ROLE_COLORS[role], true)));
+      // A fighter who fell last fight sits this one out.
+      const roleText = f.wounded ? 'Wounded: sits out' : `◀  ${ROLE_NAMES[role]}  ▶`;
+      this.ui.add(this.add.text(LIST_X + 410, y + 5, roleText, textStyle(13, f.wounded ? TEXT.defeat : ROLE_COLORS[role], true)));
     });
     if (run.roster.length > VISIBLE_ROWS) {
       this.ui.add(this.add.text(LIST_X, LIST_Y + VISIBLE_ROWS * ROW_H, `${first + 1}–${Math.min(run.roster.length, first + VISIBLE_ROWS)} of ${run.roster.length}`, textStyle(11, TEXT.muted)));
@@ -135,15 +140,17 @@ export class ArmyScene extends Phaser.Scene {
     this.ui.bringToTop(g);
   }
 
-  /** The chosen fighter's perks and faction, under the list. */
+  /** The chosen fighter: record, artifact, perks and faction, under the list. */
   private renderChosen(run: RunState): void {
     const f = run.roster[this.selected];
     if (!f) return;
+    const who = f.veteranId !== null ? 'of your company' : 'joined this run';
     const lines = [
+      `${f.name}, ${recordText(f.record)} · ${who}${f.artifact ? ` · carries ${ARTIFACTS[f.artifact].name}` : ''}`,
       `${fighterLabel(f.cls, f.rarity, f.faction)}${f.perks.length > 0 ? ` · ${perksText(f.perks)}` : ' · no perks'}`,
       f.faction ? `${FACTIONS[f.faction].name}: ${factionText(f.faction, 1)} (with 2), more with 4 and 6.` : 'No faction: counts toward no faction bonus.',
     ];
-    this.ui.add(this.add.text(LIST_X, GAME_HEIGHT - 66, lines.join('\n'), { ...textStyle(12, TEXT.body), wordWrap: { width: LIST_W }, lineSpacing: 4 }));
+    this.ui.add(this.add.text(LIST_X, GAME_HEIGHT - 86, lines.join('\n'), { ...textStyle(12, TEXT.body), wordWrap: { width: LIST_W }, lineSpacing: 4 }));
   }
 
   /** The enemy you face, and what your chosen army switches on. */

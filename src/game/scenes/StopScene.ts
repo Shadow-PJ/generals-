@@ -3,7 +3,7 @@
 // of options. ↑↓ (or Tab) pick an option, Enter takes it, Esc leaves when you may.
 
 import Phaser from 'phaser';
-import { offerLabel, offerText } from '../../campaign/describe';
+import { fighterLabel, offerLabel, offerText } from '../../campaign/describe';
 import { offerRarity } from '../../campaign/offers';
 import {
   buy,
@@ -18,7 +18,9 @@ import {
   pickSpoils,
   reroll,
   rerollProblem,
+  toggleKeep,
 } from '../../campaign/run';
+import { veteranRank } from '../../campaign/company';
 import type { Campaign, Offer, RunState, Stop } from '../../campaign/types';
 import { ARTIFACTS } from '../../data/artifacts';
 import { EVENTS } from '../../data/events';
@@ -28,6 +30,7 @@ import { LEGENDARY_ACTION_DATA } from '../../data/legendary';
 import { REGIONS } from '../../data/regions';
 import { RUN_RULES } from '../../data/runs';
 import { TROOP_NAMES } from '../../data/units';
+import { COMPANY_RULES } from '../../data/veterans';
 import { drawBoon, drawFighter, runFloor, runNumbers } from '../campaignUi';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
@@ -39,6 +42,7 @@ const ROW_X = 110;
 const ROW_W = GAME_WIDTH - 2 * ROW_X;
 const ROW_H = 48;
 const ROW_GAP = 6;
+const COMPACT_H = 26;
 
 interface Option {
   label: string;
@@ -49,6 +53,9 @@ interface Option {
   /** Why it can't be taken now; null when it can. */
   problem: string | null;
   icon?: Offer | null;
+  /** A small row, two to a line, for long lists (who stays in your company), with its detail on the right in this color. */
+  compact?: boolean;
+  detailColor?: string;
   act: () => void;
 }
 
@@ -276,6 +283,7 @@ export class StopScene extends Phaser.Scene {
     const leave = () => this.step(closeRun(campaign), 'Capital');
     const region = REGIONS[run.region];
     const lines: View['lines'] = [];
+    const names = (ids: readonly number[]) => ids.flatMap((id) => run.roster.filter((f) => f.id === id).map((f) => f.name)).join(', ');
     if (stop.won) {
       lines.push({ text: `You beat ${GENERALS[region.ruler].name} and won the run through ${region.name}.`, bold: true });
       if (stop.learned) {
@@ -290,16 +298,28 @@ export class StopScene extends Phaser.Scene {
     } else {
       lines.push({ text: `Your run through ${region.name} ended on ${runFloor(run).toLowerCase()}.`, bold: true });
       if (stop.lost.length > 0) lines.push({ text: `Lost with the run: ${stop.lost.map((a) => ARTIFACTS[a].name).join(', ')}.`, color: TEXT.defeat });
-      lines.push({ text: 'Your fighters, boons and gold were for this run only. Try again: every run is different.', color: TEXT.muted });
+      if (stop.died.length > 0) lines.push({ text: `Ironman: ${names(stop.died)} fell for good.`, color: TEXT.defeat });
+      lines.push({ text: 'Your company comes home with what it learned; the run’s newcomers, boons and gold were for this run only.', color: TEXT.muted });
     }
-    lines.push({ text: `Fights won: ${run.fightsWon}  ·  Command XP earned: ${run.xp} (you keep it)`, color: TEXT.body });
-    return {
-      title: stop.won ? 'REGION CLEARED!' : 'RUN OVER',
-      titleColor: stop.won ? TEXT.victory : TEXT.defeat,
-      lines,
-      options: [{ label: 'Back to the Capital', detail: stop.won ? 'Pick your next region.' : 'Set out again when you are ready.', problem: null, act: leave }],
-      leave,
-    };
+    lines.push({ text: `Fights won: ${run.fightsWon}  ·  Command XP: ${run.xp}  ·  Insight: ${run.insight} (you keep both)`, color: TEXT.body });
+    const back: Option = { label: 'Back to the Capital', detail: stop.won ? 'Your company is the fighters marked to stay.' : 'Set out again when you are ready.', problem: null, act: leave };
+    if (!stop.won) return { title: 'RUN OVER', titleColor: TEXT.defeat, lines, options: [back], leave };
+
+    // A won run: choose who stays in your company. Enter (or a click) on a fighter switches it.
+    lines.push({ text: `WHO STAYS IN YOUR COMPANY: ${stop.keep.length} of ${COMPANY_RULES.size}. The rest leave after the run.`, color: TEXT.title, bold: true });
+    const fighters: Option[] = run.roster.map((f) => {
+      const stays = stop.keep.includes(f.id);
+      return {
+        label: `${f.name} · ${fighterLabel(f.cls, f.rarity, f.faction)} · ${veteranRank(f.record).name}`,
+        labelColor: TEXT.rarity[f.rarity],
+        detail: stays ? 'Stays' : 'Leaves',
+        detailColor: stays ? TEXT.victory : TEXT.muted,
+        problem: null,
+        compact: true,
+        act: () => this.step(toggleKeep(campaign, f.id), 'stay'),
+      };
+    });
+    return { title: 'REGION CLEARED!', titleColor: TEXT.victory, lines, options: [...fighters, back], leave };
   }
 
   private render(): void {
@@ -322,9 +342,28 @@ export class StopScene extends Phaser.Scene {
       y += t.height + 6;
     }
     y += 10;
+    let column = 0;
     view.options.forEach((option, i) => {
       const on = i === this.selected;
       const dim = option.problem ? 0.45 : 1;
+      if (option.compact) {
+        // Two to a line: the label on the left, the detail on the right.
+        const w = (ROW_W - ROW_GAP) / 2;
+        const x = ROW_X + column * (w + ROW_GAP);
+        const box = this.add.rectangle(x, y, w, COMPACT_H, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
+        box.setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : COLORS.rowEdge).setInteractive({ useHandCursor: true });
+        box.on('pointerdown', () => (this.selected === i ? this.take(i) : ((this.selected = i), this.render())));
+        const label = this.add.text(x + 10, y + COMPACT_H / 2, option.label, textStyle(12, option.labelColor ?? TEXT.title, true)).setOrigin(0, 0.5);
+        const detail = this.add.text(x + w - 10, y + COMPACT_H / 2, option.detail, textStyle(12, option.detailColor ?? TEXT.body, true)).setOrigin(1, 0.5);
+        this.ui.add([box, label, detail]);
+        column = (column + 1) % 2;
+        if (column === 0 || !view.options[i + 1]?.compact) y += COMPACT_H + 4;
+        if (!view.options[i + 1]?.compact) {
+          column = 0;
+          y += 6;
+        }
+        return;
+      }
       const textX = ROW_X + (option.icon ? 52 : 16);
       // The detail wraps, leaving room for the price; a long one makes its row taller.
       const label = this.add.text(textX, y + 6, option.label, textStyle(15, option.labelColor ?? TEXT.title, true)).setAlpha(dim);

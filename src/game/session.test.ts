@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { newCampaign } from '../campaign/company';
 import { fieldPlacement, withRole } from '../campaign/army';
 import { enterNode, newRun } from '../campaign/run';
 import { MAPS } from '../data/maps';
@@ -118,7 +119,7 @@ describe('the session', () => {
     await startSession(fake.platform);
     expect(savedSetup()).toMatchObject({ rank: 4, tactical: true, bossesBeaten: [] });
     expect(fake.files.get('saves/profile-backup.json')).toBe(v1);
-    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 4, xp: RANK_XP[4], run: null, artifacts: [] });
+    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 5, xp: RANK_XP[4], run: null, artifacts: [] });
     // Already up to date: no new backup.
     fake.files.delete('saves/profile-backup.json');
     await startSession(fake.platform);
@@ -133,7 +134,7 @@ describe('the session', () => {
   });
 
   it('saves the run you are on and your banked artifacts, and picks them up after a restart', async () => {
-    expect(currentCampaign()).toEqual({ run: null, artifacts: [], bossesBeaten: [] });
+    expect(currentCampaign()).toEqual(newCampaign());
     let campaign = enterNode(newRun(currentCampaign(), 'deepForest', 99), 0);
     campaign = { ...campaign, artifacts: ['warHorn'], run: withRole(campaign.run!, 8, 'rest') };
     await saveCampaign(campaign);
@@ -155,7 +156,7 @@ describe('the session', () => {
       practiceRank: null,
       placement: fieldPlacement(run, MAPS.voidRuins),
       map: 'voidRuins',
-      fight: { encounter: encounter!, reserves: [], boons: [] },
+      fight: { encounter: encounter!, reserves: [], boons: [], tech: {} },
     });
     expect(savedSetup()).toEqual({ ...skirmish, general: 'warlord' });
   });

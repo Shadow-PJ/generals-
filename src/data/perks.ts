@@ -3,15 +3,20 @@
 
 export type PerkStat = 'damage' | 'maxHp' | 'moveSpeed' | 'attacksPerSecond' | 'range';
 
+/** Something that makes one troop better: a perk, an artifact it carries or its class's Tech Web (session 5E). */
 export type PerkEffect =
-  /** `bonus` more of a stat (0.15 = 15%). */
+  /** `bonus` more of a stat (0.15 = 15%; below 0 for less). */
   | { kind: 'stat'; stat: PerkStat; bonus: number }
   /** More armor, added to the troop's own (0.06 = 6 points). */
   | { kind: 'armor'; amount: number }
   /** Heals this share of the damage its attacks deal. */
   | { kind: 'lifesteal'; share: number }
   /** Its skill comes back this much sooner (0.25 = a quarter sooner). */
-  | { kind: 'skillHaste'; cut: number };
+  | { kind: 'skillHaste'; cut: number }
+  /** It takes this much less area damage (0.35 = 35% less). */
+  | { kind: 'areaWard'; cut: number }
+  /** Once a battle, instead of falling it gets back up with this share of its max HP. */
+  | { kind: 'revive'; hp: number };
 
 export interface PerkData {
   name: string;

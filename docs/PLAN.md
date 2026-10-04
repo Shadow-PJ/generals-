@@ -206,11 +206,11 @@ Owner checks: build a run around one faction and feel it grow strong.
 
 ### 5E. Growing your army
 
-- [ ] Tech Web for each class, paid with Insight, with free respec between runs
-- [ ] 10 artifacts, equipped on troops in the Capital (5B brought 5 to find, carry and bank, with no effect in battle yet)
-- [ ] Veterans: names, records, ranks, perks, wounded status and Ironman mode; fighters who finish a won run can stay as veterans
-- [ ] General Mastery challenges
-- [ ] Battle IQ report built from the battle event log
+- [x] Tech Web for each class, paid with Insight, with free respec between runs
+- [x] 10 artifacts, equipped on troops in the Capital (5B brought 5 to find, carry and bank, with no effect in battle yet)
+- [x] Veterans: names, records, ranks, perks, wounded status and Ironman mode; fighters who finish a won run can stay as veterans
+- [x] General Mastery challenges
+- [x] Battle IQ report built from the battle event log
 
 Done when: a new save can be played through the first region and its boss.
 

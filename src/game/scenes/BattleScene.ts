@@ -3,6 +3,7 @@
 // engine as inputs stamped with the tick they take effect on, so every battle can be replayed.
 
 import Phaser from 'phaser';
+import { hasLook } from '../../campaign/mastery';
 import { cardCost } from '../../cards/cost';
 import { shortCard } from '../../cards/describe';
 import { COMMAND_RULES, CONDITION_RULES } from '../../data/command';
@@ -72,8 +73,11 @@ import {
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
-import { battleXp } from '../progress';
-import { recordCombo } from '../session';
+import { battleFacts } from '../battleFacts';
+import { battleIq } from '../battleIq';
+import { metChallenges } from '../mastery';
+import { battleXp, withIqXp } from '../progress';
+import { currentCampaign, recordCombo } from '../session';
 import { threats } from '../threats';
 import { bossOf, fightOutcome } from '../campaignFlow';
 import { enemyArmyOf, yourReserves } from '../troops';
@@ -141,6 +145,8 @@ export class BattleScene extends Phaser.Scene {
   private slotFlashUntil = new Map<number, number>();
   private eventCursor = 0;
   private ended = false;
+  /** Your General's look (all three Mastery challenges met): a gold trim on your troops. */
+  private goldTrim = false;
   /** When the combo banner showing now is gone, so the next one waits its turn instead of overlapping. */
   private bannerFreeAt = 0;
   /** Troops merged away by Forced Evolution: gone, not fallen, so no mark is left where they stood. */
@@ -188,6 +194,7 @@ export class BattleScene extends Phaser.Scene {
       specs: { player: data.specs, enemy: enemy.specs },
       learned: learnedActions(data.bossesBeaten),
       boons: { player: data.fight?.boons ?? [] },
+      tech: { player: data.fight?.tech ?? {} },
       boss: bossOf(data),
     });
     this.clock = createClock();
@@ -199,6 +206,7 @@ export class BattleScene extends Phaser.Scene {
     this.slotTexts = [];
     this.eventCursor = 0;
     this.ended = false;
+    this.goldTrim = hasLook(currentCampaign(), data.general);
     this.bannerFreeAt = 0;
     this.merged = new Set();
     this.strikes = [];
@@ -257,10 +265,14 @@ export class BattleScene extends Phaser.Scene {
         this.ended = true;
         this.time.delayedCall(RESULT_DELAY_MS, () => {
           const result = this.state.result!;
-          const xp = battleXp(this.state.events, result);
-          // A campaign fight also tells the run how each fighter came out of it.
+          // The Battle IQ report reads the event log; in a campaign battle its grade earns XP.
+          const iq = battleIq(this.state);
+          const base = battleXp(this.state.events, result);
+          const xp = this.setup.fight ? withIqXp(base, iq.grade, iq.xp) : base;
+          // A campaign fight also tells the run how each fighter came out of it, and checks your General's Mastery challenges.
           const outcome = this.setup.fight ? fightOutcome(this.state, xp.total) : null;
-          this.scene.launch('Result', { ...this.setup, result, xp, outcome });
+          const mastery = this.setup.fight ? metChallenges(this.setup.general, battleFacts(this.state)) : [];
+          this.scene.launch('Result', { ...this.setup, result, xp, outcome, iq, mastery });
           this.scene.pause();
         });
       }
@@ -422,6 +434,8 @@ export class BattleScene extends Phaser.Scene {
       if (taunter?.alive) drawTaunted(g, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
       drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash, alpha });
       drawRarity(g, at.x, at.y, r, u.rarity, alpha);
+      // General Mastery: with all three of your General's challenges met, your troops wear a gold trim.
+      if (this.goldTrim && u.side === 'player') g.lineStyle(2, COLORS.capital, alpha).strokeCircle(at.x, at.y, r + 2);
       // Boss fights: a turret's base, the Warlord's rage, the Strategist's phases left.
       if (u.rooted) g.lineStyle(3, COLORS.wallEdge, alpha).strokeRect(at.x - r - 5, at.y - r - 5, 2 * r + 10, 2 * r + 10);
       if (u.rage) g.lineStyle(1 + u.rage.stacks, COLORS.haste, 0.85).strokeCircle(at.x, at.y, r + 8);

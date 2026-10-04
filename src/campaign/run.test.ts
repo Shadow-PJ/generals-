@@ -127,11 +127,11 @@ describe('fights', () => {
     c = enterNode(pickSpoils(c, null), 0);
     expect(runOf(c).stop).toMatchObject({ kind: 'fight', encounter: { kind: 'boss', general: 'hiveMother' } });
     c = finishFight(c, won());
-    expect(runOf(c).stop).toEqual({ kind: 'end', won: true, banked: carried, lost: [], learned: 'hijack', opened: ['redCanyon'], unlocked: 'assassin' });
+    expect(runOf(c).stop).toMatchObject({ kind: 'end', won: true, banked: carried, lost: [], learned: 'hijack', opened: ['redCanyon'], unlocked: 'assassin', died: [] });
     expect(c.bossesBeaten).toEqual(['hiveMother']);
     expect(recruitedGenerals(c.bossesBeaten)).toContain('hiveMother');
     expect(c.artifacts).toEqual(carried);
-    expect(closeRun(c)).toEqual({ run: null, bossesBeaten: ['hiveMother'], artifacts: carried });
+    expect(closeRun(c)).toMatchObject({ run: null, bossesBeaten: ['hiveMother'], artifacts: carried });
   });
 
   it('beating a ruler again brings nothing new', () => {

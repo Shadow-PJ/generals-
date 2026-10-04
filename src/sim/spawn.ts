@@ -7,7 +7,8 @@ import type { MapData } from '../data/maps';
 import { TROOP_SKILLS, type GeneralId } from '../data/generals';
 import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
-import { boostedStats, troopLifesteal, troopSkillHaste } from './boons';
+import type { TechChoice } from '../data/tech';
+import { boostedStats, troopEffects, troopLifesteal, troopRevive, troopSkillHaste } from './boons';
 import { prepareForBoss } from './bosses';
 import { isSpaceFree } from './movement';
 import { nextInt, type RngState } from './rng';
@@ -25,10 +26,12 @@ export function createUnit(
   general: GeneralId = 'captain',
   map: MapData | null = null,
   boons: readonly BoonId[] = [],
+  tech: TechChoice = {},
 ): Unit {
   const rarity = placement.rarity ?? 'common';
-  const perks = placement.perks ?? [];
-  const stats = boostedStats(specStats(UNIT_CLASSES[placement.cls].stats, spec), placement.cls, rarity, boons, perks);
+  // Its perks, the artifact it carries and its class's Tech Web.
+  const own = troopEffects(placement, tech[placement.cls] ?? []);
+  const stats = boostedStats(specStats(UNIT_CLASSES[placement.cls].stats, spec), placement.cls, rarity, boons, own);
   // Open ground (Glass Plains): ranged troops reach further.
   if (stats.projectileSpeed > 0 && map?.rangedReachBonus) stats.range *= 1 + map.rangedReachBonus;
   // A turret (the Engineer's boss fight): tougher and longer-reaching, but weak to area damage.
@@ -86,14 +89,15 @@ export function createUnit(
     rarity,
     fighterId: placement.fighterId ?? null,
     faction: placement.faction ?? null,
-    lifesteal: troopLifesteal(placement.cls, boons, perks),
-    skillHaste: troopSkillHaste(placement.cls, boons, perks),
+    lifesteal: troopLifesteal(placement.cls, boons, own),
+    skillHaste: troopSkillHaste(placement.cls, boons, own),
     forgeArmor: 0,
     hitsTaken: 0,
     attacksMade: 0,
     rooted: placement.turret ?? false,
     bossPhases: 0,
     rage: null,
+    reviveHp: troopRevive(own),
   };
   // Warlord doctrine: Assassins dive at once.
   if (general === 'warlord' && unit.cls === 'assassin') unit.skillCooldown = 0;
@@ -131,7 +135,7 @@ export function spawnReserve(state: BattleState, side: Side, cls: TroopClass | n
 
   waiting.splice(index, 1);
   const spec = specFor(state.specs[side], chosen.cls);
-  const unit = createUnit(state.units.length + 1, side, { ...chosen, x, y }, state.rng, spec, state.generals[side], state.map, state.boons[side]);
+  const unit = createUnit(state.units.length + 1, side, { ...chosen, x, y }, state.rng, spec, state.generals[side], state.map, state.boons[side], state.tech[side]);
   prepareForBoss(state, unit);
   state.units.push(unit);
   state.startHp[side] += unit.hp;
