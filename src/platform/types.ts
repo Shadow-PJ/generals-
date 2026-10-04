@@ -9,7 +9,7 @@ import type { SpeechInput } from './speech';
  * The files the game keeps. Everything under `saves/` is your progress and is meant to sync
  * between computers (Steam Cloud); `settings.json` is about this computer's screen and stays here.
  */
-export type FileName = 'saves/profile.json' | 'settings.json';
+export type FileName = 'saves/profile.json' | 'saves/profile-backup.json' | 'settings.json';
 
 export interface Files {
   /** The file's text, or null when it doesn't exist yet. */

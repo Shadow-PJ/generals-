@@ -1,6 +1,7 @@
 // Numbers for Command cards.
 
 import type { ActionName } from '../cards/types';
+import { LEGENDARY_RULES } from './legendary';
 
 /** Pips each step costs. A card costs the sum of its steps. */
 export const ACTION_COSTS: Record<ActionName, number> = {
@@ -11,10 +12,12 @@ export const ACTION_COSTS: Record<ActionName, number> = {
   hold: 1,
   overcharge: 2,
   callReserve: 2,
+  hijack: LEGENDARY_RULES.cost,
+  swap: LEGENDARY_RULES.cost,
+  bloodPact: LEGENDARY_RULES.cost,
+  fortify: LEGENDARY_RULES.cost,
+  echo: LEGENDARY_RULES.cost,
 };
-
-/** Legendary actions (session 5A) cost this much. */
-export const LEGENDARY_ACTION_COST = 3;
 
 export const CARD_RULES = {
   /** "When X and Y": at most this many triggers in one condition. */

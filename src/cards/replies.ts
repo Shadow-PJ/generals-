@@ -1,20 +1,29 @@
 // What the General answers when you save a card.
 
+import { GENERALS } from '../data/generals';
+import { LEGENDARY_ACTION_DATA } from '../data/legendary';
 import { CAPTAIN_REPLIES, GENERAL_REPLIES, type ReplyKind } from '../data/replies';
 import { rankRules, type RankNumber } from '../data/ranks';
 import type { Reading } from './personality';
 import type { Verdict } from './validator';
 
 export function reply(kind: ReplyKind, rank?: RankNumber): string {
-  const line = CAPTAIN_REPLIES[kind][0];
+  const line: string = CAPTAIN_REPLIES[kind][0];
   return rank ? line.replace('{rank}', rankRules(rank).numeral) : line;
 }
 
 /** "Understood." for a legal card, otherwise why it was refused. */
 export function replyToVerdict(verdict: Verdict): string {
   if (verdict.ok) return reply('accepted');
+  const problem = (kind: string) => verdict.problems.find((p) => p.kind === kind);
+  // Legendary problems first: a higher rank can't fix them.
+  if (problem('legendaryOutsideSlot')) return reply('legendaryOnlySlot');
+  if (problem('legendaryMissing')) return reply('legendaryMissing');
+  if (problem('tooManyLegendary')) return reply('oneLegendary');
+  const unknown = verdict.problems.find((p) => p.kind === 'legendaryNotLearned');
+  if (unknown) return reply('legendaryNotLearned').replace('{general}', GENERALS[LEGENDARY_ACTION_DATA[unknown.action].teacher].name);
   if (verdict.unlockRank) return reply('notTrainedYet', verdict.unlockRank);
-  if (verdict.problems.some((p) => p.kind === 'autoNeedsCondition')) return reply('autoNeedsCondition');
+  if (problem('autoNeedsCondition')) return reply('autoNeedsCondition');
   return reply('impossible');
 }
 

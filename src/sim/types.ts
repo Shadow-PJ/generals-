@@ -1,7 +1,7 @@
 // Battle state. Everything here is plain data: it can be copied, saved, hashed and
 // sent over the network, and the same state plus the same step always gives the same result.
 
-import type { Card, Loadout, Place, Step, Target } from '../cards/types';
+import type { Card, LegendaryAction, Loadout, Place, Step, Target } from '../cards/types';
 import type { SignatureComboId } from '../data/combos';
 import type { TroopPlacement } from '../data/armies';
 import type { GeneralId, UltimateId } from '../data/generals';
@@ -43,6 +43,8 @@ export interface BattleSetup {
   enemyCommander?: { rank: RankNumber; loadout: Loadout };
   /** Each side's specializations, one per class; none when left out. */
   specs?: { player?: SpecChoice; enemy?: SpecChoice };
+  /** The Legendary actions you have learned from bosses; with one or more the Legendary slot opens. None when left out. */
+  learned?: LegendaryAction[];
 }
 
 /** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
@@ -237,6 +239,8 @@ export interface Unit {
   /** Ticks left of the Captain's Rally, and how much faster it makes the unit attack. */
   rallyTicks: number;
   rallyBonus: number;
+  /** Ticks left under the other side's control (Hijack): it attacks its own army meanwhile. */
+  hijackTicks: number;
 }
 
 export interface SlotState {
@@ -281,6 +285,10 @@ export interface CommandState {
   /** 0 to 3 the regular slots, 4 the Legendary slot. */
   slots: SlotState[];
   chain: ChainState;
+  /** The Legendary slot is open: a boss has taught at least one Legendary action. */
+  legendaryOpen: boolean;
+  /** The last regular card fired and who set it off, for Echo. */
+  lastCard: { card: Card; triggerEnemyId: number | null; triggerAllyId: number | null } | null;
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out, unless it is unbreakable. */
@@ -289,6 +297,8 @@ export interface Wall extends Rect {
   hp: number;
   maxHp: number;
   unbreakable: boolean;
+  /** Fortify: ticks until the wall falls by itself; null for the map's walls. */
+  ticksLeft: number | null;
 }
 
 export interface Projectile {
@@ -326,7 +336,8 @@ export type SkillName =
  * What dealt damage: a plain attack, a Shove, Overload's cost to the troop itself, Iron Shell's
  * reflection, a Rift's pulse, Fire Break's burn, Volley's splash, the strike after a Shadowstep,
  * an execution (Shadowstep, or a wraith's time running out), the HP a troop pays for Vampiric
- * Link or Blood Price, a vent (Venting), Thermal Detonation's beam, or Shatterstorm.
+ * Link or Blood Price, a vent (Venting), Thermal Detonation's beam, Shatterstorm, or a troop given
+ * up to a Blood Pact.
  */
 export type DamageCause =
   | 'attack'
@@ -342,7 +353,8 @@ export type DamageCause =
   | 'bloodPrice'
   | 'vent'
   | 'beam'
-  | 'shatterstorm';
+  | 'shatterstorm'
+  | 'sacrifice';
 /** Damage that hits an area; Assassins take more of it. */
 export const AREA_CAUSES: readonly DamageCause[] = ['shove', 'rift', 'burn', 'splash', 'vent', 'beam', 'shatterstorm'];
 export type EndReason = 'eliminated' | 'timeout';
@@ -379,6 +391,8 @@ export type BattleEvent =
   /** A signature combo landed: inside one card, or across two cards of a chain. */
   | { tick: number; type: 'combo'; side: Side; combo: SignatureComboId; acrossCards: boolean }
   | { tick: number; type: 'reserveCalled'; side: Side; unitId: number }
+  /** A Legendary action: the troops it acted on, and where a Fortify wall rose (`wallId`, its middle `at`). */
+  | { tick: number; type: 'legendary'; side: Side; action: LegendaryAction; unitIds: number[]; wallId?: number; at?: Point }
   | { tick: number; type: 'end'; winner: Winner; reason: EndReason };
 
 export interface BattleResult {

@@ -1,6 +1,6 @@
 // Helpers for engine tests: small maps and battles built by hand.
 
-import type { Card, Loadout, Step } from '../../cards/types';
+import type { Card, LegendaryAction, Loadout, Step } from '../../cards/types';
 import type { TroopPlacement } from '../../data/armies';
 import type { GeneralId } from '../../data/generals';
 import type { RankNumber } from '../../data/ranks';
@@ -33,10 +33,14 @@ export interface BattleOptions {
   enemyGeneral?: GeneralId;
   specs?: SpecChoice;
   enemySpecs?: SpecChoice;
+  /** The card in the Legendary slot, and the Legendary actions you know. */
+  legendary?: Card;
+  learned?: LegendaryAction[];
 }
 
 export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], options: BattleOptions = {}): BattleState {
-  const loadout: Loadout | undefined = options.cards ? { slots: options.cards, legendary: null } : undefined;
+  const loadout: Loadout | undefined =
+    options.cards || options.legendary ? { slots: options.cards ?? [], legendary: options.legendary ?? null } : undefined;
   return createBattle({
     seed: options.seed ?? 1,
     map: openMap(options.walls),
@@ -49,6 +53,7 @@ export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], op
     general: options.general,
     enemyGeneral: options.enemyGeneral,
     specs: { player: options.specs, enemy: options.enemySpecs },
+    learned: options.learned,
   });
 }
 

@@ -6,7 +6,7 @@
 import { COMBO_BONUSES, type SignatureComboId } from '../data/combos';
 import { ORDER_RULES } from '../data/command';
 import { UNIT_CLASSES } from '../data/units';
-import type { Actors, Card, Place, Step, Target } from '../cards/types';
+import { isLegendaryAction, type Actors, type Card, type Place, type Step, type Target } from '../cards/types';
 import { clamp, distance, type Point } from './geometry';
 import {
   centerDistance,
@@ -74,6 +74,8 @@ export function issueCard(
       if (unit) called.push(unit.id);
       return;
     }
+    // Legendary actions happen at once when the card fires (legendary.ts), not as troop orders.
+    if (!isTroopStep(step)) return;
     for (const unit of actorsOf(state, side, step.actors)) {
       const queue = queues.get(unit.id) ?? [];
       queue.push(orderFor(step, power, triggers, comboOf(i)));
@@ -118,15 +120,22 @@ function placeBehind(state: BattleState, unit: Unit, enemy: Unit): void {
   }
 }
 
-function actorsOf(state: BattleState, side: Side, actors: Actors): Unit[] {
+/** The steps troops carry out as orders: every regular action but Call Reserve. */
+type TroopStep = Extract<Step, { action: UnitOrder['kind'] }>;
+
+function isTroopStep(step: Step): step is TroopStep {
+  return !isLegendaryAction(step.action) && step.action !== 'callReserve';
+}
+
+export function actorsOf(state: BattleState, side: Side, actors: Actors): Unit[] {
   const mine = livingUnits(state, side);
   if (actors.kind === 'all') return mine;
   if (actors.kind === 'class') return mine.filter((u) => u.cls === actors.cls);
-  return []; // Named veterans arrive in session 5D.
+  return []; // Named veterans arrive in session 5E.
 }
 
 function orderFor(
-  step: Exclude<Step, { action: 'callReserve' }>,
+  step: TroopStep,
   power: number,
   triggers: CardTriggers,
   combo: SignatureComboId | null,
@@ -298,9 +307,10 @@ export function orderIntent(state: BattleState, unit: Unit, base: Intent): Inten
   if (!order?.started) return null;
   switch (order.kind) {
     case 'focus': {
-      // An invisible target can't be chased; the troop acts on its own until it shows again.
+      // An invisible target can't be chased, nor one your side controls (Hijack); the troop acts
+      // on its own until it shows again.
       const target = findUnit(state, order.unitId);
-      if (!target?.alive || isHidden(state, target, unit)) return null;
+      if (!target?.alive || isHidden(state, target, unit) || target.hijackTicks > 0) return null;
       return { action: attackOrApproach(unit, target), cast: base.cast };
     }
     case 'move':
@@ -384,9 +394,12 @@ function castOvercharge(state: BattleState, unit: Unit, power: number, stunTicks
 
 // Choosing targets ---------------------------------------------------------------------------
 
-/** The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army). Hidden enemies can't be named. */
-function resolveEnemy(state: BattleState, side: Side, from: Point, target: Target, triggerId: number | null): Unit | undefined {
-  const enemies = state.units.filter((u) => u.alive && u.side !== side && !isHidden(state, u, from));
+/**
+ * The enemy of `side` that a target names, seen from `from` (a troop, or the middle of an army).
+ * Hidden enemies can't be named, nor one `side` controls (Hijack).
+ */
+export function resolveEnemy(state: BattleState, side: Side, from: Point, target: Target, triggerId: number | null): Unit | undefined {
+  const enemies = state.units.filter((u) => u.alive && u.side !== side && u.hijackTicks <= 0 && !isHidden(state, u, from));
   switch (target.kind) {
     case 'class':
       return nearestTo(enemies.filter((e) => e.cls === target.cls), from.x, from.y);
@@ -421,6 +434,30 @@ function resolveAlly(state: BattleState, unit: Unit, target: Target, triggerId: 
   }
 }
 
+/** One of `side`'s own troops that a target names, seen from `from` (the middle of the army); `except` can't be it. */
+export function resolveOwn(
+  state: BattleState,
+  side: Side,
+  from: Point,
+  target: Target,
+  triggerId: number | null,
+  except: number | null = null,
+): Unit | undefined {
+  const mine = livingUnits(state, side).filter((u) => u.id !== except);
+  switch (target.kind) {
+    case 'class':
+      return nearestTo(mine.filter((a) => a.cls === target.cls), from.x, from.y);
+    case 'nearest':
+      return nearestTo(mine, from.x, from.y);
+    case 'weakest':
+      return weakest(mine);
+    case 'trigger':
+      return mine.find((u) => u.id === triggerId);
+    case 'named':
+      return undefined;
+  }
+}
+
 function weakest(units: Unit[]): Unit | undefined {
   let best: Unit | undefined;
   for (const u of units) if (!best || hpShare(u) < hpShare(best)) best = u;
@@ -429,7 +466,7 @@ function weakest(units: Unit[]): Unit | undefined {
 
 // Geometry helpers -----------------------------------------------------------------------------
 
-function centroid(units: Unit[]): Point {
+export function centroid(units: Unit[]): Point {
   let x = 0;
   let y = 0;
   for (const u of units) {

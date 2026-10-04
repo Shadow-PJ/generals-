@@ -4,9 +4,19 @@
 
 import type { TroopClass } from '../data/units';
 
-export type ActionName = 'focus' | 'move' | 'fallBack' | 'overcharge' | 'protect' | 'hold' | 'callReserve';
+/** The actions Command Ranks unlock. */
+export type RegularAction = 'focus' | 'move' | 'fallBack' | 'overcharge' | 'protect' | 'hold' | 'callReserve';
+/** The actions boss Generals teach (session 5A). They only go in the Legendary slot. */
+export type LegendaryAction = 'hijack' | 'swap' | 'bloodPact' | 'fortify' | 'echo';
+export type ActionName = RegularAction | LegendaryAction;
 
-export const ACTIONS: readonly ActionName[] = ['focus', 'move', 'fallBack', 'overcharge', 'protect', 'hold', 'callReserve'];
+export const REGULAR_ACTIONS: readonly RegularAction[] = ['focus', 'move', 'fallBack', 'overcharge', 'protect', 'hold', 'callReserve'];
+export const LEGENDARY_ACTIONS: readonly LegendaryAction[] = ['hijack', 'swap', 'bloodPact', 'fortify', 'echo'];
+export const ACTIONS: readonly ActionName[] = [...REGULAR_ACTIONS, ...LEGENDARY_ACTIONS];
+
+export function isLegendaryAction(action: ActionName): action is LegendaryAction {
+  return (LEGENDARY_ACTIONS as readonly ActionName[]).includes(action);
+}
 
 /** Which of your troops carry out a step. */
 export type Actors = { kind: 'all' } | { kind: 'class'; cls: TroopClass } | { kind: 'named'; name: string };
@@ -43,7 +53,18 @@ export type StepAction =
   | { action: 'protect'; actors: Actors; target: Target }
   | { action: 'hold'; actors: Actors }
   /** Bring in a reserve troop: one of this class, or the next one when null. */
-  | { action: 'callReserve'; reserve: TroopClass | null };
+  | { action: 'callReserve'; reserve: TroopClass | null }
+  // Legendary actions: the commander does these at once, not the troops.
+  /** Take control of an enemy troop for a while: it turns on its own army. */
+  | { action: 'hijack'; target: Target }
+  /** One of `actors` (the nearest to the other) and the ally `target` trade places at once. */
+  | { action: 'swap'; actors: Actors; target: Target }
+  /** Sacrifice one of your troops to refill your pips and Momentum. */
+  | { action: 'bloodPact'; target: Target }
+  /** Raise a wall line for a while, at a place on the field. */
+  | { action: 'fortify'; at: Place }
+  /** Repeat your last card, for free. */
+  | { action: 'echo' };
 
 export type Trigger =
   | { kind: 'enemyReachesBackline'; enemy: TroopClass | 'any' }

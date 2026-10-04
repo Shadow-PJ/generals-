@@ -25,9 +25,9 @@ export function inForest(state: BattleState, unit: Unit): boolean {
   return (state.map.forests ?? []).some((f) => unit.x >= f.x && unit.x <= f.x + f.w && unit.y >= f.y && unit.y <= f.y + f.h);
 }
 
-/** Living enemies the unit can pick as a target: all it can see. */
+/** Living enemies the unit can pick as a target: all it can see, except one its side controls (Hijack). */
 export function visibleEnemies(state: BattleState, unit: Unit): Unit[] {
-  return state.units.filter((u) => u.alive && u.side !== unit.side && !isHidden(state, u, unit));
+  return state.units.filter((u) => u.alive && u.side !== unit.side && u.hijackTicks <= 0 && !isHidden(state, u, unit));
 }
 
 /** True if no living troop of `side` can see the unit: how the battle screen shows hidden enemies. */

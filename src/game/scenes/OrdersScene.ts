@@ -1,7 +1,8 @@
 // Writing orders: each slot holds one Command card. Type or speak an order (hold V to talk) and
 // the translators turn it into a card, or build one from the menus. The validator checks it against your rank, then your
 // General reads it by their personality rules and answers. Slots keep the card as you wrote it;
-// the General's version is what fires. Rephrasing is free.
+// the General's version is what fires. Rephrasing is free. Slot 5, the Legendary slot, opens
+// with your first boss win and takes a card with one Legendary action you have learned.
 
 import Phaser from 'phaser';
 import { cardCost } from '../../cards/cost';
@@ -9,37 +10,40 @@ import { describeCard, describeCondition } from '../../cards/describe';
 import { translateOrder } from '../../cards/translator';
 import { applyPersonality, type Reading } from '../../cards/personality';
 import { generalReply, reply, replyToVerdict } from '../../cards/replies';
-import type { Card } from '../../cards/types';
-import { slotUnlockRank, validateCard } from '../../cards/validator';
+import { REGULAR_ACTIONS, type ActionName, type Card, type LegendaryAction } from '../../cards/types';
+import { slotUnlockRank, validateCard, type SlotContext } from '../../cards/validator';
 import { TRANSLATOR_RULES } from '../../data/cards';
 import { GENERAL_IDS, GENERALS } from '../../data/generals';
-import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
+import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
+import { rankRules } from '../../data/ranks';
 import { keyLabel } from '../bindings';
-import { builderRows, newDraft, type BuilderRow } from '../cardBuilder';
+import { builderRows, defaultStep, newDraft, type BuilderRow } from '../cardBuilder';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { orderModelState, orderModelTranslator } from '../orderModel';
 import { orderReaderTranslator } from '../orderReader';
 import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
-import { currentPlatform, remember, savedSetup } from '../session';
+import { rankProgress } from '../progress';
+import { currentPlatform, currentXp, remember, savedSetup } from '../session';
 import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 import { PushToTalk, VOICE_MESSAGES } from '../voice';
 
 const SLOT_COUNT = 4;
+/** Slot 5 (index 4): the Legendary slot. */
+const LEGENDARY = 4;
 const SLOT_X = 16;
 const SLOT_W = 296;
 const SLOT_H = 84;
 const PANEL_X = 332;
 const ROWS_Y = 268;
 const ROW_H = 20;
-/** Fixed rows above the card's menus: the rank and General switches, Tactical mode and the typed order. */
-const RANK_ROW = 0;
-const TACTICAL_ROW = 1;
-const GENERAL_ROW = 2;
-const TEXT_ROW = 3;
-const FIRST_MENU_ROW = 4;
+/** Fixed rows above the card's menus: Tactical mode, the General switch and the typed order. */
+const TACTICAL_ROW = 0;
+const GENERAL_ROW = 1;
+const TEXT_ROW = 2;
+const FIRST_MENU_ROW = 3;
 
 export class OrdersScene extends Phaser.Scene {
   private setup!: MatchSetup;
@@ -61,7 +65,11 @@ export class OrdersScene extends Phaser.Scene {
 
   init(data: Partial<MatchSetup>): void {
     this.setup = { ...savedSetup(), ...data };
-    this.drafts = this.setup.loadout.slots.map((card) => (card ? structuredClone(card) : newDraft()));
+    const legendary = this.setup.loadout.legendary;
+    this.drafts = [
+      ...this.setup.loadout.slots.map((card) => (card ? structuredClone(card) : newDraft())),
+      legendary ? structuredClone(legendary) : this.newLegendaryDraft(),
+    ];
     this.slot = 0;
     this.row = FIRST_MENU_ROW;
     this.status = { text: '', color: TEXT.muted };
@@ -161,14 +169,44 @@ export class OrdersScene extends Phaser.Scene {
     return this.drafts[this.slot]!;
   }
 
+  /** The Legendary actions you know; with one or more, the Legendary slot is open. */
+  private get learned(): LegendaryAction[] {
+    return learnedActions(this.setup.bossesBeaten);
+  }
+
+  private get legendaryOpen(): boolean {
+    return this.learned.length > 0;
+  }
+
+  /** The slot the validator checks a card for. */
+  private slotContext(slot = this.slot): SlotContext {
+    return { legendarySlot: slot === LEGENDARY, learned: this.learned };
+  }
+
+  /** The actions the step menus offer: on the Legendary slot, also the Legendary actions you know. */
+  private actions(): readonly ActionName[] {
+    return this.slot === LEGENDARY ? [...this.learned, ...REGULAR_ACTIONS] : REGULAR_ACTIONS;
+  }
+
+  /** A fresh Legendary card: the first Legendary action you know, or Echo before you know any. */
+  private newLegendaryDraft(): Card {
+    const action = learnedActions(this.setup.bossesBeaten)[0] ?? 'echo';
+    return { condition: null, steps: [defaultStep(action, { kind: 'all' })], auto: false };
+  }
+
+  private savedCard(slot: number): Card | null {
+    return slot === LEGENDARY ? this.setup.loadout.legendary : (this.setup.loadout.slots[slot] ?? null);
+  }
+
   private set draft(card: Card) {
     this.drafts[this.slot] = card;
   }
 
-  /** How your General reads a card; null until the card passes the validator. */
-  private reading(card: Card): Reading | null {
+  /** How your General reads a card in a slot; null until the card passes the validator. */
+  private reading(card: Card, slot = this.slot): Reading | null {
     const { rank, general } = this.setup;
-    return validateCard(card, rank).ok ? applyPersonality(general, card, rank) : null;
+    const context = this.slotContext(slot);
+    return validateCard(card, rank, context).ok ? applyPersonality(general, card, rank, context) : null;
   }
 
   /** "Warlord", for replies. */
@@ -178,7 +216,7 @@ export class OrdersScene extends Phaser.Scene {
 
   /** The card's menus, with the Strategist's suggested condition first when there is one. */
   private menuRows(): BuilderRow[] {
-    const rows = builderRows(this.draft);
+    const rows = builderRows(this.draft, this.actions());
     const suggestion = this.reading(this.draft)?.suggestion;
     if (!suggestion) return rows;
     // Accepting changes the card, so the words it was written from no longer match it.
@@ -189,15 +227,12 @@ export class OrdersScene extends Phaser.Scene {
 
   private moveRow(step: number): void {
     const last = FIRST_MENU_ROW + this.menuRows().length - 1;
-    this.row = Math.max(RANK_ROW, Math.min(last, this.row + step));
+    this.row = Math.max(TACTICAL_ROW, Math.min(last, this.row + step));
     this.render();
   }
 
   private change(step: number): void {
-    if (this.row === RANK_ROW) {
-      this.setup.rank = Math.max(1, Math.min(RANKS.length, this.setup.rank + step)) as RankNumber;
-      this.keep();
-    } else if (this.row === TACTICAL_ROW) {
+    if (this.row === TACTICAL_ROW) {
       this.setup.tactical = !this.setup.tactical;
       this.keep();
     } else if (this.row === GENERAL_ROW) {
@@ -215,7 +250,9 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   private selectSlot(index: number): void {
-    this.slot = (index + SLOT_COUNT) % SLOT_COUNT;
+    // Tab reaches the Legendary slot once it is open.
+    const count = this.legendaryOpen ? SLOT_COUNT + 1 : SLOT_COUNT;
+    this.slot = (index + count) % count;
     this.syncOrderText();
     this.status = { text: '', color: TEXT.muted };
     this.row = Math.min(this.row, FIRST_MENU_ROW + this.menuRows().length - 1);
@@ -267,14 +304,17 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   private save(): void {
-    const locked = slotUnlockRank(this.slot, this.setup.rank);
+    const locked = this.slot === LEGENDARY ? null : slotUnlockRank(this.slot, this.setup.rank);
     if (locked) {
       this.status = { text: `${this.speaker}: ${reply('slotLocked', locked)}`, color: TEXT.defeat };
+    } else if (this.slot === LEGENDARY && !this.legendaryOpen) {
+      this.status = { text: `${this.speaker}: ${reply('legendaryLocked')}`, color: TEXT.defeat };
     } else {
-      const verdict = validateCard(this.draft, this.setup.rank);
+      const verdict = validateCard(this.draft, this.setup.rank, this.slotContext());
       const reading = this.reading(this.draft);
       if (verdict.ok && reading) {
-        this.setup.loadout.slots[this.slot] = structuredClone(this.draft);
+        if (this.slot === LEGENDARY) this.setup.loadout.legendary = structuredClone(this.draft);
+        else this.setup.loadout.slots[this.slot] = structuredClone(this.draft);
         this.status = { text: `Saved to slot ${this.slot + 1}.  ${this.speaker}: “${generalReply(reading)}”`, color: TEXT.victory };
         this.keep();
       } else {
@@ -285,8 +325,9 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   private clear(): void {
-    this.setup.loadout.slots[this.slot] = null;
-    this.draft = newDraft();
+    if (this.slot === LEGENDARY) this.setup.loadout.legendary = null;
+    else this.setup.loadout.slots[this.slot] = null;
+    this.draft = this.slot === LEGENDARY ? this.newLegendaryDraft() : newDraft();
     this.orderInput.value = '';
     this.status = { text: `Slot ${this.slot + 1} cleared.`, color: TEXT.muted };
     this.keep();
@@ -323,13 +364,18 @@ export class OrdersScene extends Phaser.Scene {
   private renderSwitches(): void {
     const rules = rankRules(this.setup.rank);
     const x = GAME_WIDTH - 300;
+    // Your rank is earned in battle: shown here, not switched (practice ranks are set on the Skirmish screen).
+    const progress = rankProgress(currentXp());
+    const practice = this.setup.practiceRank !== null;
+    const xp = practice ? 'practice: no XP' : progress ? `${progress.into}/${progress.span} XP to the next` : 'the highest rank';
+    this.ui.add(this.add.text(x, 5, `${practice ? 'Practice ' : ''}Rank ${rules.numeral} · ${rules.name}`, textStyle(12, TEXT.title, true)));
+    this.ui.add(this.add.text(x + 284, 5, xp, textStyle(11, TEXT.muted)).setOrigin(1, 0));
     const lines: [number, string, string][] = [
-      [RANK_ROW, 'Rank (debug)', `${rules.numeral} · ${rules.name}`],
       [TACTICAL_ROW, 'Tactical mode', this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
       [GENERAL_ROW, 'General (debug)', GENERALS[this.setup.general].name],
     ];
     lines.forEach(([row, label, value], i) => {
-      const y = 2 + i * 20;
+      const y = 22 + i * 20;
       if (this.row === row) this.ui.add(this.add.rectangle(x - 6, y, 292, 20, 0x2b3a50).setOrigin(0));
       this.ui.add(this.add.text(x, y + 3, label, textStyle(12, TEXT.muted)));
       this.arrows(x + 112, y + 10, 172, value, (d) => {
@@ -341,10 +387,11 @@ export class OrdersScene extends Phaser.Scene {
 
   private renderSlots(): void {
     const rank = this.setup.rank;
-    for (let i = 0; i < SLOT_COUNT; i++) {
+    const count = this.legendaryOpen ? SLOT_COUNT + 1 : SLOT_COUNT;
+    for (let i = 0; i < count; i++) {
       const y = TOP_BAR_HEIGHT + 16 + i * (SLOT_H + 8);
-      const card = this.setup.loadout.slots[i] ?? null;
-      const unlock = slotUnlockRank(i, rank);
+      const card = this.savedCard(i);
+      const unlock = i === LEGENDARY ? null : slotUnlockRank(i, rank);
       const box = this.add
         .rectangle(SLOT_X, y, SLOT_W, SLOT_H, i === this.slot ? 0x24344a : 0x19212d)
         .setOrigin(0)
@@ -352,18 +399,19 @@ export class OrdersScene extends Phaser.Scene {
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => this.selectSlot(i));
       this.ui.add(box);
-      this.ui.add(this.add.text(SLOT_X + 10, y + 8, String(i + 1), textStyle(16, TEXT.title, true)));
+      this.ui.add(this.add.text(SLOT_X + 10, y + 8, String(i + 1), textStyle(16, i === LEGENDARY ? TEXT.perfect : TEXT.title, true)));
       if (unlock) {
         this.ui.add(this.add.text(SLOT_X + 34, y + 10, `Locked: opens at Rank ${rankRules(unlock).numeral}`, textStyle(12, TEXT.muted)));
         continue;
       }
       if (!card) {
-        this.ui.add(this.add.text(SLOT_X + 34, y + 10, 'Empty slot', textStyle(12, TEXT.muted)));
+        const empty = i === LEGENDARY ? `Legendary slot: ${this.learned.map((a) => LEGENDARY_ACTION_DATA[a].name).join(', ')}` : 'Empty slot';
+        this.ui.add(this.add.text(SLOT_X + 34, y + 10, empty, { ...textStyle(12, TEXT.muted), wordWrap: { width: SLOT_W - 44 } }));
         continue;
       }
       // The slot shows what will fire: your General's version of the card.
-      const verdict = validateCard(card, rank);
-      const reading = this.reading(card);
+      const verdict = validateCard(card, rank, this.slotContext(i));
+      const reading = this.reading(card, i);
       const shown = reading?.card ?? card;
       this.ui.add(
         this.add.text(SLOT_X + 34, y + 8, describeCard(shown), { ...textStyle(12), wordWrap: { width: SLOT_W - 44 }, maxLines: 3 }),
@@ -376,6 +424,7 @@ export class OrdersScene extends Phaser.Scene {
           (tooDear ? ' · ⚠ over your max pips' : reading.rules.length > 0 && changed(card, shown) ? ` · ${this.speaker}'s version` : '');
       this.ui.add(this.add.text(SLOT_X + 34, y + SLOT_H - 20, footer, textStyle(11, reading && !tooDear ? TEXT.muted : TEXT.defeat)));
     }
+    if (this.legendaryOpen) return;
     const ly = TOP_BAR_HEIGHT + 16 + SLOT_COUNT * (SLOT_H + 8);
     this.ui.add(this.add.rectangle(SLOT_X, ly, SLOT_W, 44, 0x151b25).setOrigin(0).setStrokeStyle(1, 0x2a3646));
     this.ui.add(this.add.text(SLOT_X + 10, ly + 6, '5', textStyle(16, TEXT.muted, true)));
@@ -388,7 +437,7 @@ export class OrdersScene extends Phaser.Scene {
       this.add.text(PANEL_X, 88, 'Order', textStyle(12, textSelected ? TEXT.title : TEXT.muted, textSelected)),
     );
     const card = this.draft;
-    const verdict = validateCard(card, this.setup.rank);
+    const verdict = validateCard(card, this.setup.rank, this.slotContext());
     this.ui.add(
       this.add.text(PANEL_X, 120, `Slot ${this.slot + 1}:  ${describeCard(card)}`, {
         ...textStyle(14, TEXT.title, true),

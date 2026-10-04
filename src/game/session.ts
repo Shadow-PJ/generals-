@@ -4,8 +4,19 @@
 
 import { windowScales, type FileName, type Platform } from '../platform';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
-import { newProfile, PROFILE_FILE, PROFILE_VERSION, readProfile, writeProfile, type Profile } from '../save/profile';
+import { rankForXp } from './progress';
+import {
+  newProfile,
+  PROFILE_BACKUP_FILE,
+  PROFILE_FILE,
+  PROFILE_VERSION,
+  profileVersion,
+  readProfile,
+  writeProfile,
+  type Profile,
+} from '../save/profile';
 import { defaultSettings, readSettings, SETTINGS_FILE, writeSettings, type Settings } from '../save/settings';
+import type { RankNumber } from '../data/ranks';
 import type { MatchSetup } from './match';
 import { GAME_HEIGHT, GAME_WIDTH } from './theme';
 
@@ -25,6 +36,12 @@ export async function startSession(p: Platform): Promise<void> {
   written.clear();
   if (profileText !== null) written.set(PROFILE_FILE, profileText);
   if (settingsText !== null) written.set(SETTINGS_FILE, settingsText);
+  // An older save was brought up to date: keep the old file as a backup, then save the new one.
+  const version = profileVersion(profileText);
+  if (profileText !== null && version !== null && version < PROFILE_VERSION) {
+    await write(PROFILE_BACKUP_FILE, profileText).catch(() => undefined);
+    await write(PROFILE_FILE, writeProfile(profile)).catch(() => undefined);
+  }
 }
 
 export function currentPlatform(): Platform {
@@ -34,17 +51,29 @@ export function currentPlatform(): Platform {
 
 /** Your troops, cards, rank, Tactical mode and General as last saved. */
 export function savedSetup(): MatchSetup {
-  const { placement, loadout, rank, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander } = structuredClone(profile);
-  return { placement, loadout, rank, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander };
+  const { placement, loadout, xp, bossesBeaten, practiceRank, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander } =
+    structuredClone(profile);
+  const rank = practiceRank ?? rankForXp(xp);
+  return { placement, loadout, rank, practiceRank, bossesBeaten, tactical, general, reserves, specs, map, enemyArmy, enemyGeneral, enemyCommander };
 }
 
-/** Saves your troops, cards, rank, Tactical mode and General. Resolves once the file is written. */
+/** The rank your Command XP has earned. */
+export function earnedRank(): RankNumber {
+  return rankForXp(profile.xp);
+}
+
+/**
+ * Saves your troops, cards, Tactical mode, General and skirmish. Resolves once the file is
+ * written. Your rank isn't taken from the setup: only Command XP raises it (gainXp).
+ */
 export function remember(setup: MatchSetup): Promise<void> {
   profile = {
     version: PROFILE_VERSION,
     loadout: structuredClone(setup.loadout),
     placement: setup.placement.map((t) => ({ ...t })),
-    rank: setup.rank,
+    xp: profile.xp,
+    bossesBeaten: [...setup.bossesBeaten],
+    practiceRank: setup.practiceRank,
     tactical: setup.tactical,
     general: setup.general,
     codex: profile.codex,
@@ -55,6 +84,17 @@ export function remember(setup: MatchSetup): Promise<void> {
     enemyGeneral: setup.enemyGeneral,
     enemyCommander: setup.enemyCommander,
   };
+  return write(PROFILE_FILE, writeProfile(profile));
+}
+
+/** Your Command XP. */
+export function currentXp(): number {
+  return profile.xp;
+}
+
+/** Adds Command XP from a battle and saves it. Resolves once the file is written. */
+export function gainXp(amount: number): Promise<void> {
+  profile = { ...profile, xp: profile.xp + Math.max(0, Math.round(amount)) };
   return write(PROFILE_FILE, writeProfile(profile));
 }
 

@@ -178,5 +178,28 @@ export const RESERVE_WORDS = [
 export const RESERVE_ALONE = ['reinforce'];
 export const RESERVE_FROM = ['from reserve', 'from the reserves', 'from reserves', 'from the reserve', 'in'];
 
+// Legendary actions (session 5A) ---------------------------------------------------------------
+
+export const HIJACK_VERBS = ['hijack', 'take control of', 'take over', 'mind control', 'control', 'possess', 'seize'];
+export const SWAP_VERBS = ['swap places', 'switch places', 'trade places', 'swap', 'switch', 'trade'];
+/** "swap my Vanguard with my Ranger" */
+export const SWAP_WITH = ['with', 'and', 'for'];
+/** "swap my Vanguard into my Ranger's spot" */
+export const SWAP_INTO = ['into', 'to', 'in'];
+export const SWAP_SPOTS = ['spot', 'place', 'position', 'post'];
+export const BLOOD_PACT_VERBS = ['make a blood pact with', 'blood pact', 'sacrifice', 'give up'];
+export const FORTIFY_VERBS = [
+  'fortify', 'raise a wall', 'build a wall', 'put up a wall', 'make a wall', 'raise walls', 'build walls', 'wall off',
+  'throw up a wall', 'drop a wall',
+];
+export const WALL_FORWARD = ['in front', 'in front of us', 'in front of the army', 'ahead', 'forward', 'up front'];
+export const WALL_BACK = ['behind us', 'behind the army', 'at the back', 'back'];
+export const WALL_AT = ['in front of', 'at', 'by', 'near', 'next to', 'around', 'before'];
+export const ECHO_VERBS = ['echo', 'repeat', 'do it again', 'do that again', 'once more', 'play it again'];
+export const ECHO_OBJECTS = [
+  'my last card', 'the last card', 'our last card', 'my last order', 'the last order', 'our last order', 'last card',
+  'last order', 'the last one', 'that', 'it',
+];
+
 /** Words dropped before parsing. */
 export const FILLER_WORDS = new Set(['please', 'now', 'immediately', 'quickly', 'asap', 'okay', 'ok']);

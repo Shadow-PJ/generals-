@@ -53,6 +53,9 @@ export const COLORS = {
   /** Terrain: forests (Deep Forest), rock and iron (Red Canyon, Iron Fortress), open glass (Glass Plains). */
   forest: 0x14532d,
   tree: 0x166534,
+  /** A wall raised by Fortify (Legendary action). */
+  fortify: 0xc2a46a,
+  fortifyEdge: 0x7d6236,
   rock: 0x4b3a33,
   rockEdge: 0x2b211d,
   plains: 0x24303f,

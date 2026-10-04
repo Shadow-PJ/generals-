@@ -8,7 +8,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Role } from '../../src/cards/reader/tags';
-import type { Actors, Card, Condition, Step, Target, Trigger } from '../../src/cards/types';
+import type { Actors, Card, Condition, RegularAction, Step, Target, Trigger } from '../../src/cards/types';
 import { validateCard } from '../../src/cards/validator';
 import { HURT_WORDS } from '../../src/data/cards';
 import type { TroopClass } from '../../src/data/units';
@@ -393,7 +393,7 @@ class Writer {
   step(sides: Sides, previous: Step | null): StepOut {
     // "kill their healer, then their ranger" is common, so a Focus often follows a Focus.
     if (previous?.action === 'focus' && this.chance(0.15)) return this.focus(sides, previous);
-    const action = this.weighted<Step['action']>([
+    const action = this.weighted<RegularAction>([
       [30, 'focus'], [14, 'protect'], [15, 'move'], [14, 'fallBack'], [12, 'overcharge'], [11, 'hold'], [10, 'callReserve'],
     ]);
     switch (action) {

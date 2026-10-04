@@ -2,6 +2,7 @@
 
 import { SIGNATURE_COMBOS } from '../src/data/combos';
 import { GENERAL_IDS, GENERALS, type GeneralId } from '../src/data/generals';
+import { LEGENDARY_ACTION_DATA } from '../src/data/legendary';
 import { MAP_IDS, type MapId } from '../src/data/maps';
 import { RANKS, type RankNumber } from '../src/data/ranks';
 import { SPECIALIZATIONS } from '../src/data/specializations';
@@ -138,6 +139,9 @@ export function formatLog(state: BattleState, verbose: boolean): string[] {
     } else if (e.type === 'ultimate') {
       const name = Object.values(GENERALS).find((g) => g.ultimate.id === e.name)!.ultimate.name;
       lines.push(`${time}  ${SIDE_NAMES[e.side]} ${e.finisher ? `Finisher: ${name}!` : `ultimate: ${name}!`}`);
+    } else if (e.type === 'legendary') {
+      const on = e.unitIds.length > 0 ? ` on ${e.unitIds.map(label).join(' and ')}` : '';
+      lines.push(`${time}  ${SIDE_NAMES[e.side]} Legendary action: ${LEGENDARY_ACTION_DATA[e.action].name}${on}`);
     } else if (e.type === 'evolved') {
       lines.push(`${time}  ${label(e.mergedId)} merged into ${label(e.unitId)} (Forced Evolution)`);
     } else if (e.type === 'synergy') {

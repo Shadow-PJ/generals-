@@ -4,7 +4,7 @@
 import { goalOf, type Goal } from '../../src/cards/reader/reader';
 import { segmentsOf, tagFor, type Segment, type Tag } from '../../src/cards/reader/tags';
 import { keptWords, rawWords, splitOrder } from '../../src/cards/reader/words';
-import type { ActionName, Card, TriggerKind } from '../../src/cards/types';
+import { isLegendaryAction, type Card, type RegularAction, type TriggerKind } from '../../src/cards/types';
 import type { Pair } from '../dataset/generate';
 
 export interface TaggedOrder {
@@ -14,7 +14,7 @@ export interface TaggedOrder {
   tags: Tag[];
   card: Card;
   triggers: { segment: Segment; kind: TriggerKind }[];
-  steps: { segment: Segment; action: ActionName; goal: Goal | null }[];
+  steps: { segment: Segment; action: RegularAction; goal: Goal | null }[];
 }
 
 /** A generated order with a tag on every word, lined up with its card. Throws if they don't line up. */
@@ -47,6 +47,10 @@ export function taggedOrder(pair: Pair): TaggedOrder {
     tags: keptTags,
     card: pair.card,
     triggers: triggerSegments.map((segment, i) => ({ segment, kind: cardTriggers[i]!.kind })),
-    steps: stepSegments.map((segment, i) => ({ segment, action: pair.card.steps[i]!.action, goal: goalOf(pair.card.steps[i]!) })),
+    steps: stepSegments.map((segment, i) => {
+      const step = pair.card.steps[i]!;
+      if (isLegendaryAction(step.action)) throw new Error(`The reader isn't trained on Legendary actions: "${pair.text}"`);
+      return { segment, action: step.action, goal: goalOf(step) };
+    }),
   };
 }

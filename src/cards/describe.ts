@@ -12,6 +12,11 @@ export const ACTION_NAMES: Record<ActionName, string> = {
   protect: 'Protect',
   hold: 'Hold',
   callReserve: 'Call Reserve',
+  hijack: 'Hijack',
+  swap: 'Swap',
+  bloodPact: 'Blood Pact',
+  fortify: 'Fortify',
+  echo: 'Echo',
 };
 
 export function describeTrigger(t: Trigger): string {
@@ -105,9 +110,43 @@ export function describeStep(step: Step, card?: Card): string {
       break;
     case 'callReserve':
       return step.reserve ? `Call the reserve ${TROOP_NAMES[step.reserve].one}` : 'Call a reserve';
+    case 'hijack':
+      return `Hijack ${describeOne(step.target, 'enemy', card)}`;
+    case 'swap':
+      return `Swap ${describeActorsAsOne(step.actors)} with ${describeOne(step.target, 'ally', card)}`;
+    case 'bloodPact':
+      return `Blood Pact: sacrifice ${describeOne(step.target, 'ally', card)}`;
+    case 'fortify':
+      return `Fortify: raise a wall ${describeWallPlace(step.at, card)}`;
+    case 'echo':
+      return 'Echo your last card';
   }
   if (step.actors.kind === 'all') return verb;
   return `${describeActors(step.actors)} ${verb.charAt(0).toLowerCase()}${verb.slice(1)}`;
+}
+
+/** A Legendary action aims at one troop: "an enemy Ranger", "your weakest troop". */
+function describeOne(target: Target, side: 'enemy' | 'ally', card?: Card): string {
+  if (target.kind !== 'class') return describeTarget(target, side, card);
+  return `${side === 'enemy' ? 'an enemy' : 'your'} ${TROOP_NAMES[target.cls].one}`;
+}
+
+function describeActorsAsOne(actors: Actors): string {
+  if (actors.kind === 'class') return `your ${TROOP_NAMES[actors.cls].one}`;
+  return actors.kind === 'all' ? 'your nearest troop' : actors.name;
+}
+
+function describeWallPlace(place: Place, card?: Card): string {
+  switch (place.kind) {
+    case 'forward':
+      return 'in front of your army';
+    case 'back':
+      return 'behind your army';
+    case 'behindEnemies':
+      return 'behind the enemy';
+    case 'ally':
+      return `in front of ${describeTarget(place.ally, 'ally', card)}`;
+  }
 }
 
 function describeActorsAsObject(actors: Actors): string {
@@ -156,6 +195,11 @@ function shortTarget(target: Target, side: 'enemy' | 'ally'): string {
   }
 }
 
+/** Legendary actions act on one troop: "Ranger", not "Rangers". */
+function shortOne(target: Target, side: 'enemy' | 'ally'): string {
+  return target.kind === 'class' ? TROOP_NAMES[target.cls].one : shortTarget(target, side);
+}
+
 function shortStep(step: Step): string {
   switch (step.action) {
     case 'focus':
@@ -172,6 +216,16 @@ function shortStep(step: Step): string {
       return 'Hold';
     case 'callReserve':
       return step.reserve ? `Reserve ${TROOP_NAMES[step.reserve].one}` : 'Call reserve';
+    case 'hijack':
+      return `Hijack ${shortOne(step.target, 'enemy')}`;
+    case 'swap':
+      return `Swap ${step.actors.kind === 'class' ? TROOP_NAMES[step.actors.cls].one : 'nearest'}↔${shortOne(step.target, 'ally')}`;
+    case 'bloodPact':
+      return `Blood Pact ${shortOne(step.target, 'ally')}`;
+    case 'fortify':
+      return step.at.kind === 'ally' ? `Wall at ${shortTarget(step.at.ally, 'ally')}` : `Wall ${describePlace(step.at)}`;
+    case 'echo':
+      return 'Echo';
   }
 }
 

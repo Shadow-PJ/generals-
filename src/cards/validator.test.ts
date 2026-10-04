@@ -139,3 +139,35 @@ describe('the validator', () => {
     expect(slotUnlockRank(3, 4)).toBeNull();
   });
 });
+
+describe('the validator and the Legendary slot', () => {
+  const swap: Step = { action: 'swap', actors: { kind: 'class', cls: 'vanguard' }, target: { kind: 'class', cls: 'ranger' } };
+  const echo: Step = { action: 'echo' };
+  const slot = (learned: readonly ('swap' | 'echo' | 'hijack')[]) => ({ legendarySlot: true, learned });
+
+  it('takes a Legendary action only on the Legendary slot’s card, once a boss has taught it', () => {
+    expect(validateCard(card({ steps: [echo] }), 1, slot(['echo']))).toMatchObject({ ok: true, cost: 3 });
+    const outside = validateCard(card({ steps: [echo] }), 5);
+    expect(outside.problems).toEqual([{ kind: 'legendaryOutsideSlot', action: 'echo' }]);
+    expect(outside.unlockRank).toBeNull();
+    expect(replyToVerdict(outside)).toBe('That is a Legendary order. It goes in the Legendary slot.');
+    const unknown = validateCard(card({ steps: [swap] }), 5, slot(['echo']));
+    expect(unknown.problems).toEqual([{ kind: 'legendaryNotLearned', action: 'swap' }]);
+    expect(replyToVerdict(unknown)).toBe("We don't know that one. Beat The Strategist to learn it.");
+  });
+
+  it('wants exactly one Legendary action on the Legendary slot’s card', () => {
+    expect(validateCard(card({}), 5, slot(['echo'])).problems).toEqual([{ kind: 'legendaryMissing' }]);
+    expect(validateCard(card({ steps: [echo, swap] }), 5, slot(['echo', 'swap'])).problems).toEqual([{ kind: 'tooManyLegendary', count: 2 }]);
+  });
+
+  it('counts the Legendary step toward your rank’s steps and pips, as in the design: Swap, Protect, Focus is 3 steps and 5 pips at Rank V', () => {
+    const design = card({
+      condition: { triggers: [dives], repeat: true },
+      steps: [swap, { action: 'protect', actors: { kind: 'all' }, target: { kind: 'class', cls: 'ranger' } }, { ...focus, target: { kind: 'trigger' } }],
+    });
+    expect(validateCard(design, 5, slot(['swap']))).toMatchObject({ ok: true, cost: 5 });
+    expect(validateCard(design, 4, slot(['swap'])).unlockRank).toBe(5);
+    expect(validateCard(card({ steps: [swap, focus] }), 1, slot(['swap'])).problems).toContainEqual({ kind: 'tooManySteps', steps: 2, max: 1 });
+  });
+});

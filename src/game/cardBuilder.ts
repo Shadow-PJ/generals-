@@ -3,7 +3,7 @@
 
 import { describeTarget, ACTION_NAMES } from '../cards/describe';
 import type { ActionName, Actors, Card, Place, Step, Target, Trigger, TriggerKind } from '../cards/types';
-import { ACTIONS, TRIGGER_KINDS } from '../cards/types';
+import { REGULAR_ACTIONS, TRIGGER_KINDS } from '../cards/types';
 import { CARD_RULES } from '../data/cards';
 import { TROOP_CLASSES, TROOP_NAMES, UNIT_CLASS_LIST, type TroopClass } from '../data/units';
 
@@ -22,8 +22,11 @@ export function newDraft(): Card {
   return { condition: null, steps: [defaultStep('focus', { kind: 'all' })], auto: false };
 }
 
-/** Every menu row for this card, top to bottom. */
-export function builderRows(card: Card): BuilderRow[] {
+/**
+ * Every menu row for this card, top to bottom. `actions` are the actions the step menus offer:
+ * the regular ones, plus the Legendary actions you know on the Legendary slot.
+ */
+export function builderRows(card: Card, actions: readonly ActionName[] = REGULAR_ACTIONS): BuilderRow[] {
   const rows: BuilderRow[] = [];
   const triggers = card.condition?.triggers ?? [];
   rows.push(triggerKindRow(card, 0));
@@ -39,7 +42,7 @@ export function builderRows(card: Card): BuilderRow[] {
     );
   }
   for (let i = 0; i < Math.min(card.steps.length + 1, MAX_STEPS); i++) {
-    rows.push(stepActionRow(card, i));
+    rows.push(stepActionRow(card, i, actions));
     const step = card.steps[i];
     if (step) rows.push(...stepParamRows(card, i, step));
   }
@@ -53,8 +56,8 @@ export function builderRows(card: Card): BuilderRow[] {
 }
 
 /** The card after moving `delta` choices along a row (wrapping around). */
-export function cycleRow(card: Card, rowId: string, delta: number): Card {
-  const r = builderRows(card).find((x) => x.id === rowId);
+export function cycleRow(card: Card, rowId: string, delta: number, actions: readonly ActionName[] = REGULAR_ACTIONS): Card {
+  const r = builderRows(card, actions).find((x) => x.id === rowId);
   if (!r || r.choices.length === 0) return card;
   const n = r.choices.length;
   return r.choices[(((r.index + delta) % n) + n) % n]!.card;
@@ -160,12 +163,12 @@ function triggerParamRows(card: Card, i: number): BuilderRow[] {
   }
 }
 
-function stepActionRow(card: Card, i: number): BuilderRow {
+function stepActionRow(card: Card, i: number, actions: readonly ActionName[]): BuilderRow {
   const step = card.steps[i];
   const actors: Actors = step && 'actors' in step ? step.actors : { kind: 'all' };
   const choices: [string, Card][] = [];
   if (i > 0) choices.push(['No more steps', { ...card, steps: card.steps.slice(0, i) }]);
-  for (const action of ACTIONS) {
+  for (const action of actions) {
     const keep = step?.action === action ? step : defaultStep(action, actors);
     choices.push([ACTION_NAMES[action], withStep(card, i, keep)]);
   }
@@ -190,32 +193,71 @@ function stepParamRows(card: Card, i: number, step: Step): BuilderRow[] {
   const triggers = card.condition?.triggers ?? [];
   const enemyTrigger = triggers.some((t) => t.kind === 'enemyReachesBackline' || t.kind === 'enemiesGrouped');
   const allyTrigger = triggers.some((t) => t.kind === 'allyBelowHp');
+  const enemyTargets = (): Target[] => [
+    { kind: 'nearest' },
+    { kind: 'weakest' },
+    ...(enemyTrigger ? [{ kind: 'trigger' } as const] : []),
+    ...TROOP_CLASSES.map((cls) => ({ kind: 'class', cls }) as const),
+  ];
+  const allyTargets = (): Target[] => [
+    { kind: 'weakest' },
+    ...(allyTrigger ? [{ kind: 'trigger' } as const] : []),
+    ...UNIT_CLASS_LIST.map((cls) => ({ kind: 'class', cls }) as const),
+  ];
   switch (step.action) {
-    case 'focus': {
-      const targets: Target[] = [{ kind: 'nearest' }, { kind: 'weakest' }];
-      if (enemyTrigger) targets.push({ kind: 'trigger' });
-      targets.push(...TROOP_CLASSES.map((cls) => ({ kind: 'class', cls }) as const));
+    case 'focus':
+    case 'hijack': {
       rows.push(
         row(
           card,
           `${id}.target`,
-          'Target',
-          targets.map((t) => [cap(describeTarget(t, 'enemy', card)), withStep(card, i, { ...step, target: t })]),
+          step.action === 'focus' ? 'Target' : 'Hijack',
+          enemyTargets().map((t) => [cap(describeTarget(t, 'enemy', card)), withStep(card, i, { ...step, target: t })]),
           cap(describeTarget(step.target, 'enemy', card)),
         ),
       );
       break;
     }
+    case 'swap':
+    case 'bloodPact': {
+      rows.push(
+        row(
+          card,
+          `${id}.target`,
+          step.action === 'swap' ? 'With' : 'Sacrifice',
+          allyTargets().map((t) => [cap(describeTarget(t, 'ally', card)), withStep(card, i, { ...step, target: t })]),
+          cap(describeTarget(step.target, 'ally', card)),
+        ),
+      );
+      break;
+    }
+    case 'fortify': {
+      const places: Place[] = [
+        { kind: 'forward' },
+        { kind: 'back' },
+        { kind: 'behindEnemies' },
+        ...UNIT_CLASS_LIST.map((cls) => ({ kind: 'ally', ally: { kind: 'class', cls } }) as const),
+      ];
+      rows.push(
+        row(
+          card,
+          `${id}.at`,
+          'Wall',
+          places.map((p) => [wallLabel(p, card), withStep(card, i, { ...step, at: p })]),
+          wallLabel(step.at, card),
+        ),
+      );
+      break;
+    }
+    case 'echo':
+      break;
     case 'protect': {
-      const targets: Target[] = [{ kind: 'weakest' }];
-      if (allyTrigger) targets.push({ kind: 'trigger' });
-      targets.push(...UNIT_CLASS_LIST.map((cls) => ({ kind: 'class', cls }) as const));
       rows.push(
         row(
           card,
           `${id}.target`,
           'Protect',
-          targets.map((t) => [cap(describeTarget(t, 'ally', card)), withStep(card, i, { ...step, target: t })]),
+          allyTargets().map((t) => [cap(describeTarget(t, 'ally', card)), withStep(card, i, { ...step, target: t })]),
           cap(describeTarget(step.target, 'ally', card)),
         ),
       );
@@ -289,6 +331,16 @@ export function defaultStep(action: ActionName, actors: Actors): Step {
       return { action, actors };
     case 'callReserve':
       return { action, reserve: null };
+    case 'hijack':
+      return { action, target: { kind: 'nearest' } };
+    case 'swap':
+      return { action, actors, target: { kind: 'weakest' } };
+    case 'bloodPact':
+      return { action, target: { kind: 'weakest' } };
+    case 'fortify':
+      return { action, at: { kind: 'forward' } };
+    case 'echo':
+      return { action };
   }
 }
 
@@ -328,6 +380,19 @@ function placeLabel(p: Place, card: Card): string {
       return 'Behind the enemy';
     case 'ally':
       return `To ${describeTarget(p.ally, 'ally', card)}`;
+  }
+}
+
+function wallLabel(p: Place, card: Card): string {
+  switch (p.kind) {
+    case 'forward':
+      return 'In front of your army';
+    case 'back':
+      return 'Behind your army';
+    case 'behindEnemies':
+      return 'Behind the enemy';
+    case 'ally':
+      return `In front of ${describeTarget(p.ally, 'ally', card)}`;
   }
 }
 

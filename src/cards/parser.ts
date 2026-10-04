@@ -261,6 +261,7 @@ function parseActors(c: Cursor): Actors | undefined {
 
 function parseVerbPhrase(c: Cursor, actors: Actors): Step | undefined {
   return (
+    c.attempt(() => parseLegendary(c, actors)) ??
     c.attempt(() => parseCallReserve(c)) ??
     c.attempt(() => parseFallBack(c, actors)) ??
     c.attempt(() => parseFocus(c, actors)) ??
@@ -401,6 +402,94 @@ function parseCallReserve(c: Cursor): Step | undefined {
   });
 }
 
+// Legendary actions ----------------------------------------------------------------------
+
+function parseLegendary(c: Cursor, actors: Actors): Step | undefined {
+  return (
+    c.attempt(() => parseHijack(c, actors)) ??
+    c.attempt(() => parseSwap(c, actors)) ??
+    c.attempt(() => parseBloodPact(c, actors)) ??
+    c.attempt(() => parseFortify(c, actors)) ??
+    c.attempt(() => parseEcho(c, actors))
+  );
+}
+
+/** Hijack, Blood Pact, Fortify and Echo are the commander's own: no troops carry them out. */
+function noActors(actors: Actors, name: string): void {
+  if (actors.kind !== 'all') fail(`${name} is yours to do: don't name troops for it.`);
+}
+
+function parseHijack(c: Cursor, actors: Actors): Step | undefined {
+  const verb = c.match(V.HIJACK_VERBS);
+  if (verb === undefined) return undefined;
+  noActors(actors, 'Hijack');
+  const target = parseEnemyTarget(c) ?? fail(`${capitalize(verb)} whom?`);
+  return { action: 'hijack', target };
+}
+
+function parseSwap(c: Cursor, actors: Actors): Step | undefined {
+  const verb = c.match(V.SWAP_VERBS);
+  if (verb === undefined) return undefined;
+  // "swap my Vanguard with my Ranger": who moves can come after the verb.
+  const object = c.attempt(() => {
+    c.match(['a', 'the', 'my', 'our', 'your']);
+    return c.match(V.CLASS_WORDS);
+  });
+  if (object && actors.kind !== 'all') fail('Name either who swaps or with whom, not both.');
+  const movers: Actors = object ? { kind: 'class', cls: object } : actors;
+  const target =
+    c.attempt(() => (c.match(V.SWAP_WITH) !== undefined ? parseAllyTarget(c) : undefined)) ??
+    c.attempt(() => parseSwapSpot(c)) ??
+    fail(`${capitalize(verb)} with whom?`);
+  return { action: 'swap', actors: movers, target };
+}
+
+/** "into my Ranger's spot" */
+function parseSwapSpot(c: Cursor): Target | undefined {
+  if (c.match(V.SWAP_INTO) === undefined) return undefined;
+  c.match(V.ALLY_OWNER);
+  const word = c.tokens[c.pos];
+  if (!word?.endsWith("'s")) return undefined;
+  const cls = V.CLASS_WORDS[word.slice(0, -2)];
+  if (!cls) return undefined;
+  c.pos++;
+  return c.match(V.SWAP_SPOTS) !== undefined ? { kind: 'class', cls } : undefined;
+}
+
+function parseBloodPact(c: Cursor, actors: Actors): Step | undefined {
+  const verb = c.match(V.BLOOD_PACT_VERBS);
+  if (verb === undefined) return undefined;
+  noActors(actors, 'Blood Pact');
+  const target = parseAllyTarget(c) ?? fail(`${capitalize(verb)} whom?`);
+  return { action: 'bloodPact', target };
+}
+
+function parseFortify(c: Cursor, actors: Actors): Step | undefined {
+  if (c.match(V.FORTIFY_VERBS) === undefined) return undefined;
+  noActors(actors, 'Fortify');
+  return { action: 'fortify', at: parseWallPlace(c) ?? { kind: 'forward' } };
+}
+
+function parseWallPlace(c: Cursor): Place | undefined {
+  if (c.match(V.MOVE_BEHIND) !== undefined) return { kind: 'behindEnemies' };
+  const atAlly = c.attempt(() => {
+    if (c.match(V.WALL_AT) === undefined) return undefined;
+    const ally = parseAllyTarget(c);
+    return ally ? ({ kind: 'ally', ally } as const) : undefined;
+  });
+  if (atAlly) return atAlly;
+  if (c.match(V.WALL_FORWARD) !== undefined) return { kind: 'forward' };
+  if (c.match(V.WALL_BACK) !== undefined) return { kind: 'back' };
+  return undefined;
+}
+
+function parseEcho(c: Cursor, actors: Actors): Step | undefined {
+  if (c.match(V.ECHO_VERBS) === undefined) return undefined;
+  noActors(actors, 'Echo');
+  c.match(V.ECHO_OBJECTS);
+  return { action: 'echo' };
+}
+
 // Checks ---------------------------------------------------------------------------------
 
 /** "him" and "her" must point at a unit named by the condition, on the right side. */
@@ -414,11 +503,12 @@ export function pronounsFit(card: Card): boolean {
   const hasEnemy = triggers.some((t) => t.kind === 'enemyReachesBackline' || t.kind === 'enemiesGrouped');
   const hasAlly = triggers.some((t) => t.kind === 'allyBelowHp');
   return card.steps.every((step) => {
-    const enemyRef = step.action === 'focus' && step.target.kind === 'trigger';
+    const enemyRef = (step.action === 'focus' || step.action === 'hijack') && step.target.kind === 'trigger';
     const allyRef =
-      (step.action === 'protect' && step.target.kind === 'trigger') ||
+      ((step.action === 'protect' || step.action === 'swap' || step.action === 'bloodPact') && step.target.kind === 'trigger') ||
       (step.action === 'fallBack' && step.to?.kind === 'trigger') ||
-      (step.action === 'move' && step.to.kind === 'ally' && step.to.ally.kind === 'trigger');
+      (step.action === 'move' && step.to.kind === 'ally' && step.to.ally.kind === 'trigger') ||
+      (step.action === 'fortify' && step.at.kind === 'ally' && step.at.ally.kind === 'trigger');
     return !(enemyRef && !hasEnemy) && !(allyRef && !hasAlly);
   });
 }

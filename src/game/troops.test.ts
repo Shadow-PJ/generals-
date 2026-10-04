@@ -12,6 +12,8 @@ function setup(change: Partial<MatchSetup> = {}): MatchSetup {
     placement: STARTER_ARMY.map((t) => ({ ...t })),
     loadout: emptyLoadout(),
     rank: 3,
+    bossesBeaten: [],
+    practiceRank: null,
     tactical: false,
     general: 'captain',
     reserves: [...STARTER_RESERVES],

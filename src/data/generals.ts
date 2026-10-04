@@ -64,6 +64,13 @@ export const STRATEGIST_RULES = {
     hold: { kind: 'enemiesGrouped', count: 3 },
     overcharge: { kind: 'enemiesGrouped', count: 3 },
     callReserve: { kind: 'allyBelowHp', ally: 'any', hpPercent: 50 },
+    // Legendary actions: take a diver, rescue or spend a troop in trouble, wall off a crowd,
+    // and echo when the enemy gathers.
+    hijack: { kind: 'enemyReachesBackline', enemy: 'any' },
+    swap: { kind: 'allyBelowHp', ally: 'any', hpPercent: 50 },
+    bloodPact: { kind: 'allyBelowHp', ally: 'any', hpPercent: 25 },
+    fortify: { kind: 'enemiesGrouped', count: 3 },
+    echo: { kind: 'enemiesGrouped', count: 3 },
   } satisfies Record<ActionName, SuggestedTrigger>,
   /** Only these classes dive at your backline, so "wait for them to reach it" fits only them. */
   divers: ['vanguard', 'assassin'] as readonly TroopClass[],

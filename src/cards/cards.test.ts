@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ACTION_COSTS, LEGENDARY_ACTION_COST } from '../data/cards';
+import { ACTION_COSTS } from '../data/cards';
 import { cardCost } from './cost';
 import { describeCard, describeStep, shortCard } from './describe';
-import type { Card } from './types';
+import { LEGENDARY_ACTIONS, REGULAR_ACTIONS, type Card } from './types';
 
 // The Rank III loadout from the design.
 const healer: Card = {
@@ -25,9 +25,10 @@ const fallBack: Card = {
 };
 
 describe('card costs', () => {
-  it('match the design: 1 for Focus, Move, Fall Back, Protect and Hold; 2 for Overcharge and Call Reserve', () => {
-    expect(ACTION_COSTS).toEqual({ focus: 1, move: 1, fallBack: 1, protect: 1, hold: 1, overcharge: 2, callReserve: 2 });
-    expect(LEGENDARY_ACTION_COST).toBe(3);
+  it('match the design: 1 for Focus, Move, Fall Back, Protect and Hold; 2 for Overcharge and Call Reserve; 3 for Legendary actions', () => {
+    const regular = Object.fromEntries(REGULAR_ACTIONS.map((a) => [a, ACTION_COSTS[a]]));
+    expect(regular).toEqual({ focus: 1, move: 1, fallBack: 1, protect: 1, hold: 1, overcharge: 2, callReserve: 2 });
+    for (const action of LEGENDARY_ACTIONS) expect(ACTION_COSTS[action]).toBe(3);
   });
 
   it('add up the steps, as in the design loadout', () => {

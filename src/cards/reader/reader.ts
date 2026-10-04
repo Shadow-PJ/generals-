@@ -13,7 +13,7 @@
 import { CARD_RULES } from '../../data/cards';
 import type { TroopClass } from '../../data/units';
 import { pronounsFit, type ParseResult } from '../parser';
-import type { ActionName, Actors, Card, Step, Target, Trigger, TriggerKind } from '../types';
+import type { Actors, Card, RegularAction, Step, Target, Trigger, TriggerKind } from '../types';
 import { goalFeatures, stepFeatures, triggerFeatures, wordFeatures, type StepContext } from './features';
 import { bestLabel, bestTags, type ReaderModel } from './model';
 import { roleOf, segmentsOf, type Role, type Segment, type Tag } from './tags';
@@ -24,8 +24,8 @@ export const GOALS = ['none', 'class', 'nearest', 'weakest', 'trigger', 'forward
 export type Goal = (typeof GOALS)[number];
 
 const TARGET_GOALS: readonly Goal[] = ['class', 'nearest', 'weakest', 'trigger'];
-/** The goals each action can have; null for actions that aim at nothing. */
-export const GOALS_FOR: Readonly<Record<ActionName, readonly Goal[] | null>> = {
+/** The goals each action can have; null for actions that aim at nothing. The reader knows the regular actions only. */
+export const GOALS_FOR: Readonly<Record<RegularAction, readonly Goal[] | null>> = {
   focus: TARGET_GOALS,
   protect: TARGET_GOALS,
   move: ['forward', 'back', 'behind', ...TARGET_GOALS],
@@ -207,7 +207,7 @@ class ReadingState {
   private step(seg: Segment, whoWords: readonly string[], context: StepContext): Step {
     const { label, margin } = bestLabel(this.model.action, stepFeatures(this.words, this.tags, seg, context));
     this.sure('action', margin, `what to do in ${this.quote(seg)}`);
-    const action = label as ActionName;
+    const action = label as RegularAction;
     const goal = this.goal(seg, action, context);
     const aims = this.segmentWords(seg, 'G');
     const cls = this.oneClass(whoWords, seg);
@@ -238,7 +238,7 @@ class ReadingState {
     }
   }
 
-  private goal(seg: Segment, action: ActionName, context: StepContext): Goal | null {
+  private goal(seg: Segment, action: RegularAction, context: StepContext): Goal | null {
     const allowed = GOALS_FOR[action];
     if (!allowed) return null;
     const { label, margin } = bestLabel(this.model.goal, goalFeatures(this.words, this.tags, seg, action, context), allowed);

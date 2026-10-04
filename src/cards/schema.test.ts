@@ -59,6 +59,22 @@ describe('reading cards from saved data', () => {
     expect(roundTrip(card)).toEqual(card);
   });
 
+  it('keeps Legendary actions', () => {
+    const card: Card = {
+      condition: { triggers: [{ kind: 'allyBelowHp', ally: 'ranger', hpPercent: 30 }], repeat: false },
+      steps: [
+        { action: 'swap', actors: { kind: 'class', cls: 'vanguard' }, target: { kind: 'trigger' } },
+        { action: 'fortify', at: { kind: 'ally', ally: { kind: 'class', cls: 'ranger' } } },
+        { action: 'hijack', target: { kind: 'weakest' } },
+        { action: 'bloodPact', target: { kind: 'class', cls: 'guardian' } },
+        { action: 'echo' },
+      ],
+      auto: false,
+    };
+    expect(roundTrip(card)).toEqual(card);
+    expect(readCard({ condition: null, steps: [{ action: 'hijack' }], auto: false })).toBeNull();
+  });
+
   it('drops fields a card does not have', () => {
     const data = { ...parsed('Fall back'), extra: 'junk', steps: [{ action: 'fallBack', actors: { kind: 'all', x: 1 }, to: null, y: 2 }] };
     expect(readCard(data)).toEqual({ text: 'Fall back', condition: null, steps: [{ action: 'fallBack', actors: { kind: 'all' }, to: null }], auto: false });
