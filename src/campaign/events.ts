@@ -4,12 +4,12 @@ import { ARTIFACT_IDS, ARTIFACTS, type ArtifactId } from '../data/artifacts';
 import { BOONS } from '../data/boons';
 import { RUN_EVENT_RULES, type EventChoice, type EventEffect } from '../data/events';
 import type { GeneralId } from '../data/generals';
+import { PERKS } from '../data/perks';
 import { RARITY_RULES, rarityAbove } from '../data/rarity';
-import { unlockedClasses } from '../data/regions';
 import type { RngState } from '../sim';
 import { addFighter, removeFighter } from './army';
 import { fighterLabel, offerLabel } from './describe';
-import { boonOfferOrNull } from './offers';
+import { boonOfferOrNull, rollFighter, rollPerks } from './offers';
 import { chance, pick } from './random';
 import type { RunState } from './types';
 
@@ -77,25 +77,30 @@ function applyEffect(
       let next = run;
       const lines: string[] = [];
       for (let i = 0; i < (effect.count ?? 1); i++) {
-        const cls = effect.cls ?? pick(rng, unlockedClasses(bossesBeaten));
-        next = addFighter(next, cls, effect.rarity, effect.hp ?? 1);
-        lines.push(`A ${fighterLabel(cls, effect.rarity)} joins your army${effect.hp !== undefined && effect.hp < 1 ? `, at ${percent(effect.hp)} HP` : ''}.`);
+        const fighter = rollFighter(rng, next, effect.rarity, bossesBeaten, effect.cls);
+        next = addFighter(next, fighter, effect.hp ?? 1);
+        lines.push(`A ${fighterLabel(fighter.cls, fighter.rarity, fighter.faction)} joins your army${effect.hp !== undefined && effect.hp < 1 ? `, at ${percent(effect.hp)} HP` : ''}.`);
       }
       return { run: next, lines };
     }
     case 'loseFighter': {
       if (run.roster.length < 2) return { run, lines: [] };
       const gone = effect.which === 'random' ? pick(rng, run.roster) : [...run.roster].sort((a, b) => a.hp - b.hp || a.id - b.id)[0]!;
-      return { run: removeFighter(run, gone.id), lines: [`Your ${fighterLabel(gone.cls, gone.rarity)} leaves the army.`] };
+      return { run: removeFighter(run, gone.id), lines: [`Your ${fighterLabel(gone.cls, gone.rarity, gone.faction)} leaves the army.`] };
     }
     case 'upgrade': {
       const able = run.roster.filter((f) => rarityAbove(f.rarity) !== null);
       if (able.length === 0) return { run, lines: [] };
       const lucky = pick(rng, able);
       const rarity = rarityAbove(lucky.rarity)!;
+      // A rarer fighter has more perks: it gains one if its new rarity has room for it.
+      const perks = rollPerks(rng, rarity, lucky.perks);
+      const gained = perks.filter((p) => !lucky.perks.includes(p)).map((p) => PERKS[p].name);
       return {
-        run: { ...run, roster: run.roster.map((f) => (f.id === lucky.id ? { ...f, rarity } : f)) },
-        lines: [`Your ${fighterLabel(lucky.cls, lucky.rarity)} rises to ${RARITY_RULES[rarity].name}.`],
+        run: { ...run, roster: run.roster.map((f) => (f.id === lucky.id ? { ...f, rarity, perks } : f)) },
+        lines: [
+          `Your ${fighterLabel(lucky.cls, lucky.rarity, lucky.faction)} rises to ${RARITY_RULES[rarity].name}${gained.length > 0 ? ` and becomes ${gained.join(' and ')}` : ''}.`,
+        ],
       };
     }
     case 'boon': {

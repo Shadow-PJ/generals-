@@ -5,6 +5,7 @@ import type { Troop, TroopPlacement } from '../data/armies';
 import type { ArtifactId } from '../data/artifacts';
 import type { BoonId } from '../data/boons';
 import type { EventId } from '../data/events';
+import type { FactionId } from '../data/factions';
 import type { GeneralId } from '../data/generals';
 import type { LegendaryAction } from '../cards/types';
 import type { MapId } from '../data/maps';
@@ -12,6 +13,7 @@ import type { RankNumber } from '../data/ranks';
 import type { Rarity } from '../data/rarity';
 import type { RegionId } from '../data/regions';
 import type { NodeKind } from '../data/runs';
+import type { PerkId } from '../data/perks';
 import type { TroopClass } from '../data/units';
 import type { RngState } from '../sim';
 
@@ -23,11 +25,17 @@ export interface Campaign {
   bossesBeaten: GeneralId[];
 }
 
-/** One of your troops in a run. */
-export interface Fighter {
-  id: number;
+/** What makes a fighter who they are: class, rarity, faction (or none) and perks (session 5C). */
+export interface FighterTraits {
   cls: TroopClass;
   rarity: Rarity;
+  faction: FactionId | null;
+  perks: PerkId[];
+}
+
+/** One of your troops in a run. */
+export interface Fighter extends FighterTraits {
+  id: number;
   /** Share of max HP left, above 0: a fighter who falls in a won fight gets back up hurt. */
   hp: number;
   /** Where it stood last time, on your side of the map; null to let the game pick a spot. */
@@ -41,7 +49,7 @@ export interface RunNode {
 }
 
 /** A fighter or a boon, offered in the spoils or sold by the merchant. */
-export type Offer = { kind: 'fighter'; cls: TroopClass; rarity: Rarity } | { kind: 'boon'; boon: BoonId };
+export type Offer = ({ kind: 'fighter' } & FighterTraits) | { kind: 'boon'; boon: BoonId };
 
 /** The enemy at a fight node: its army on your region's map, its General and its commander. */
 export interface Encounter {

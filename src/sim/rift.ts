@@ -8,7 +8,7 @@ import { UNIT_CLASSES } from '../data/units';
 import { dealDamage, zoneAt } from './combat';
 import { distance, type Point } from './geometry';
 import { centerDistance, visibleEnemies } from './queries';
-import { skillCooldownTicks } from './skills';
+import { skillCooldownFor } from './skills';
 import { applySlow } from './status';
 import { hasSynergy, noteSynergy } from './synergies';
 import { secondsToTicks } from './time';
@@ -48,7 +48,7 @@ export function startRift(invoker: Unit, spot: Point): void {
     y: spot.y,
     damageTaken: 0,
   };
-  invoker.skillCooldown = skillCooldownTicks('invoker');
+  invoker.skillCooldown = skillCooldownFor(invoker);
 }
 
 /** Counts down a cast; when it ends, the Rift opens. Called with the other timers. */

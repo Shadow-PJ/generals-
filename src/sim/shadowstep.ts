@@ -6,7 +6,7 @@ import { SPEC_RULES } from '../data/specializations';
 import { UNIT_CLASSES } from '../data/units';
 import { critMultiplier, dealDamage, rollDamage } from './combat';
 import { findUnit, hpShare, mostHurt, visibleEnemies } from './queries';
-import { skillCooldownTicks } from './skills';
+import { skillCooldownFor } from './skills';
 import { spotBehind } from './spots';
 import { damageFactor, silence } from './status';
 import { attackIntervalTicks, secondsToTicks } from './time';
@@ -47,7 +47,7 @@ export function castShadowstep(state: BattleState, assassin: Unit, target: Unit,
   assassin.y = spot.y;
   assassin.path = [];
   assassin.targetId = target.id;
-  assassin.skillCooldown = skillCooldownTicks('assassin');
+  assassin.skillCooldown = skillCooldownFor(assassin);
   assassin.attackCooldown = attackIntervalTicks(assassin.stats.attacksPerSecond);
   state.events.push({ tick: state.tick, type: 'skill', unitId: assassin.id, skill: 'shadowstep', targetIds: [target.id] });
 

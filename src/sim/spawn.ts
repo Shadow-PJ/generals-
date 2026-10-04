@@ -6,7 +6,7 @@ import type { MapData } from '../data/maps';
 import { TROOP_SKILLS, type GeneralId } from '../data/generals';
 import type { SpecializationId } from '../data/specializations';
 import { UNIT_CLASSES, type TroopClass } from '../data/units';
-import { boostedStats } from './boons';
+import { boostedStats, troopLifesteal, troopSkillHaste } from './boons';
 import { isSpaceFree } from './movement';
 import { nextInt, type RngState } from './rng';
 import { initialSkillCooldownTicks } from './skills';
@@ -25,7 +25,8 @@ export function createUnit(
   boons: readonly BoonId[] = [],
 ): Unit {
   const rarity = placement.rarity ?? 'common';
-  const stats = boostedStats(specStats(UNIT_CLASSES[placement.cls].stats, spec), placement.cls, rarity, boons);
+  const perks = placement.perks ?? [];
+  const stats = boostedStats(specStats(UNIT_CLASSES[placement.cls].stats, spec), placement.cls, rarity, boons, perks);
   // Open ground (Glass Plains): ranged troops reach further.
   if (stats.projectileSpeed > 0 && map?.rangedReachBonus) stats.range *= 1 + map.rangedReachBonus;
   const unit: Unit = {
@@ -74,6 +75,12 @@ export function createUnit(
     hijackTicks: 0,
     rarity,
     fighterId: placement.fighterId ?? null,
+    faction: placement.faction ?? null,
+    lifesteal: troopLifesteal(placement.cls, boons, perks),
+    skillHaste: troopSkillHaste(placement.cls, boons, perks),
+    forgeArmor: 0,
+    hitsTaken: 0,
+    attacksMade: 0,
   };
   // Warlord doctrine: Assassins dive at once.
   if (general === 'warlord' && unit.cls === 'assassin') unit.skillCooldown = 0;

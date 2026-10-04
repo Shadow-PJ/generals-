@@ -43,7 +43,7 @@ export function interruptCast(state: BattleState, unit: Unit, byId: number | nul
 export function effectiveArmor(unit: Unit): number {
   const shell = unit.adaptation?.kind === 'shell' ? TROOP_SKILLS.assimilation.shellArmor : 0;
   const shattered = unit.shatterTicks > 0 ? TROOP_SKILLS.echoStrike.shatterArmorLoss : 0;
-  return Math.max(0, Math.min(0.9, unit.stats.armor + shell - shattered));
+  return Math.max(0, Math.min(0.9, unit.stats.armor + shell + unit.forgeArmor - shattered));
 }
 
 /** How much harder the troop hits: claws (Assimilation) and a wraith (Reaper's Toll). */

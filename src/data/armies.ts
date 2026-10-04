@@ -2,6 +2,8 @@
 
 import type { UnitClass } from './units';
 import { OPEN_FIELD } from './maps';
+import type { FactionId } from './factions';
+import type { PerkId } from './perks';
 import type { Rarity } from './rarity';
 
 /** A troop as it joins a battle. In a run (session 5B) it is one of your fighters, with a rarity and the wounds it carries. */
@@ -11,6 +13,10 @@ export interface Troop {
   rarity?: Rarity;
   /** The share of its max HP it starts with, for a fighter still hurt from an earlier fight. Full when left out. */
   hp?: number;
+  /** Its faction (session 5C): enough fighters of one faction switch on its bonus. None when left out. */
+  faction?: FactionId | null;
+  /** Its perks (session 5C), each making it better at something. None when left out. */
+  perks?: PerkId[];
   /** The run fighter this troop is, so the game can carry its wounds to the next fight. The battle doesn't use it. */
   fighterId?: number;
 }

@@ -16,6 +16,7 @@ import { createRng } from './rng';
 import { castShadowstep } from './shadowstep';
 import { castBarrier, castMark, castShove, ironWallTaunts } from './skills';
 import { specFor } from './specs';
+import { factionCounts } from './factions';
 import { createUnit } from './spawn';
 import { activeSynergies } from './synergies';
 import { updatePacks } from './doctrine';
@@ -90,6 +91,7 @@ export function createBattle(setup: BattleSetup): BattleState {
       : null,
     reserves,
     boons,
+    factions: { player: factionCounts([...setup.player, ...reserves.player], boons.player), enemy: factionCounts([...setup.enemy, ...reserves.enemy], boons.enemy) },
     tactical: setup.tactical ?? false,
     inputLog: [],
   };

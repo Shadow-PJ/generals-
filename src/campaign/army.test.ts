@@ -2,12 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { ARMY_SIZE, RESERVE_COUNT } from '../data/armies';
 import { MAPS } from '../data/maps';
 import { REGION_IDS, REGIONS } from '../data/regions';
-import { TROOP_CLASSES } from '../data/units';
+import type { Rarity } from '../data/rarity';
+import { TROOP_CLASSES, type TroopClass } from '../data/units';
 import { isArmyPlaced } from '../sim';
 import { addFighter, fieldPlacement, formation, nextRole, removeFighter, reserveTroops, roleOf, withRole, withSpots } from './army';
 import { runOf, runThrough } from './testing';
+import type { FighterTraits } from './types';
 
 const start = () => runOf(runThrough(['battle', 'boss']));
+const fighter = (cls: TroopClass, rarity: Rarity = 'common'): FighterTraits => ({ cls, rarity, faction: null, perks: [] });
 
 describe('the run roster', () => {
   it('starts with the starter squad: 5 on the field, 3 in reserve, all Common and fit', () => {
@@ -22,17 +25,17 @@ describe('the run roster', () => {
     let run = start();
     run = withRole(run, 1, 'rest');
     run = withRole(run, 6, 'rest');
-    run = addFighter(run, 'assassin', 'rare');
+    run = addFighter(run, fighter('assassin', 'rare'));
     expect(roleOf(run, 9)).toBe('field');
-    run = addFighter(run, 'invoker', 'epic');
+    run = addFighter(run, fighter('invoker', 'epic'));
     expect(roleOf(run, 10)).toBe('reserve');
-    run = addFighter(run, 'ranger', 'common', 0.5);
+    run = addFighter(run, fighter('ranger'), 0.5);
     expect(roleOf(run, 11)).toBe('rest');
     expect(run.roster.find((f) => f.id === 11)).toMatchObject({ cls: 'ranger', hp: 0.5 });
   });
 
   it('holds 5 on the field and 3 in reserve, and never empties the field', () => {
-    let run = addFighter(start(), 'ranger', 'common');
+    let run = addFighter(start(), fighter('ranger'));
     expect(roleOf(run, 9)).toBe('rest');
     expect(withRole(run, 9, 'field')).toBe(run);
     expect(withRole(run, 9, 'reserve')).toBe(run);
@@ -80,13 +83,13 @@ describe('placing an army', () => {
   });
 
   it('places fielded fighters where they stood last, or on a free spot, as troops with their rarity, wounds and id', () => {
-    let run = addFighter(withRole(start(), 1, 'rest'), 'assassin', 'epic', 0.6);
+    let run = addFighter(withRole(start(), 1, 'rest'), { cls: 'assassin', rarity: 'epic', faction: 'hive', perks: ['swift'] }, 0.6);
     run = withSpots(run, [{ cls: 'ranger', x: 70, y: 470, fighterId: 3 }]);
     const map = MAPS.ironFortress;
     const placement = fieldPlacement(run, map);
     expect(placement.map((t) => t.fighterId)).toEqual(run.field);
     expect(placement.find((t) => t.fighterId === 3)).toMatchObject({ x: 70, y: 470 });
-    expect(placement.find((t) => t.fighterId === 9)).toMatchObject({ cls: 'assassin', rarity: 'epic', hp: 0.6 });
+    expect(placement.find((t) => t.fighterId === 9)).toMatchObject({ cls: 'assassin', rarity: 'epic', hp: 0.6, faction: 'hive', perks: ['swift'] });
     expect(isArmyPlaced(map, 'player', placement)).toBe(true);
     expect(reserveTroops(run).map((t) => t.fighterId)).toEqual([6, 7, 8]);
   });

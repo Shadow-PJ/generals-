@@ -8,12 +8,14 @@ import { ARMY_SIZE, RESERVE_COUNT, type Troop, type TroopPlacement } from '../da
 import { ARTIFACT_IDS, type ArtifactId } from '../data/artifacts';
 import { BOON_IDS, type BoonId } from '../data/boons';
 import { EVENT_IDS, type EventId } from '../data/events';
+import { FACTION_IDS, type FactionId } from '../data/factions';
 import { GENERAL_IDS, type GeneralId } from '../data/generals';
 import { MAP_IDS, type MapId } from '../data/maps';
 import { RANKS, type RankNumber } from '../data/ranks';
 import { RARITIES, type Rarity } from '../data/rarity';
 import { REGION_IDS, type RegionId } from '../data/regions';
 import { NODE_KINDS, type NodeKind } from '../data/runs';
+import { PERK_IDS, type PerkId } from '../data/perks';
 import { TROOP_CLASSES, type TroopClass } from '../data/units';
 import type { RngState } from '../sim';
 
@@ -74,7 +76,21 @@ function troop(value: unknown): Troop {
   if (d.rarity !== undefined) t.rarity = oneOf<Rarity>(RARITIES, d.rarity);
   if (d.hp !== undefined) t.hp = num(d.hp);
   if (d.fighterId !== undefined) t.fighterId = int(d.fighterId);
+  if (d.faction !== undefined) t.faction = faction(d.faction);
+  if (d.perks !== undefined) t.perks = ids<PerkId>(PERK_IDS, d.perks);
   return t;
+}
+
+const faction = (v: unknown): FactionId | null => nullable(v, (f) => oneOf<FactionId>(FACTION_IDS, f));
+
+/** A fighter's class, rarity, faction and perks. */
+function traits(d: Data) {
+  return {
+    cls: oneOf<TroopClass>(TROOP_CLASSES, d.cls),
+    rarity: oneOf<Rarity>(RARITIES, d.rarity),
+    faction: faction(d.faction),
+    perks: ids<PerkId>(PERK_IDS, d.perks),
+  };
 }
 
 function placed(value: unknown): TroopPlacement {
@@ -84,7 +100,7 @@ function placed(value: unknown): TroopPlacement {
 
 function offer(value: unknown): Offer {
   const d = obj(value);
-  if (d.kind === 'fighter') return { kind: 'fighter', cls: oneOf<TroopClass>(TROOP_CLASSES, d.cls), rarity: oneOf<Rarity>(RARITIES, d.rarity) };
+  if (d.kind === 'fighter') return { kind: 'fighter', ...traits(d) };
   if (d.kind === 'boon') return { kind: 'boon', boon: oneOf<BoonId>(BOON_IDS, d.boon) };
   return fail();
 }
@@ -148,7 +164,7 @@ function fighter(value: unknown): Fighter {
     const s = obj(v);
     return { x: num(s.x), y: num(s.y) };
   });
-  return { id: int(d.id, 1), cls: oneOf<TroopClass>(TROOP_CLASSES, d.cls), rarity: oneOf<Rarity>(RARITIES, d.rarity), hp, spot };
+  return { id: int(d.id, 1), ...traits(d), hp, spot };
 }
 
 /** The floors of a run's map: each node leads only to nodes that exist on the next floor. */

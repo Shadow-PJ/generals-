@@ -302,6 +302,9 @@ export class BattleScene extends Phaser.Scene {
       } else if (e.type === 'interrupted') {
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 26, 'Interrupted!', TEXT.overtime);
+      } else if (e.type === 'phased') {
+        const unit = this.unit(e.unitId);
+        if (unit) this.popup(unit.x, unit.y - 26, 'Phased!', TEXT.combo);
       } else if (e.type === 'synergy') {
         const synergy = SYNERGIES.find((s) => s.id === e.synergy)!;
         if (e.side === 'player') this.comboBanner(`${synergy.name.toUpperCase()}!`, synergy.bonusText, this.found(e.synergy));

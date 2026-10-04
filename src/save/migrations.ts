@@ -5,6 +5,7 @@
 // Version 1 (sessions 2C to 4D): the rank was a debug switch on the Orders screen.
 // Version 2 (session 5A): the rank is earned with Command XP; boss wins open the Legendary slot.
 // Version 3 (session 5B): the campaign: the run you are on, and the artifacts you have banked.
+// Version 4 (session 5C): run fighters have a faction and perks; those from version 3 have none.
 
 import { RANK_XP } from '../data/progression';
 import { RANKS, type RankNumber } from '../data/ranks';
@@ -23,7 +24,24 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   },
   /** No run yet, and nothing banked. */
   2: (save) => ({ ...save, version: 3, run: null, artifacts: [] }),
+  /** The fighters of a run in progress, and those on offer, join no faction and have no perks. */
+  3: (save) => ({ ...save, version: 4, run: plainFighters(save.run) }),
 };
+
+/** A version 3 run with every fighter, and every fighter on offer, given no faction and no perks. */
+function plainFighters(run: unknown): unknown {
+  if (typeof run !== 'object' || run === null || Array.isArray(run)) return run;
+  const r = run as SaveData;
+  const plain = (f: unknown) => (typeof f === 'object' && f !== null ? { faction: null, perks: [], ...(f as SaveData) } : f);
+  const plainOffer = (o: unknown) => (typeof o === 'object' && o !== null && (o as SaveData).kind === 'fighter' ? plain(o) : o);
+  const stop = typeof r.stop === 'object' && r.stop !== null ? { ...(r.stop as SaveData) } : r.stop;
+  if (stop && typeof stop === 'object') {
+    const s = stop as SaveData;
+    if (Array.isArray(s.offers)) s.offers = s.offers.map(plainOffer);
+    if (Array.isArray(s.stock)) s.stock = s.stock.map((i) => (typeof i === 'object' && i !== null ? { ...(i as SaveData), offer: plainOffer((i as SaveData).offer) } : i));
+  }
+  return { ...r, roster: Array.isArray(r.roster) ? r.roster.map(plain) : r.roster, stop };
+}
 
 /** The save's version: 1 when it has none (the first saves wrote 1, but be forgiving). */
 export function saveVersion(save: SaveData): number {

@@ -61,6 +61,8 @@ export const COLORS = {
   plains: 0x24303f,
   /** Rarity rings on run fighters (Common has none). */
   rarity: { common: 0x9ca3af, rare: 0x60a5fa, epic: 0xc084fc, legendary: 0xfbbf24 },
+  /** The factions of run fighters (session 5C). */
+  faction: { bloodbound: 0xdc2626, forgeborn: 0xea580c, hive: 0x84cc16, voidweavers: 0x8b5cf6, resonance: 0x22d3ee },
   /** The regions on the world map. */
   region: { deepForest: 0x15803d, voidRuins: 0x7c3aed, redCanyon: 0xc2410c, ironFortress: 0x64748b, glassPlains: 0x0891b2 },
   capital: 0xd4a94e,
@@ -85,4 +87,5 @@ export const TEXT = {
   combo: '#c4b5fd',
   gold: '#fcd34d',
   rarity: { common: '#d6dde8', rare: '#93c5fd', epic: '#d8b4fe', legendary: '#fcd34d' },
+  faction: { bloodbound: '#f87171', forgeborn: '#fb923c', hive: '#a3e635', voidweavers: '#a78bfa', resonance: '#67e8f9' },
 } as const;

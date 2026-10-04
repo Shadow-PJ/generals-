@@ -192,10 +192,10 @@ Owner checks: set out from the Capital, play a run to its ruler, and lose one on
 
 ### 5C. Fighters, factions and boons
 
-- [ ] Fighters: a class, a faction and a rarity (Common, Rare, Epic, Legendary), each rarity with its own chance to appear; rarer fighters have better stats and a perk (5B brought rarities, their chances and the stat bonus; perks and factions are left)
-- [ ] Faction bonuses at 2, 4 and 6 fighters of a faction, one per faction, in the spirit of its General
-- [ ] 30 boons by rarity: troop, Command and faction boons (5B brought the first 14)
-- [ ] Offer chances that shift toward rarer ones deeper in a run and after elite fights
+- [x] Fighters: a class, a faction and a rarity (Common, Rare, Epic, Legendary), each rarity with its own chance to appear; rarer fighters have better stats and a perk
+- [x] Faction bonuses at 2, 4 and 6 fighters of a faction, one per faction, in the spirit of its General
+- [x] 30 boons by rarity: troop, Command and faction boons
+- [x] Offer chances that shift toward rarer ones deeper in a run and after elite fights
 
 Owner checks: build a run around one faction and feel it grow strong.
 
