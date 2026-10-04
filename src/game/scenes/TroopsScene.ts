@@ -1,12 +1,14 @@
 // The Skirmish screen (debug until the campaign): pick the class of each of your 5 troops and 3
 // reserves, a specialization for each class, and the battle: the map, both Generals, the enemy's
 // army and its commander. It stands in for the campaign (which unlocks the Invoker and Assassin)
-// and the Tech Web (which sells specializations) until phase 5. Up and Down pick a row, Left and
-// Right change it; a click changes it too.
+// and the Tech Web (which sells specializations) until phase 5, and until the boss fights (5C) it
+// sets which bosses you have beaten, and so which Legendary actions you know. Up and Down pick a
+// row, Left and Right change it; a click changes it too.
 
 import Phaser from 'phaser';
 import { RESERVE_COUNT, type EnemyArmy } from '../../data/armies';
 import { GENERAL_IDS, GENERALS } from '../../data/generals';
+import { BOSS_ORDER, LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { MAP_IDS, MAPS } from '../../data/maps';
 import { RANKS, type RankNumber } from '../../data/ranks';
 import { SPECIALIZATIONS } from '../../data/specializations';
@@ -29,7 +31,8 @@ type Row =
   | { kind: 'enemyGeneral' }
   | { kind: 'enemy' }
   | { kind: 'enemyCommander' }
-  | { kind: 'spec'; cls: UnitClass };
+  | { kind: 'spec'; cls: UnitClass }
+  | { kind: 'bosses' };
 
 /** No commander, or one of each rank. */
 const COMMANDER_CHOICES: readonly (RankNumber | null)[] = [null, ...RANKS.map((r) => r.rank)];
@@ -61,7 +64,13 @@ export class TroopsScene extends Phaser.Scene {
   }
 
   init(data: MatchSetup): void {
-    this.setup = { ...data, placement: data.placement.map((t) => ({ ...t })), reserves: [...data.reserves], specs: { ...data.specs } };
+    this.setup = {
+      ...data,
+      placement: data.placement.map((t) => ({ ...t })),
+      reserves: [...data.reserves],
+      specs: { ...data.specs },
+      bossesBeaten: [...data.bossesBeaten],
+    };
     this.rows = [
       ...this.setup.placement.map((_, index) => ({ kind: 'troop', index }) as const),
       ...Array.from({ length: RESERVE_COUNT }, (_, index) => ({ kind: 'reserve', index }) as const),
@@ -71,6 +80,7 @@ export class TroopsScene extends Phaser.Scene {
       { kind: 'enemy' },
       { kind: 'enemyCommander' },
       ...TROOP_CLASSES.map((cls) => ({ kind: 'spec', cls }) as const),
+      { kind: 'bosses' },
     ];
     this.selected = 0;
     this.boxes = [];
@@ -107,7 +117,7 @@ export class TroopsScene extends Phaser.Scene {
         this.add.text(RIGHT_X, y, 'SPECIALIZATIONS (one per class)', textStyle(12, TEXT.muted, true));
         y += 20;
       }
-      const x = row.kind === 'spec' ? RIGHT_X : LEFT_X;
+      const x = row.kind === 'spec' || row.kind === 'bosses' ? RIGHT_X : LEFT_X;
       const h = row.kind === 'spec' ? SPEC_ROW_H : ROW_H;
       const box = this.add.rectangle(x, y, COLUMN_W, h - 4, 0x1d2939).setOrigin(0).setStrokeStyle(1, 0x34465e);
       box.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
@@ -116,13 +126,13 @@ export class TroopsScene extends Phaser.Scene {
       });
       this.boxes.push(box);
       this.add.text(x + 12, y + 6, this.rowLabel(row), textStyle(13, TEXT.muted));
-      this.values.push(this.add.text(x + 150, y + 6, '', textStyle(13, TEXT.body, true)));
+      this.values.push(this.add.text(x + 150, y + 6, '', textStyle(row.kind === 'bosses' ? 12 : 13, TEXT.body, true)));
       this.notes.push(row.kind === 'spec' ? this.add.text(x + 12, y + 25, '', textStyle(11, TEXT.muted)) : null);
       y += h;
     });
 
     // The chosen map, small, under the specializations, with how its terrain plays.
-    const previewY = TOP_BAR_HEIGHT + 14 + 20 + TROOP_CLASSES.length * SPEC_ROW_H + 10;
+    const previewY = TOP_BAR_HEIGHT + 14 + 20 + TROOP_CLASSES.length * SPEC_ROW_H + ROW_H + 10;
     this.preview = this.add.graphics().setPosition(RIGHT_X, previewY).setScale(PREVIEW_SCALE);
     const previewW = MAPS.openField.width * PREVIEW_SCALE;
     this.terrainText = this.add.text(RIGHT_X + previewW + 10, previewY, '', {
@@ -164,6 +174,8 @@ export class TroopsScene extends Phaser.Scene {
         return 'Enemy commander';
       case 'spec':
         return UNIT_CLASSES[row.cls].name;
+      case 'bosses':
+        return 'Bosses (debug)';
     }
   }
 
@@ -201,6 +213,12 @@ export class TroopsScene extends Phaser.Scene {
       case 'spec': {
         const options = specOptions(row.cls);
         setup.specs = withSpec(setup.specs, row.cls, cycle(options, setup.specs[row.cls] ?? null, step));
+        break;
+      }
+      case 'bosses': {
+        // In campaign order: none, then the first boss, the first two, ... all five.
+        const count = (setup.bossesBeaten.length + step + BOSS_ORDER.length + 1) % (BOSS_ORDER.length + 1);
+        setup.bossesBeaten = BOSS_ORDER.slice(0, count);
         break;
       }
     }
@@ -241,6 +259,11 @@ export class TroopsScene extends Phaser.Scene {
           let text = 'None: no enemy cards or ultimate';
           if (rank) text = `Rank ${rank.numeral}: ${rank.autoMode ? 'its cards and ultimate' : 'only its ultimate'}`;
           value.setText(`◀  ${text}  ▶`);
+          break;
+        }
+        case 'bosses': {
+          const learned = learnedActions(this.setup.bossesBeaten).map((a) => LEGENDARY_ACTION_DATA[a].name);
+          value.setText(`◀  ${learned.length === 0 ? 'None: no Legendary slot' : learned.join(', ')}  ▶`);
           break;
         }
         case 'spec': {

@@ -175,3 +175,37 @@ describe('orders the parser refuses', () => {
     });
   }
 });
+
+describe('Legendary orders', () => {
+  const steps = (text: string) => {
+    const result = parseOrder(text);
+    if (!result.ok) throw new Error(`${text}: ${result.error}`);
+    return result.card.steps;
+  };
+
+  it('reads all five Legendary actions', () => {
+    expect(steps('hijack their ranger')).toEqual([{ action: 'hijack', target: { kind: 'class', cls: 'ranger' } }]);
+    expect(steps("swap my vanguard into my ranger's spot")).toEqual([
+      { action: 'swap', actors: { kind: 'class', cls: 'vanguard' }, target: { kind: 'class', cls: 'ranger' } },
+    ]);
+    expect(steps('rangers, swap with my vanguard')).toEqual([
+      { action: 'swap', actors: { kind: 'class', cls: 'ranger' }, target: { kind: 'class', cls: 'vanguard' } },
+    ]);
+    expect(steps('sacrifice my weakest troop')).toEqual([{ action: 'bloodPact', target: { kind: 'weakest' } }]);
+    expect(steps('build a wall in front of my rangers')).toEqual([{ action: 'fortify', at: { kind: 'ally', ally: { kind: 'class', cls: 'ranger' } } }]);
+    expect(steps('fortify')).toEqual([{ action: 'fortify', at: { kind: 'forward' } }]);
+    expect(steps('raise a wall behind the enemy')).toEqual([{ action: 'fortify', at: { kind: 'behindEnemies' } }]);
+    expect(steps('repeat my last card')).toEqual([{ action: 'echo' }]);
+  });
+
+  it('reads "him" in a Legendary step from the condition, and mixes Legendary and regular steps', () => {
+    expect(parseOrder('when their assassin dives, hijack him, then everyone focus their ranger')).toMatchObject({
+      ok: true,
+      card: { steps: [{ action: 'hijack', target: { kind: 'trigger' } }, { action: 'focus' }] },
+    });
+  });
+
+  it('won’t name troops for what only the commander does', () => {
+    expect(parseOrder('rangers, hijack their vanguard')).toMatchObject({ ok: false, error: expect.stringMatching(/yours to do/) });
+  });
+});

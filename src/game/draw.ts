@@ -33,7 +33,10 @@ export function drawZone(g: Graphics, zone: Rect, side: Side, strength: number):
 }
 
 /** A wall, cracked as it loses HP; a broken wall is left as rubble. Unbreakable walls are dark and never crack. */
-export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number; unbreakable?: boolean }): void {
+export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number; unbreakable?: boolean; ticksLeft?: number | null }): void {
+  // A Fortify wall: gone without rubble when it falls, and in its own color while it stands.
+  const raised = wall.ticksLeft !== undefined && wall.ticksLeft !== null;
+  if (raised && (wall.hp ?? 1) <= 0) return;
   if (wall.unbreakable) {
     g.fillStyle(COLORS.rock, 1).fillRect(wall.x, wall.y, wall.w, wall.h);
     g.lineStyle(2, COLORS.rockEdge, 1).strokeRect(wall.x, wall.y, wall.w, wall.h);
@@ -50,8 +53,8 @@ export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number
     }
     return;
   }
-  g.fillStyle(COLORS.wall, 1).fillRect(wall.x, wall.y, wall.w, wall.h);
-  g.lineStyle(2, COLORS.wallEdge, 1).strokeRect(wall.x, wall.y, wall.w, wall.h);
+  g.fillStyle(raised ? COLORS.fortify : COLORS.wall, 1).fillRect(wall.x, wall.y, wall.w, wall.h);
+  g.lineStyle(2, raised ? COLORS.fortifyEdge : COLORS.wallEdge, 1).strokeRect(wall.x, wall.y, wall.w, wall.h);
   if (share < 1) {
     // More cracks as the wall wears down.
     g.lineStyle(2, COLORS.crack, 1);

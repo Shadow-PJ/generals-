@@ -115,6 +115,5 @@ export function unlockedActions(rank: RankNumber): ActionName[] {
   return RANKS.filter((r) => r.rank <= rank).flatMap((r) => r.newActions);
 }
 
-/** The rank a new player starts at, and the debug switch's default in session 2A. */
+/** The rank a new player starts at. Command XP raises it (src/data/progression.ts). */
 export const STARTING_RANK: RankNumber = 1;
-export const DEBUG_DEFAULT_RANK: RankNumber = 3;

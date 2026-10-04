@@ -8,6 +8,7 @@ import { shortCard } from '../../cards/describe';
 import { COMMAND_RULES, CONDITION_RULES } from '../../data/command';
 import type { CodexEntryId } from '../../data/combos';
 import { GENERALS } from '../../data/generals';
+import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { MAPS, OPEN_FIELD } from '../../data/maps';
 import { rankRules, RANKS } from '../../data/ranks';
 import { SYNERGIES } from '../../data/synergies';
@@ -29,6 +30,7 @@ import {
   stepBattle,
   TICKS_PER_SECOND,
   ultimateReady,
+  type BattleEvent,
   type BattleInput,
   type BattleState,
   type Side,
@@ -68,6 +70,7 @@ import {
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
+import { battleXp } from '../progress';
 import { recordCombo } from '../session';
 import { threats } from '../threats';
 import { enemyArmyOf } from '../troops';
@@ -178,6 +181,7 @@ export class BattleScene extends Phaser.Scene {
       enemyGeneral: enemy.general,
       enemyCommander: enemy.commander,
       specs: { player: data.specs, enemy: enemy.specs },
+      learned: learnedActions(data.bossesBeaten),
     });
     this.clock = createClock();
     this.pending = [];
@@ -243,7 +247,8 @@ export class BattleScene extends Phaser.Scene {
       if (this.state.result && !this.ended) {
         this.ended = true;
         this.time.delayedCall(RESULT_DELAY_MS, () => {
-          this.scene.launch('Result', { ...this.setup, result: this.state.result });
+          const result = this.state.result!;
+          this.scene.launch('Result', { ...this.setup, result, xp: battleXp(this.state.events, result) });
           this.scene.pause();
         });
       }
@@ -330,10 +335,24 @@ export class BattleScene extends Phaser.Scene {
         this.merged.add(e.mergedId);
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 30, 'Evolved!', '#fde68a');
+      } else if (e.type === 'legendary') {
+        this.showLegendary(e);
       } else if (e.type === 'reserveCalled') {
         const unit = this.unit(e.unitId);
         if (unit) this.popup(unit.x, unit.y - 26, 'Reserve arrives!', '#bfe0ff');
       }
+    }
+  }
+
+  /** A Legendary action: its name across the field, and a word over each troop it acted on. */
+  private showLegendary(e: Extract<BattleEvent, { type: 'legendary' }>): void {
+    const action = LEGENDARY_ACTION_DATA[e.action];
+    const yours = e.side === 'player';
+    this.banner(`${yours ? '' : 'ENEMY '}${action.name.toUpperCase()}!`, yours ? TEXT.perfect : TEXT.threat, action.text);
+    const words = { hijack: 'Hijacked!', swap: 'Swapped!', bloodPact: 'Sacrificed', fortify: '', echo: '' } as const;
+    for (const id of e.unitIds) {
+      const unit = this.unit(id);
+      if (unit && words[e.action]) this.popup(unit.x, unit.y - 30, words[e.action], TEXT.perfect);
     }
   }
 
@@ -376,6 +395,8 @@ export class BattleScene extends Phaser.Scene {
       drawGeneralEffects(g, at.x, at.y, r, u);
       if (u.barrier) drawBarrier(g, at.x, at.y, r, u.barrier.amount / UNIT_CLASSES.guardian.barrier.amount);
       if (u.rallyTicks > 0) g.lineStyle(2, COLORS.glow, 0.7).strokeCircle(at.x, at.y, r + 9);
+      // Hijacked: a ring in the color of the side that controls it.
+      if (u.hijackTicks > 0) g.lineStyle(3, COLORS.side[otherSide(u.side)], 0.95).strokeCircle(at.x, at.y, r + 6);
       const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
       if (taunter?.alive) drawTaunted(g, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
       drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash, alpha });

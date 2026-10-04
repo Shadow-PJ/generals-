@@ -15,7 +15,7 @@ import { viterbi, type LinearWeights, type ReaderModel } from '../../src/cards/r
 import { GOALS, GOALS_FOR, OrderReader, type Reading } from '../../src/cards/reader/reader';
 import { TAGS } from '../../src/cards/reader/tags';
 import { CLASS_OF, KnownWords, normalizeWords, SKILL_OF, splitOrder } from '../../src/cards/reader/words';
-import { ACTIONS, TRIGGER_KINDS } from '../../src/cards/types';
+import { REGULAR_ACTIONS, TRIGGER_KINDS } from '../../src/cards/types';
 import { generate } from '../dataset/generate';
 import { cardKey, loadNatural, splitNatural } from '../dataset/natural';
 import { taggedOrder } from './examples';
@@ -193,7 +193,7 @@ export function train(): ReaderModel {
     }
     const context = { previous: null as string | null, triggers: o.triggers.map((t) => t.kind) };
     for (const s of o.steps) {
-      actionExamples.push({ features: actionIds.list(stepFeatures(o.words, o.tags, s.segment, context), true), gold: ACTIONS.indexOf(s.action) });
+      actionExamples.push({ features: actionIds.list(stepFeatures(o.words, o.tags, s.segment, context), true), gold: REGULAR_ACTIONS.indexOf(s.action) });
       const allowed = GOALS_FOR[s.action];
       if (allowed && s.goal) {
         goalExamples.push({
@@ -209,7 +209,7 @@ export function train(): ReaderModel {
   console.log('Training ...');
   const tagger = trainTagger(taggerExamples, taggerIds.names.length);
   const triggerWeights = trainClassifier('trigger kinds', triggerExamples, TRIGGER_KINDS.length);
-  const actionWeights = trainClassifier('step actions', actionExamples, ACTIONS.length);
+  const actionWeights = trainClassifier('step actions', actionExamples, REGULAR_ACTIONS.length);
   const goalWeights = trainClassifier('step goals', goalExamples, GOALS.length);
 
   const transitions = Array.from({ length: TAGS.length + 1 }, (_, f) => [...tagger.transitions.averaged(f)].map((w) => Math.round(w * TRAINING.scale)));
@@ -218,7 +218,7 @@ export function train(): ReaderModel {
     words: [...known.words],
     tagger: { ...exportWeights(tagger.emit, taggerIds, TAGS), transitions },
     trigger: exportWeights(triggerWeights, triggerIds, TRIGGER_KINDS),
-    action: exportWeights(actionWeights, actionIds, ACTIONS),
+    action: exportWeights(actionWeights, actionIds, REGULAR_ACTIONS),
     goal: exportWeights(goalWeights, goalIds, GOALS),
     sureMargins: { tagger: 0, trigger: 0, action: 0, goal: 0 },
   };

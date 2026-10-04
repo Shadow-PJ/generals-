@@ -9,7 +9,7 @@ function sameActors(a: Actors, b: Actors): boolean {
 }
 
 function actorsOf(step: Step): Actors | null {
-  return step.action === 'callReserve' ? null : step.actors;
+  return 'actors' in step ? step.actors : null;
 }
 
 /** True if `first` then `next` make this combo. */

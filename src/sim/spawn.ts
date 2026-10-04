@@ -66,6 +66,7 @@ export function createUnit(
     orders: [],
     rallyTicks: 0,
     rallyBonus: 0,
+    hijackTicks: 0,
   };
   // Warlord doctrine: Assassins dive at once.
   if (general === 'warlord' && unit.cls === 'assassin') unit.skillCooldown = 0;

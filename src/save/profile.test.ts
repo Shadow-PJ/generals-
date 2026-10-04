@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { parseOrder } from '../cards/parser';
 import type { Card } from '../cards/types';
 import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
-import { DEBUG_DEFAULT_RANK } from '../data/ranks';
-import { newProfile, readProfile, writeProfile, type Profile } from './profile';
+import { RANK_XP } from '../data/progression';
+import { newProfile, profileVersion, readProfile, writeProfile, type Profile } from './profile';
 
 function card(text: string): Card {
   const result = parseOrder(text);
@@ -16,7 +16,8 @@ function saved(): Profile {
   profile.loadout.slots[0] = card('Everyone focus their Ranger');
   profile.loadout.slots[2] = card('When my Ranger drops below 50%, protect her');
   profile.placement[0] = { cls: 'vanguard', x: 230, y: 150 };
-  profile.rank = 5;
+  profile.xp = 1234;
+  profile.bossesBeaten = ['hiveMother', 'warlord'];
   profile.tactical = true;
   profile.general = 'warlord';
   profile.codex = ['feignedRetreat', 'finisher', 'ironWall'];
@@ -31,12 +32,13 @@ function saved(): Profile {
 }
 
 describe('the saved profile', () => {
-  it('starts with empty slots, the starter army, the debug rank, Tactical mode off and the Captain', () => {
+  it('starts with empty slots, the starter army, no XP and no bosses beaten, Tactical mode off and the Captain', () => {
     const profile = readProfile(null);
     expect(profile.loadout.slots).toEqual([null, null, null, null]);
     expect(profile.loadout.legendary).toBeNull();
     expect(profile.placement).toEqual(STARTER_ARMY);
-    expect(profile.rank).toBe(DEBUG_DEFAULT_RANK);
+    expect(profile.xp).toBe(0);
+    expect(profile.bossesBeaten).toEqual([]);
     expect(profile.tactical).toBe(false);
     expect(profile.general).toBe('captain');
     expect(profile.codex).toEqual([]);
@@ -82,8 +84,32 @@ describe('the saved profile', () => {
     expect(readProfile(writeProfile(profile))).toEqual(profile);
   });
 
-  it('carries a version number for later migrations', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(1);
+  it('carries its version number', () => {
+    expect(JSON.parse(writeProfile(saved())).version).toBe(2);
+    expect(profileVersion(writeProfile(saved()))).toBe(2);
+    expect(profileVersion(null)).toBeNull();
+    expect(profileVersion('{')).toBeNull();
+  });
+
+  it('loads a version 1 save: the debug rank it had becomes the XP for that rank, and everything else stays', () => {
+    const { xp: _xp, bossesBeaten: _b, ...rest } = saved();
+    const v1 = { ...rest, version: 1, rank: 4 };
+    const profile = readProfile(JSON.stringify(v1));
+    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [] });
+    // A version 1 save with no rank (or a broken one) had the debug default, Rank III.
+    expect(readProfile(JSON.stringify({ ...v1, rank: 'high' })).xp).toBe(RANK_XP[3]);
+    // The very first saves wrote no version at all.
+    const { version: _v, ...unversioned } = v1;
+    expect(readProfile(JSON.stringify(unversioned)).xp).toBe(RANK_XP[4]);
+  });
+
+  it('keeps only real bosses, in campaign order, and XP that is a real number', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.bossesBeaten = ['warlord', 'captain', 'napoleon', 'hiveMother', 'warlord'];
+    data.xp = -5;
+    expect(readProfile(JSON.stringify(data))).toMatchObject({ bossesBeaten: ['hiveMother', 'warlord'], xp: 0 });
+    data.xp = 'lots';
+    expect(readProfile(JSON.stringify(data)).xp).toBe(0);
   });
 
   it('starts fresh from a damaged file instead of failing', () => {
@@ -93,14 +119,14 @@ describe('the saved profile', () => {
   it('keeps the parts that read correctly and drops the rest', () => {
     const data = JSON.parse(writeProfile(saved()));
     data.loadout.slots[2].steps = 'oops';
-    data.rank = 9;
+    data.xp = null;
     data.tactical = 'yes';
     data.general = 'napoleon';
     const profile = readProfile(JSON.stringify(data));
     expect(profile.general).toBe('captain');
     expect(profile.loadout.slots[0]).toEqual(card('Everyone focus their Ranger'));
     expect(profile.loadout.slots[2]).toBeNull();
-    expect(profile.rank).toBe(DEBUG_DEFAULT_RANK);
+    expect(profile.xp).toBe(0);
     expect(profile.tactical).toBe(false);
     expect(profile.placement[0]).toEqual({ cls: 'vanguard', x: 230, y: 150 });
   });
@@ -120,7 +146,7 @@ describe('the saved profile', () => {
 
   it('keeps a card the current rank does not allow; the validator decides when it is used', () => {
     const profile = saved();
-    profile.rank = 1;
+    profile.xp = 0;
     expect(readProfile(writeProfile(profile)).loadout.slots[2]).toEqual(card('When my Ranger drops below 50%, protect her'));
   });
 });

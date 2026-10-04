@@ -139,6 +139,19 @@ describe('the Hive Mother', () => {
     expect(read('hiveMother', built(move)).card.steps[0]).toMatchObject({ to: { kind: 'ally', ally: { kind: 'nearest' } } });
   });
 
+  it('never drops a Legendary action: the steps before it go first', () => {
+    const steps: Step[] = [
+      { action: 'protect', actors: { kind: 'all' }, target: { kind: 'class', cls: 'ranger' } },
+      { action: 'hold', actors: { kind: 'all' } },
+      { action: 'echo' },
+    ];
+    const reading = applyPersonality('hiveMother', built(...steps), 5, { legendarySlot: true, learned: ['echo'] });
+    expect(reading.card.steps.map((s) => s.action)).toEqual(['protect', 'echo']);
+    // And Legendary targets are simplified like the others.
+    const hijack: Step = { action: 'hijack', target: { kind: 'weakest' } };
+    expect(read('hiveMother', built(hijack)).card.steps[0]).toEqual({ action: 'hijack', target: { kind: 'nearest' } });
+  });
+
   it('can do both at once, and leaves simple 2-step cards alone', () => {
     const both = read('hiveMother', card('Focus the weakest enemy, then hold, then fall back'));
     expect(both.rules).toEqual(['dropSteps', 'simplifyTargets']);

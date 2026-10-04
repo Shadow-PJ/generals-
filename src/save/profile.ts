@@ -1,8 +1,8 @@
-// Your saved progress: the cards in your slots, your troops and where they stand, your rank,
-// Tactical mode, your General and the combos you have found. It is plain JSON in
-// saves/profile.json. Reading is forgiving: anything missing or damaged falls back to the
-// default, so a bad file never stops the game from starting.
-// Phase 5 grows this into the full save with migrations; `version` is there for that.
+// Your saved progress: the cards in your slots, your troops and where they stand, your Command
+// XP (which sets your rank), the bosses you have beaten, Tactical mode, your General and the
+// combos you have found. It is plain JSON in saves/profile.json. An older save is first brought
+// up to this version (migrations.ts). Reading is forgiving: anything missing or damaged falls
+// back to the default, so a bad file never stops the game from starting.
 
 import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
@@ -10,20 +10,27 @@ import { ENEMY_ARMIES, RESERVE_COUNT, STARTER_ARMY, STARTER_RESERVES, type Enemy
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { MAP_IDS, OPEN_FIELD, type MapId } from '../data/maps';
 import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
-import { DEBUG_DEFAULT_RANK, RANKS, type RankNumber } from '../data/ranks';
+import { BOSS_ORDER } from '../data/legendary';
+import { RANKS, type RankNumber } from '../data/ranks';
 import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
 import { TROOP_CLASSES, type UnitClass } from '../data/units';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
+import { migrate, saveVersion } from './migrations';
 
-export const PROFILE_VERSION = 1;
+export const PROFILE_VERSION = 2;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
+/** The save as it was before the last migration, in case an update ever goes wrong. */
+export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';
 
 export interface Profile {
   version: typeof PROFILE_VERSION;
   loadout: Loadout;
   placement: TroopPlacement[];
-  rank: RankNumber;
+  /** Command XP from every battle; your Command Rank follows from it. */
+  xp: number;
+  /** Boss Generals you have beaten, in the order the campaign meets them; the first opens the Legendary slot. */
+  bossesBeaten: GeneralId[];
   tactical: boolean;
   /** Your cards are stored as you wrote them; the General's rules are applied when they are read. */
   general: GeneralId;
@@ -43,7 +50,8 @@ export function newProfile(): Profile {
     version: PROFILE_VERSION,
     loadout: emptyLoadout(),
     placement: STARTER_ARMY.map((t) => ({ ...t })),
-    rank: DEBUG_DEFAULT_RANK,
+    xp: 0,
+    bossesBeaten: [],
     tactical: false,
     general: STARTING_GENERAL,
     codex: [],
@@ -54,6 +62,17 @@ export function newProfile(): Profile {
     enemyGeneral: STARTING_GENERAL,
     enemyCommander: null,
   };
+}
+
+/** The version of the save in the text, or null when there is none to read. */
+export function profileVersion(text: string | null): number | null {
+  if (text === null) return null;
+  try {
+    const data: unknown = JSON.parse(text);
+    return typeof data === 'object' && data !== null && !Array.isArray(data) ? saveVersion(data as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
 }
 
 export function writeProfile(profile: Profile): string {
@@ -70,11 +89,12 @@ export function readProfile(text: string | null): Profile {
   } catch {
     return profile;
   }
-  if (typeof data !== 'object' || data === null) return profile;
-  const saved = data as Record<string, unknown>;
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return profile;
+  const saved = migrate(data as Record<string, unknown>, PROFILE_VERSION);
   profile.loadout = readLoadout(saved.loadout);
   profile.placement = readPlacement(saved.placement) ?? profile.placement;
-  if (RANKS.some((r) => r.rank === saved.rank)) profile.rank = saved.rank as RankNumber;
+  if (typeof saved.xp === 'number' && Number.isFinite(saved.xp) && saved.xp >= 0) profile.xp = Math.floor(saved.xp);
+  if (Array.isArray(saved.bossesBeaten)) profile.bossesBeaten = BOSS_ORDER.filter((g) => (saved.bossesBeaten as unknown[]).includes(g));
   if (typeof saved.tactical === 'boolean') profile.tactical = saved.tactical;
   if ((GENERAL_IDS as readonly unknown[]).includes(saved.general)) profile.general = saved.general as GeneralId;
   if (Array.isArray(saved.codex)) profile.codex = CODEX_ENTRY_IDS.filter((id) => (saved.codex as unknown[]).includes(id));

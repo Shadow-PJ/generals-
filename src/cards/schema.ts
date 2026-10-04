@@ -69,11 +69,26 @@ function readStep(value: unknown): Step | null {
     if (value.reserve === null) return { action: 'callReserve', reserve: null };
     return isTroopClass(value.reserve) ? { action: 'callReserve', reserve: value.reserve } : null;
   }
+  // Legendary actions without troops to carry them out.
+  switch (value.action) {
+    case 'hijack':
+    case 'bloodPact': {
+      const target = readTarget(value.target);
+      return target ? { action: value.action, target } : null;
+    }
+    case 'fortify': {
+      const at = readPlace(value.at);
+      return at ? { action: 'fortify', at } : null;
+    }
+    case 'echo':
+      return { action: 'echo' };
+  }
   const actors = readActors(value.actors);
   if (!actors) return null;
   switch (value.action) {
     case 'focus':
-    case 'protect': {
+    case 'protect':
+    case 'swap': {
       const target = readTarget(value.target);
       return target ? { action: value.action, actors, target } : null;
     }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { RANK_XP } from '../data/progression';
 import type { FileName, Platform } from '../platform';
 import { readProfile } from '../save/profile';
 import { readSettings } from '../save/settings';
@@ -7,7 +8,9 @@ import {
   availableWindowScales,
   changeSettings,
   chosenWindowScale,
+  currentXp,
   foundCombos,
+  gainXp,
   recordCombo,
   remember,
   savedSetup,
@@ -64,16 +67,16 @@ describe('the session', () => {
     await startSession(fake.platform);
   });
 
-  it('remembers your cards, troops, rank and Tactical mode in saves/profile.json', async () => {
+  it('remembers your cards, troops, bosses beaten and Tactical mode in saves/profile.json', async () => {
     const setup = savedSetup();
     setup.loadout.slots[1] = { condition: null, steps: [{ action: 'hold', actors: { kind: 'all' } }], auto: false };
-    setup.rank = 4;
+    setup.bossesBeaten = ['hiveMother'];
     setup.tactical = true;
     setup.general = 'conductor';
     await remember(setup);
     const profile = readProfile(fake.files.get('saves/profile.json') ?? null);
     expect(profile.loadout.slots[1]?.steps[0]?.action).toBe('hold');
-    expect(profile.rank).toBe(4);
+    expect(profile.bossesBeaten).toEqual(['hiveMother']);
     expect(profile.tactical).toBe(true);
     expect(profile.general).toBe('conductor');
 
@@ -82,13 +85,36 @@ describe('the session', () => {
     expect(savedSetup()).toEqual(setup);
   });
 
+  it('starts a new player at Rank I; only Command XP raises the rank', async () => {
+    expect(savedSetup().rank).toBe(1);
+    await remember({ ...savedSetup(), rank: 5 });
+    expect(savedSetup().rank).toBe(1);
+    await gainXp(RANK_XP[2]);
+    expect(currentXp()).toBe(RANK_XP[2]);
+    expect(savedSetup().rank).toBe(2);
+    expect(readProfile(fake.files.get('saves/profile.json') ?? null).xp).toBe(RANK_XP[2]);
+  });
+
+  it('brings an older save up to date, keeping the old file as a backup', async () => {
+    const v1 = JSON.stringify({ version: 1, rank: 4, tactical: true, loadout: { slots: [], legendary: null } });
+    fake.files.set('saves/profile.json', v1);
+    await startSession(fake.platform);
+    expect(savedSetup()).toMatchObject({ rank: 4, tactical: true, bossesBeaten: [] });
+    expect(fake.files.get('saves/profile-backup.json')).toBe(v1);
+    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 2, xp: RANK_XP[4] });
+    // Already up to date: no new backup.
+    fake.files.delete('saves/profile-backup.json');
+    await startSession(fake.platform);
+    expect(fake.files.has('saves/profile-backup.json')).toBe(false);
+  });
+
   it('adds a combo to the Codex once, saves it, and keeps it when your cards change', async () => {
     expect(foundCombos()).toEqual([]);
     await recordCombo('ironShell');
     expect(recordCombo('ironShell')).toBeNull();
     await recordCombo('feignedRetreat');
     expect(foundCombos()).toEqual(['feignedRetreat', 'ironShell']);
-    await remember({ ...savedSetup(), rank: 4 });
+    await remember({ ...savedSetup(), tactical: true });
     expect(readProfile(fake.files.get('saves/profile.json') ?? null).codex).toEqual(['feignedRetreat', 'ironShell']);
     await startSession(fake.platform);
     expect(foundCombos()).toEqual(['feignedRetreat', 'ironShell']);
@@ -96,20 +122,21 @@ describe('the session', () => {
 
   it('keeps saves in order and skips writing a file that did not change', async () => {
     const setup = savedSetup();
-    const saves = [1, 2, 3, 4, 5].map((rank) => remember({ ...setup, rank: rank as 1 | 2 | 3 | 4 | 5 }));
+    const generals = ['warlord', 'engineer', 'hiveMother', 'strategist', 'conductor'] as const;
+    const saves = generals.map((general) => remember({ ...setup, general }));
     await Promise.all(saves);
-    expect(readProfile(fake.files.get('saves/profile.json') ?? null).rank).toBe(5);
+    expect(readProfile(fake.files.get('saves/profile.json') ?? null).general).toBe('conductor');
     const writes = fake.log.length;
-    await remember({ ...setup, rank: 5 });
+    await remember({ ...setup, general: 'conductor' });
     expect(fake.log.length).toBe(writes);
   });
 
   it('reports a failed save, and the next save still goes through', async () => {
     fake.failNextWrites(true);
-    await expect(remember({ ...savedSetup(), rank: 2 })).rejects.toThrow('disk full');
+    await expect(remember({ ...savedSetup(), general: 'warlord' })).rejects.toThrow('disk full');
     fake.failNextWrites(false);
-    await remember({ ...savedSetup(), rank: 4 });
-    expect(readProfile(fake.files.get('saves/profile.json') ?? null).rank).toBe(4);
+    await remember({ ...savedSetup(), general: 'engineer' });
+    expect(readProfile(fake.files.get('saves/profile.json') ?? null).general).toBe('engineer');
   });
 
   it('gives each screen its own copy of the saved setup', () => {

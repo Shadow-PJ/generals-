@@ -30,6 +30,7 @@ import {
   type Winner,
 } from './types';
 import { rebuildNav } from './walls';
+import { ageWalls, hijackIntent } from './legendary';
 
 export function createBattle(setup: BattleSetup): BattleState {
   const rng = createRng(setup.seed);
@@ -51,7 +52,7 @@ export function createBattle(setup: BattleSetup): BattleState {
 
   const walls: Wall[] = setup.map.walls.map((w, i) => {
     const hp = w.hp ?? BATTLE_RULES.walls.hp;
-    return { id: i + 1, x: w.x, y: w.y, w: w.w, h: w.h, hp, maxHp: hp, unbreakable: w.unbreakable ?? false };
+    return { id: i + 1, x: w.x, y: w.y, w: w.w, h: w.h, hp, maxHp: hp, unbreakable: w.unbreakable ?? false, ticksLeft: null };
   });
 
   const state: BattleState = {
@@ -77,7 +78,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     },
     events: [],
     result: null,
-    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general),
+    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general, setup.learned),
     enemyCommand: setup.enemyCommander
       ? createCommand('enemy', setup.enemyCommander.rank, setup.enemyCommander.loadout, generals.enemy)
       : null,
@@ -112,17 +113,19 @@ export function stepBattle(state: BattleState, inputs: readonly BattleInput[] = 
   for (const input of inputs) applyInput(state, input);
   advanceOrders(state);
   tickTimers(state);
+  ageWalls(state);
   ironWallTaunts(state);
   updatePacks(state);
   vampiricLinks(state);
 
-  // Decide: every unit looks at the same start-of-tick state. A taunt comes first, then card
-  // orders, then a troop's own ideas; a shot that would only hit rock becomes a walk around it.
+  // Decide: every unit looks at the same start-of-tick state. A hijacked troop obeys its captor,
+  // then a taunt comes first, then card orders, then a troop's own ideas; a shot that would only
+  // hit rock becomes a walk around it.
   // Shoved, stunned and casting troops do nothing; silenced ones use no skills.
   const intents = state.units.map((u) => {
     if (!u.alive || u.knockback || u.stunTicks > 0 || u.casting) return null;
     const own = think(state, u);
-    const intent = aroundRock(state, u, tauntIntent(state, u) ?? orderIntent(state, u, own) ?? own);
+    const intent = aroundRock(state, u, hijackIntent(state, u) ?? tauntIntent(state, u) ?? orderIntent(state, u, own) ?? own);
     return u.silencedTicks > 0 ? { ...intent, cast: null } : intent;
   });
 
@@ -173,6 +176,7 @@ function tickTimers(state: BattleState): void {
     if (unit.barrier && --unit.barrier.ticksLeft <= 0) unit.barrier = null;
     if (unit.chased && --unit.chased.ticksLeft <= 0) unit.chased = null;
     if (unit.slow && --unit.slow.ticksLeft <= 0) unit.slow = null;
+    if (unit.hijackTicks > 0) unit.hijackTicks -= 1;
     if (unit.taunt && --unit.taunt.ticksLeft <= 0) unit.taunt = null;
     if (unit.stunTicks > 0) unit.stunTicks -= 1;
     if (unit.silencedTicks > 0) unit.silencedTicks -= 1;
@@ -275,6 +279,7 @@ function resolveDeaths(state: BattleState): void {
     unit.vibration = null;
     unit.shatterTicks = 0;
     unit.wraithTicks = 0;
+    unit.hijackTicks = 0;
     state.events.push({ tick: state.tick, type: 'death', unitId: unit.id, killerId: unit.lastHitBy });
     assimilate(state, unit);
     fed(state, unit);

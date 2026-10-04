@@ -173,9 +173,9 @@ Goal: the full journey from Squad Leader to Legend.
 
 ### 5A. Saves, ranks and Legendary orders
 
-- [ ] Save system in the browser with a version number, so old saves still load after updates
-- [ ] Command XP and Ranks I to V; the validator uses the player's real rank
-- [ ] The Legendary slot, unlocked by the first boss win, and the 5 Legendary actions
+- [x] Save system in the browser with a version number, so old saves still load after updates
+- [x] Command XP and Ranks I to V; the validator uses the player's real rank
+- [x] The Legendary slot, unlocked by the first boss win, and the 5 Legendary actions
 
 ### 5B. World map and expeditions
 

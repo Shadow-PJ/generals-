@@ -13,8 +13,8 @@ import {
 } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
 import { signatureCombos } from './combos';
-import type { Card, Condition, Place, Step, Target, Trigger } from './types';
-import { validateCard } from './validator';
+import { isLegendaryAction, type Card, type Condition, type Place, type Step, type Target, type Trigger } from './types';
+import { REGULAR_SLOT, validateCard, type SlotContext } from './validator';
 
 /** A rule that shaped or judged a card; each has its own reply lines in src/data/replies.ts. */
 export type PersonalityRule =
@@ -37,8 +37,8 @@ export interface Reading {
   suggestion: Condition | null;
 }
 
-/** How your General reads a card that already passed the validator. */
-export function applyPersonality(general: GeneralId, card: Card, rank: RankNumber): Reading {
+/** How your General reads a card that already passed the validator, for the slot it is in. */
+export function applyPersonality(general: GeneralId, card: Card, rank: RankNumber, slot: SlotContext = REGULAR_SLOT): Reading {
   const written = structuredClone(card);
   switch (general) {
     case 'captain':
@@ -50,7 +50,7 @@ export function applyPersonality(general: GeneralId, card: Card, rank: RankNumbe
     case 'hiveMother':
       return { general, ...hiveMother(written), suggestion: null };
     case 'strategist':
-      return strategist(written, rank);
+      return strategist(written, rank, slot);
     case 'conductor':
       return { general, ...conductor(written), suggestion: null };
   }
@@ -94,12 +94,18 @@ function engineer(card: Card): Edit {
   return { card: { ...card, steps }, rules: added ? ['holdBeforeMove'] : [] };
 }
 
-/** Hive Mother: at most 2 steps (the last ones go), and specific targets become the nearest of their class. */
+/**
+ * Hive Mother: at most 2 steps (the last ones go, but never a Legendary action), and specific
+ * targets become the nearest of their class.
+ */
 function hiveMother(card: Card): Edit {
   const rules: PersonalityRule[] = [];
   let steps = card.steps;
   if (steps.length > HIVE_MOTHER_RULES.maxSteps) {
-    steps = steps.slice(0, HIVE_MOTHER_RULES.maxSteps);
+    steps = [...steps];
+    for (let i = steps.length - 1; i >= 0 && steps.length > HIVE_MOTHER_RULES.maxSteps; i--) {
+      if (!isLegendaryAction(steps[i]!.action)) steps.splice(i, 1);
+    }
     rules.push('dropSteps');
   }
   const simple = steps.map((step) => simplifyStep(step, card.condition));
@@ -117,6 +123,13 @@ function simplifyStep(step: Step, condition: Condition | null): Step {
       return step.to ? { ...step, to: simplifyTarget(step.to, 'ally', condition) } : step;
     case 'move':
       return { ...step, to: simplifyPlace(step.to, condition) };
+    case 'hijack':
+      return { ...step, target: simplifyTarget(step.target, 'enemy', condition) };
+    case 'swap':
+    case 'bloodPact':
+      return { ...step, target: simplifyTarget(step.target, 'ally', condition) };
+    case 'fortify':
+      return { ...step, at: simplifyPlace(step.at, condition) };
     default:
       return step;
   }
@@ -153,7 +166,7 @@ function triggerClass(triggers: readonly Trigger[], side: 'enemy' | 'ally') {
 }
 
 /** Strategist: a card without a condition gets a suggested one, if your rank allows it. The card itself stays. */
-function strategist(card: Card, rank: RankNumber): Reading {
+function strategist(card: Card, rank: RankNumber, slot: SlotContext): Reading {
   const plain: Reading = { general: 'strategist', card, rules: [], suggestion: null };
   const first = card.steps[0];
   if (card.condition || !first || rankRules(rank).conditions === 'none') return plain;
@@ -161,7 +174,7 @@ function strategist(card: Card, rank: RankNumber): Reading {
     triggers: [resolveSuggestion(STRATEGIST_RULES.suggestions[first.action], first)],
     repeat: false,
   };
-  if (!validateCard({ ...card, condition: suggestion }, rank).ok) return plain;
+  if (!validateCard({ ...card, condition: suggestion }, rank, slot).ok) return plain;
   return { ...plain, rules: ['suggestCondition'], suggestion };
 }
 

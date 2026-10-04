@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseOrder } from '../cards/parser';
 import { describeCard } from '../cards/describe';
-import type { Card } from '../cards/types';
+import { REGULAR_ACTIONS, type Card } from '../cards/types';
 import { builderRows, cycleRow, newDraft } from './cardBuilder';
 
 const label = (card: Card, id: string) => {
@@ -68,5 +68,17 @@ describe('the card builder menus', () => {
     expect(label(typed.card, 'step0.target')).toBe('Your Ranger');
     // Editing in the menus forgets the typed words, since they no longer match.
     expect(cycleRow(typed.card, 'trigger0.hp', 1).text).toBeUndefined();
+  });
+
+  it('offer Legendary actions only on the Legendary slot, the ones you know', () => {
+    const regular = builderRows(newDraft()).find((r) => r.id === 'step0')!.choices.map((c) => c.label);
+    expect(regular).not.toContain('Swap');
+    const legendary = builderRows(newDraft(), [...REGULAR_ACTIONS, 'swap', 'fortify']).find((r) => r.id === 'step0')!.choices.map((c) => c.label);
+    expect(legendary).toEqual(expect.arrayContaining(['Swap', 'Fortify']));
+    expect(legendary).not.toContain('Echo');
+    let card = cycleRow(newDraft(), 'step0', 8, [...REGULAR_ACTIONS, 'swap', 'fortify']); // Fortify
+    expect(describeCard(card)).toBe('Fortify: raise a wall in front of your army');
+    card = cycleRow(card, 'step0.at', 1, [...REGULAR_ACTIONS, 'fortify']);
+    expect(describeCard(card)).toBe('Fortify: raise a wall behind your army');
   });
 });

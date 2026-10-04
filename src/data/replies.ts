@@ -1,6 +1,6 @@
 // What your General says about your orders. The validator's answers (refusals) are the same
 // for every General; each General's reading of a card has its own lines below.
-// {rank} is replaced with a rank numeral.
+// {rank} is replaced with a rank numeral, {general} with a General's name.
 
 export const CAPTAIN_REPLIES = {
   accepted: ['Understood.'],
@@ -9,6 +9,11 @@ export const CAPTAIN_REPLIES = {
   autoNeedsCondition: ['Auto needs a condition to wait for.'],
   slotLocked: ['That slot opens at Rank {rank}.'],
   notUnderstood: ["I didn't catch that. Say it plainer."],
+  legendaryOnlySlot: ['That is a Legendary order. It goes in the Legendary slot.'],
+  legendaryMissing: ['The Legendary slot is for a Legendary order.'],
+  oneLegendary: ['One Legendary order per card.'],
+  legendaryNotLearned: ["We don't know that one. Beat {general} to learn it."],
+  legendaryLocked: ['The Legendary slot opens when you beat your first boss General.'],
 } as const;
 
 export type ReplyKind = keyof typeof CAPTAIN_REPLIES;

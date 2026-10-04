@@ -54,7 +54,7 @@ function classIntent(state: BattleState, unit: Unit): Intent {
 export function tauntIntent(state: BattleState, unit: Unit): Intent | null {
   if (!unit.taunt) return null;
   const taunter = findUnit(state, unit.taunt.unitId);
-  if (!taunter?.alive || taunter.invisibleTicks > 0) return null;
+  if (!taunter?.alive || taunter.invisibleTicks > 0 || taunter.hijackTicks > 0) return null;
   return { action: attackOrApproach(unit, taunter), cast: null };
 }
 

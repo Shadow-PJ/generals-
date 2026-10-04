@@ -8,14 +8,15 @@
 import { makesCombo } from '../cards/combos';
 import { cardCost } from '../cards/cost';
 import { applyPersonality } from '../cards/personality';
-import type { Card, Loadout } from '../cards/types';
-import { slotUnlockRank, validateCard } from '../cards/validator';
+import type { Card, LegendaryAction, Loadout } from '../cards/types';
+import { slotUnlockRank, validateCard, type SlotContext } from '../cards/validator';
 import { CARD_RULES } from '../data/cards';
 import { COMBO_BONUSES, SIGNATURE_COMBOS } from '../data/combos';
 import { COMMAND_RULES } from '../data/command';
 import { MANA_TWISTS, type GeneralId } from '../data/generals';
 import { rankRules, type RankNumber } from '../data/ranks';
 import { checkCondition } from './conditions';
+import { castLegendary, legendaryReady } from './legendary';
 import { issueCard, type ComboAt } from './orders';
 import { hpShare, livingUnits } from './queries';
 import { payHp } from './status';
@@ -29,26 +30,29 @@ export const SLOT_COUNT = 5;
 /**
  * Sets up the slots. Each card goes through the validator as you wrote it (a card the rank
  * doesn't allow, or in a locked slot, is left out), then through your General's personality
- * rules, so the General's version is what fires.
+ * rules, so the General's version is what fires. The Legendary slot opens once a boss has
+ * taught a Legendary action (`learned`).
  */
 export function createCommand(
   side: Side,
   rank: RankNumber,
   loadout: Loadout | undefined,
   general: GeneralId = 'captain',
+  learned: readonly LegendaryAction[] = [],
 ): CommandState {
   const rules = rankRules(rank);
-  const cards: (Card | null)[] = [...(loadout?.slots ?? []).slice(0, LEGENDARY_SLOT), null, null, null, null].slice(
-    0,
-    LEGENDARY_SLOT,
-  );
-  // The Legendary slot opens with the first boss win (session 5A).
-  cards.push(null);
-  const slots: SlotState[] = cards.map((card, i) => ({
-    card:
-      card && i < LEGENDARY_SLOT && !slotUnlockRank(i, rank) && validateCard(card, rank).ok
-        ? applyPersonality(general, card, rank).card
-        : null,
+  const regular = [...(loadout?.slots ?? []).slice(0, LEGENDARY_SLOT), null, null, null, null].slice(0, LEGENDARY_SLOT);
+  const legendaryOpen = learned.length > 0;
+  const regularSlot: SlotContext = { legendarySlot: false, learned };
+  const legendarySlot: SlotContext = { legendarySlot: true, learned };
+  const read = (card: Card | null, slot: SlotContext): Card | null =>
+    card && validateCard(card, rank, slot).ok ? applyPersonality(general, card, rank, slot).card : null;
+  const cards: (Card | null)[] = [
+    ...regular.map((card, i) => (slotUnlockRank(i, rank) ? null : read(card, regularSlot))),
+    legendaryOpen ? read(loadout?.legendary ?? null, legendarySlot) : null,
+  ];
+  const slots: SlotState[] = cards.map((card) => ({
+    card,
     restTicks: 0,
     glowing: false,
     lingerTicks: 0,
@@ -68,6 +72,8 @@ export function createCommand(
     momentum: 0,
     slots,
     chain: { links: 0, lastTick: 0, lastStep: null, lastReserveIds: [] },
+    legendaryOpen,
+    lastCard: null,
   };
 }
 
@@ -157,6 +163,7 @@ function updateGlow(state: BattleState, command: CommandState, slot: SlotState):
 function shouldAutoFire(state: BattleState, command: CommandState, slot: SlotState): boolean {
   const card = slot.card;
   if (!card?.auto || !slot.glowing || slot.firedThisGlow || slot.restTicks > 0) return false;
+  if (!legendaryReady(state, command, card, triggersOf(slot))) return false;
   if (!canAfford(state, chainedCost(state, card, command), command)) return false;
   if (!card.condition?.repeat) return slot.autoFires === 0;
   const gap = secondsToTicks(CARD_RULES.repeatMinSeconds);
@@ -169,11 +176,12 @@ export type SlotReadiness = 'ready' | 'empty' | 'locked' | 'resting' | 'waiting'
 export function slotReadiness(state: BattleState, index: number, command: CommandState = state.command): SlotReadiness {
   const slot = command.slots[index];
   if (!slot) return 'locked';
-  if (index === LEGENDARY_SLOT || slotUnlockRank(index, command.rank)) return 'locked';
+  if (index === LEGENDARY_SLOT ? !command.legendaryOpen : slotUnlockRank(index, command.rank)) return 'locked';
   if (!slot.card) return 'empty';
   if (slot.restTicks > 0) return 'resting';
-  // A card with a condition can only be fired while it glows.
+  // A card with a condition can only be fired while it glows; a Legendary action needs something to work on.
   if (slot.card.condition && !slot.glowing) return 'waiting';
+  if (!legendaryReady(state, command, slot.card, triggersOf(slot))) return 'waiting';
   if (!canAfford(state, chainedCost(state, slot.card, command), command)) return 'noPips';
   return 'ready';
 }
@@ -310,11 +318,19 @@ function fireSlot(state: BattleState, command: CommandState, index: number, auto
     state.events.push({ tick: state.tick, type: 'combo', side: command.side, combo: c.combo, acrossCards: c.acrossCards });
   }
   const power = perfect ? 1 + COMMAND_RULES.perfect.effectBonus : 1;
-  const triggers = { enemyId: slot.triggerEnemyId, allyId: slot.triggerAllyId };
+  const triggers = triggersOf(slot);
+  // Legendary actions happen at once, then the other steps become troop orders.
+  castLegendary(state, command, card, triggers, power);
   const called = issueCard(state, command.side, card, power, triggers, combos, command.chain.lastReserveIds);
+  if (index !== LEGENDARY_SLOT) command.lastCard = { card, triggerEnemyId: triggers.enemyId, triggerAllyId: triggers.allyId };
   if (rankRules(command.rank).chains) {
     command.chain = { links: link, lastTick: state.tick, lastStep: card.steps.at(-1) ?? null, lastReserveIds: called };
   }
+}
+
+/** Who set off the slot's condition, for "him" and "her". */
+function triggersOf(slot: SlotState): { enemyId: number | null; allyId: number | null } {
+  return { enemyId: slot.triggerEnemyId, allyId: slot.triggerAllyId };
 }
 
 /** True when Momentum is full (yours, unless another Command bar is given). */
