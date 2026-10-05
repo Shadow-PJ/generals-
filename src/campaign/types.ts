@@ -10,6 +10,7 @@ import type { GeneralId } from '../data/generals';
 import type { LegendaryAction } from '../cards/types';
 import type { MasteryId } from '../data/mastery';
 import type { MapId } from '../data/maps';
+import type { OathRanks } from '../data/oaths';
 import type { RankNumber } from '../data/ranks';
 import type { Rarity } from '../data/rarity';
 import type { RegionId } from '../data/regions';
@@ -22,7 +23,8 @@ import type { RngState } from '../sim';
 
 /**
  * What the campaign keeps: the run you are on, your banked artifacts, the bosses you have beaten,
- * and (session 5E) your company, Insight, Tech Web, Ironman mode and the Mastery challenges met.
+ * (session 5E) your company, Insight, Tech Web, Ironman mode and the Mastery challenges met, and
+ * (session 5F) the oaths for your next run and the highest Fear you have won each region at.
  */
 export interface Campaign {
   run: RunState | null;
@@ -38,6 +40,10 @@ export interface Campaign {
   ironman: boolean;
   /** General Mastery challenges met. */
   mastery: MasteryId[];
+  /** Oaths of Command for the next run: the run you are on keeps the ones it began with. */
+  oaths: OathRanks;
+  /** The highest Fear at which you have won each region's run. */
+  fearRecords: Partial<Record<RegionId, number>>;
 }
 
 /** What each class has bought of its Tech Web: nodes, and the specialization taken (one at most). */
@@ -134,6 +140,9 @@ export type Stop =
       keep: number[];
       /** A run lost in Ironman: the fighters who fell in the last fight, gone for good. */
       died: number[];
+      /** The run's Fear, and the Insight a win above the region's highest Fear yet paid. */
+      fear: number;
+      bounty: number;
     };
 
 export interface RunState {
@@ -165,4 +174,6 @@ export interface RunState {
   insight: number;
   /** Ironman mode, set when the run began: a fighter who falls dies. */
   ironman: boolean;
+  /** Oaths of Command taken when the run began (session 5F). */
+  oaths: OathRanks;
 }

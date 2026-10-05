@@ -13,8 +13,9 @@ import { COMPANY_RULES } from '../data/veterans';
 import { createRng, nextInt, type RngState } from '../sim';
 import { benchWounded, joined, removeFighter } from './army';
 import { afterBattle, defaultKeep, fighterFromVeteran, filledCompany, veteranFromFighter } from './company';
-import { makeEncounter } from './encounters';
+import { nodeEncounter } from './encounters';
 import { applyChoice, choiceProblem, newArtifact } from './events';
+import { campHeal, fallenHp, fearBounty, fearOf, oathGold, oathInsight, oathPrice, spoilsOffers } from './oaths';
 import { rollOffers, rollStock, takeOffer } from './offers';
 import { pick } from './random';
 import { currentNode, generateRunMap, nextChoices } from './runMap';
@@ -67,6 +68,7 @@ export function newRun(campaign: Campaign, region: RegionId, seed: number): Camp
     xp: 0,
     insight: 0,
     ironman: campaign.ironman,
+    oaths: { ...campaign.oaths },
   };
   for (const v of company) run = joined(run, fighterFromVeteran(v, 0));
   return { ...campaign, company, run: { ...run, rng: { ...rng } } };
@@ -92,12 +94,13 @@ export function enterNode(campaign: Campaign, index: number): Campaign {
   const kind = run.map[floor]![index]!.kind;
   const moved: RunState = { ...run, path: [...run.path, index] };
   if (kind === 'camp') {
-    // Rest heals, and what you carry is banked for good.
+    // Rest heals (less under Lasting Wounds), and what you carry is banked for good.
+    const heal = campHeal(moved.oaths);
     const camp: RunState = {
       ...moved,
-      roster: moved.roster.map((f) => ({ ...f, hp: Math.min(1, f.hp + RUN_RULES.campHeal) })),
+      roster: moved.roster.map((f) => ({ ...f, hp: Math.min(1, f.hp + heal) })),
       artifacts: [],
-      stop: { kind: 'camp', healed: RUN_RULES.campHeal, banked: [...moved.artifacts] },
+      stop: { kind: 'camp', healed: heal, banked: [...moved.artifacts] },
     };
     return { ...campaign, artifacts: banked(campaign, moved), run: camp };
   }
@@ -106,7 +109,8 @@ export function enterNode(campaign: Campaign, index: number): Campaign {
       case 'battle':
       case 'elite':
       case 'boss':
-        return { ...moved, stop: { kind: 'fight', encounter: makeEncounter(rng, moved, kind, floor) } };
+        // The fight was fixed when the map was made, so the map could scout it (session 5F).
+        return { ...moved, stop: { kind: 'fight', encounter: nodeEncounter(moved, floor, index)! } };
       case 'event': {
         const fresh = EVENT_IDS.filter((id) => !moved.eventsSeen.includes(id));
         const event = pick(rng, fresh.length > 0 ? fresh : EVENT_IDS);
@@ -135,7 +139,8 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
   const run = runOf(campaign);
   if (run.stop?.kind !== 'fight') throw new Error('No fight to finish');
   const encounter = run.stop.encounter;
-  const insight = Math.max(0, outcome.insight ?? 0);
+  // Fear makes every battle earn more Insight (session 5F).
+  const insight = oathInsight(Math.max(0, outcome.insight ?? 0), run.oaths);
   const earned: Campaign = { ...campaign, insight: campaign.insight + insight };
   // Every fighter who fought adds the battle to their record, and may rank up.
   const recorded = rolling(run, (rng) => {
@@ -155,7 +160,7 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
     roster: recorded.roster.map((f) => {
       if (!hp.has(f.id)) return { ...f, wounded: false };
       const left = hp.get(f.id)!;
-      return fell.has(f.id) ? { ...f, hp: RUN_RULES.fallenHp, wounded: true } : { ...f, hp: Math.min(1, left!), wounded: false };
+      return fell.has(f.id) ? { ...f, hp: fallenHp(run.oaths), wounded: true } : { ...f, hp: Math.min(1, left!), wounded: false };
     }),
   };
   if (run.ironman) for (const id of fell) healed = removeFighter(healed, id);
@@ -165,12 +170,14 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
   const floor = run.path.length - 1;
   const next = rolling(healed, (rng) => {
     const rules = RUN_RULES.gold;
-    // Plunder (a boon) adds to every won fight's gold.
-    const gold =
-      (encounter.kind === 'elite' ? rules.elite : rules.battle) + rules.perFloor * floor + nextInt(rng, rules.spread + 1) + boonGold(healed.boons);
+    // Plunder (a boon) adds to every won fight's gold; Lean Purse (an oath) takes some away.
+    const gold = oathGold(
+      (encounter.kind === 'elite' ? rules.elite : rules.battle) + rules.perFloor * floor + nextInt(rng, rules.spread + 1) + boonGold(healed.boons),
+      healed.oaths,
+    );
     const artifact = encounter.kind === 'elite' ? newArtifact(rng, healed, campaign.artifacts) : null;
     // Deeper in the run, and after an elite fight, the offers are rarer.
-    const offers = rollOffers(rng, healed, campaign.bossesBeaten, rarityChances(floor, encounter.kind === 'elite'));
+    const offers = rollOffers(rng, healed, campaign.bossesBeaten, rarityChances(floor, encounter.kind === 'elite'), spoilsOffers(healed.oaths));
     return {
       ...healed,
       gold: healed.gold + gold,
@@ -185,7 +192,7 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
 export function pickSpoils(campaign: Campaign, index: number | null): Campaign {
   const run = runOf(campaign);
   if (run.stop?.kind !== 'spoils') throw new Error('No spoils to pick');
-  if (index === null) return { ...campaign, run: { ...run, gold: run.gold + RUN_RULES.skipGold, stop: null } };
+  if (index === null) return { ...campaign, run: { ...run, gold: run.gold + oathGold(RUN_RULES.skipGold, run.oaths), stop: null } };
   const offer = run.stop.offers[index];
   if (!offer) throw new Error(`No offer ${index}`);
   return { ...campaign, run: { ...takeOffer(run, offer), stop: null } };
@@ -200,7 +207,7 @@ function merchantStop(run: RunState): Extract<Stop, { kind: 'merchant' }> {
 export function merchantPrices(run: RunState): { heal: number; reroll: number } {
   const rules = RUN_RULES.merchant;
   const rerolls = run.stop?.kind === 'merchant' ? run.stop.rerolls : 0;
-  return { heal: rules.healPrice, reroll: rules.rerollPrice + rerolls * rules.rerollStep };
+  return { heal: oathPrice(rules.healPrice, run.oaths), reroll: oathPrice(rules.rerollPrice + rerolls * rules.rerollStep, run.oaths) };
 }
 
 /** Why you can't buy this item now, or null if you can. */
@@ -331,11 +338,14 @@ export function closeRun(campaign: Campaign): Campaign {
  * in Ironman the fighters who fell in the last fight die.
  */
 function endRun(campaign: Campaign, run: RunState, won: boolean, fell: ReadonlySet<number> = new Set()): Campaign {
+  const fear = fearOf(run.oaths);
   if (!won) {
     const died = run.ironman ? run.roster.filter((f) => fell.has(f.id)).map((f) => f.id) : [];
-    const stop: Stop = { kind: 'end', won, banked: [], lost: [...run.artifacts], learned: null, opened: [], unlocked: null, keep: [], died };
+    const stop: Stop = { kind: 'end', won, banked: [], lost: [...run.artifacts], learned: null, opened: [], unlocked: null, keep: [], died, fear, bounty: 0 };
     return { ...campaign, run: { ...run, artifacts: [], stop } };
   }
+  // Winning above the region's highest Fear yet pays a bounty of Insight (session 5F).
+  const { bounty, record } = fearBounty(campaign.fearRecords, run.region, fear);
   const region = REGIONS[run.region];
   const firstWin = !campaign.bossesBeaten.includes(region.ruler);
   const bossesBeaten = firstWin ? BOSS_ORDER.filter((g) => g === region.ruler || campaign.bossesBeaten.includes(g)) : campaign.bossesBeaten;
@@ -351,8 +361,17 @@ function endRun(campaign: Campaign, run: RunState, won: boolean, fell: ReadonlyS
     unlocked: firstWin ? region.unlocksClass : null,
     keep: defaultKeep(run.roster),
     died: [],
+    fear,
+    bounty,
   };
-  return { ...campaign, bossesBeaten, artifacts: banked(campaign, run), run: { ...run, artifacts: [], stop } };
+  return {
+    ...campaign,
+    bossesBeaten,
+    artifacts: banked(campaign, run),
+    insight: campaign.insight + bounty,
+    fearRecords: { ...campaign.fearRecords, [run.region]: record },
+    run: { ...run, artifacts: [], insight: run.insight + bounty, stop },
+  };
 }
 
 /** Where you are: about to set out, at a node, or done with it and choosing the next. */

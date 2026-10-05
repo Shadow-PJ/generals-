@@ -1,12 +1,13 @@
 // The Capital: your hub and the first screen. The world map shows the five regions around it,
 // each ruled by a General; entering one starts a run that ends at its ruler. From here you also
 // see your company and equip its artifacts, spend Insight on the Tech Web, pick your General,
-// practise in skirmish, read the Codex and change the settings.
-// ←→ (or Tab) pick a region, Enter sets out or carries on your run, Del abandons it.
+// practise in skirmish, read the Codex, take Oaths of Command for your next run (O) and change the
+// settings. ←→ (or Tab) pick a region, Enter sets out or carries on your run, Del abandons it.
 
 import Phaser from 'phaser';
 import { titles } from '../../campaign/mastery';
 import { abandonRun, newRun, setOutProblem } from '../../campaign/run';
+import { fearOf } from '../../data/oaths';
 import { ARTIFACTS } from '../../data/artifacts';
 import { GENERALS } from '../../data/generals';
 import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
@@ -82,9 +83,10 @@ export class CapitalScene extends Phaser.Scene {
       .on('tech', () => this.scene.start('Tech'))
       .on('company', () => this.scene.start('Company'))
       .on('codex', () => this.open('Codex'))
+      .on('oaths', () => this.scene.start('Oaths'))
       .on('back', () => this.open('Settings'));
     this.render();
-    new CaptainTips(this, { x: PANEL_X, width: PANEL_W, top: 330 }).say(sceneTips('Capital'));
+    new CaptainTips(this, { x: PANEL_X, width: PANEL_W, top: 400 }).say(sceneTips('Capital'));
   }
 
   /** The General, Codex and Settings screens, which come back here. */
@@ -188,7 +190,8 @@ export class CapitalScene extends Phaser.Scene {
     if (run) {
       add('YOUR RUN', 11, TEXT.muted, true, 2);
       add(`${REGIONS[run.region].name} · ${runFloor(run)}`, 14, TEXT.perfect, true, 2);
-      add(runNumbers(run), 12, TEXT.body, false, 10);
+      add(runNumbers(run), 12, TEXT.body, false, 2);
+      add(`Fear ${fearOf(run.oaths)}`, 12, fearOf(run.oaths) > 0 ? TEXT.threat : TEXT.muted, true, 10);
       this.ui.add(addButton(this, PANEL_X + 90, y + 16, 'Carry on  ⏎', () => this.go(), 180, 34).container);
       this.ui.add(addButton(this, PANEL_X + 90, y + 58, 'Abandon run  Del', () => this.abandon(), 180, 30).container);
       y += 84;
@@ -201,6 +204,11 @@ export class CapitalScene extends Phaser.Scene {
     }
     if (status === 'cleared') add('Cleared: you can run it again for XP, but its ruler has nothing new to teach.', 12, TEXT.muted, false, 8);
     this.ui.add(addButton(this, PANEL_X + 90, y + 16, 'Set out  ⏎', () => this.go(), 180, 34).container);
+    // Oaths of Command (session 5F): harder runs for more Insight.
+    const fear = fearOf(campaign.oaths);
+    this.ui.add(addButton(this, PANEL_X + 90, y + 58, 'Oaths of Command  O', () => this.scene.start('Oaths'), 180, 30).container);
+    y += 84;
+    add(`Fear ${fear}${fear > 0 ? ': harder, for more Insight' : ': no oaths taken'} · highest won here: ${campaign.fearRecords[id] ?? 'none yet'}`, 12, fear > 0 ? TEXT.threat : TEXT.muted, true);
   }
 
   /** Your rank, the Legendary actions you know and your banked artifacts. */

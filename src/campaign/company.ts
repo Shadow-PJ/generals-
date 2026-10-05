@@ -50,9 +50,9 @@ function toRoman(n: number): string {
   return out;
 }
 
-/** The campaign of a new save: no run, nothing banked or beaten, the starting company. */
+/** The campaign of a new save: no run, nothing banked or beaten, the starting company, no oaths. */
 export function newCampaign(bossesBeaten: Campaign['bossesBeaten'] = []): Campaign {
-  return { run: null, artifacts: [], bossesBeaten, company: startingCompany(), insight: 0, tech: {}, ironman: false, mastery: [] };
+  return { run: null, artifacts: [], bossesBeaten, company: startingCompany(), insight: 0, tech: {}, ironman: false, mastery: [], oaths: {}, fearRecords: {} };
 }
 
 /** A fresh Recruit of your company: common, no faction, no perks. */

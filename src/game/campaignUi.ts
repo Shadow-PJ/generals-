@@ -41,12 +41,17 @@ export function drawFactionDot(g: Graphics, faction: FactionId, x: number, y: nu
   g.lineStyle(1, 0x0b0f16, alpha).strokeCircle(x, y, 4);
 }
 
-/** A boon as a small icon: a badge in its rarity's color with a plus. */
+/** A boon as a small icon: a badge in its rarity's color with a plus; a duo boon wears its two factions' dots. */
 export function drawBoon(g: Graphics, boon: BoonId, x: number, y: number): void {
   const color = COLORS.rarity[BOONS[boon].rarity];
   g.fillStyle(COLORS.row, 1).fillRoundedRect(x - 11, y - 11, 22, 22, 5);
   g.lineStyle(2, color, 1).strokeRoundedRect(x - 11, y - 11, 22, 22, 5);
   g.lineStyle(3, color, 1).lineBetween(x - 6, y, x + 6, y).lineBetween(x, y - 6, x, y + 6);
+  const duo = BOONS[boon].duo;
+  if (duo) {
+    drawFactionDot(g, duo[0], x - 11, y - 11);
+    drawFactionDot(g, duo[1], x + 11, y - 11);
+  }
 }
 
 /** "85 gold · 9 fighters · 2 boons · 1 artifact carried". */

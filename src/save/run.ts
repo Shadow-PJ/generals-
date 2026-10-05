@@ -12,6 +12,7 @@ import { FACTION_IDS, type FactionId } from '../data/factions';
 import { GENERAL_IDS, type GeneralId } from '../data/generals';
 import { MAP_IDS, type MapId } from '../data/maps';
 import { MASTERY, type MasteryId } from '../data/mastery';
+import { maxRank, OATH_IDS, type OathRanks } from '../data/oaths';
 import { RANKS, type RankNumber } from '../data/ranks';
 import { RARITIES, type Rarity } from '../data/rarity';
 import { REGION_IDS, type RegionId } from '../data/regions';
@@ -158,6 +159,8 @@ function stop(value: unknown): Stop {
         unlocked: nullable(d.unlocked, (v) => oneOf<TroopClass>(TROOP_CLASSES, v)),
         keep: ids<number>(list(d.keep).map((v) => int(v)), d.keep),
         died: ids<number>(list(d.died).map((v) => int(v)), d.died),
+        fear: int(d.fear ?? 0),
+        bounty: int(d.bounty ?? 0),
       };
     default:
       return fail();
@@ -255,6 +258,7 @@ function run(value: unknown): RunState {
     xp: int(d.xp),
     insight: int(d.insight),
     ironman: bool(d.ironman),
+    oaths: readOaths(d.oaths),
   };
 }
 
@@ -270,6 +274,28 @@ export function readRun(value: unknown): RunState | null {
 }
 
 /** Banked artifacts as saved: the known ones, each once. */
+/** Oaths of Command (session 5F): known oaths at a rank they have; the rest are left out. */
+export function readOaths(value: unknown): OathRanks {
+  const oaths: OathRanks = {};
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return oaths;
+  for (const id of OATH_IDS) {
+    const rank = (value as Data)[id];
+    if (typeof rank === 'number' && Number.isInteger(rank) && rank >= 1 && rank <= maxRank(id)) oaths[id] = rank;
+  }
+  return oaths;
+}
+
+/** The highest Fear won in each region: known regions with a whole number of Fear. */
+export function readFearRecords(value: unknown): Partial<Record<RegionId, number>> {
+  const records: Partial<Record<RegionId, number>> = {};
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return records;
+  for (const id of REGION_IDS) {
+    const fear = (value as Data)[id];
+    if (typeof fear === 'number' && Number.isInteger(fear) && fear >= 0) records[id] = fear;
+  }
+  return records;
+}
+
 export function readArtifacts(value: unknown): ArtifactId[] {
   return Array.isArray(value) ? ARTIFACT_IDS.filter((id) => value.includes(id)) : [];
 }

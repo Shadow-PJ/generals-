@@ -8,7 +8,7 @@ Seven phases, 24 sessions. Each session ends with a pull request that the owner 
 | 2. Command Slots and desktop | 2A to 2C | Write cards, fire them and win battles, in the browser or as a Windows app; no AI needed |
 | 3. Personalities and the small model | 3A to 3D | Generals read orders their way; plain-language and voice orders |
 | 4. Combos and content | 4A to 4D | Every General, class, combo and map in skirmish mode |
-| 5. Progression and campaign | 5A to 5E | The full campaign from Squad Leader to Legend, as roguelite runs |
+| 5. Progression and campaign | 5A to 5F | The full campaign from Squad Leader to Legend, as roguelite runs |
 | 6. Polish and multiplayer | 6A to 6D | Real art and sound, balance, controller and Steam Deck play, battles against friends |
 | 7. Release | 7A, 7B | Generals on Steam, then on the Epic Games Store |
 
@@ -213,6 +213,18 @@ Owner checks: build a run around one faction and feel it grow strong.
 - [x] Battle IQ report built from the battle event log
 
 Done when: a new save can be played through the first region and its boss.
+
+### 5F. Oaths, scouting and duo boons
+
+Added after 6A at the owner's request: ideas from Hades II, Thronefall, Nordhold, 9 Kings, Skul and The King is Watching (`docs/inspiration.md`); the owner picked these three.
+
+- [x] A look at the six games, why they work, and what Generals takes now and later (`docs/inspiration.md`)
+- [x] Oaths of Command: vows for the next run, each adding Fear; Fear raises Insight, and a new highest Fear won in a region pays a bounty; an Oaths screen in the Capital
+- [x] Scouting: every fight on a run's map is fixed when the map is made, and picking it shows its army
+- [x] Duo boons: one for each pair of factions, offered once both factions' bonuses are on in your army
+- [x] Save version 7 with the oaths and Fear records
+
+Done when: a run can be set out under oaths, its fights scouted from the map, and a duo boon picked from the spoils.
 
 ## Phase 6: Polish and multiplayer
 

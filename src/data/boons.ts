@@ -1,7 +1,10 @@
 // Boons (sessions 5B and 5C): buffs that last the rest of a run, picked from the spoils after a
 // fight or bought from the merchant. Troop boons make a class (or every troop) stronger or bring
 // its skill back sooner; Command boons give pips and Momentum; faction boons count as more
-// fighters of a faction; Plunder brings more gold. 30 in all. Starting values to tune.
+// fighters of a faction; Plunder brings more gold. 30 in all, and 10 duo boons since session 5F
+// (after Hades II): one for each pair of factions, offered in the spoils only once both factions'
+// bonuses are on in your army; each counts for both factions and adds an effect of its own.
+// Starting values to tune.
 
 import type { FactionId } from './factions';
 import type { PerkStat } from './perks';
@@ -38,6 +41,8 @@ export interface BoonData {
   rarity: Rarity;
   text: string;
   effects: readonly BoonEffect[];
+  /** A duo boon's two factions: both bonuses must be on in your army for it to be offered. */
+  duo?: readonly [FactionId, FactionId];
 }
 
 export const BOON_IDS = [
@@ -75,10 +80,35 @@ export const BOON_IDS = [
   'conquerorsBanner',
   'legionStandard',
   'endlessSupply',
+  // Duo (session 5F)
+  'bloodForge',
+  'feedingFrenzy',
+  'phantomPain',
+  'warPulse',
+  'chitinPlate',
+  'nullEngine',
+  'harmonicAnvil',
+  'swarmPhase',
+  'hiveChorus',
+  'echoRift',
 ] as const;
 export type BoonId = (typeof BOON_IDS)[number];
 
 const SKILL_BOON_CUT = 0.25;
+
+/** A duo boon's faction counts: 1 more fighter of each of its two factions. */
+function duoCount(a: FactionId, b: FactionId): BoonEffect[] {
+  return [
+    { kind: 'faction', faction: a, count: 1 },
+    { kind: 'faction', faction: b, count: 1 },
+  ];
+}
+
+/** Duo boons, after Hades II: rules for when the spoils offer one. */
+export const DUO_RULES = {
+  /** Each boon offer in the spoils is a duo boon this often, when one is open to you (both its factions' bonuses on). */
+  offerChance: 0.35,
+} as const;
 
 export const BOONS: Readonly<Record<BoonId, BoonData>> = {
   whetstones: {
@@ -272,6 +302,77 @@ export const BOONS: Readonly<Record<BoonId, BoonData>> = {
       { kind: 'maxPips', amount: 1 },
       { kind: 'pipRate', bonus: 0.2 },
     ],
+  },
+  // Duo boons: each counts as 1 more fighter of both its factions, and adds its own effect.
+  bloodForge: {
+    name: 'Blood Forge',
+    rarity: 'epic',
+    duo: ['bloodbound', 'forgeborn'],
+    text: 'Counts as 1 more Bloodbound and 1 more Forgeborn fighter; every troop heals 5% of the damage its attacks deal',
+    effects: [...duoCount('bloodbound', 'forgeborn'), { kind: 'lifesteal', cls: null, share: 0.05 }],
+  },
+  feedingFrenzy: {
+    name: 'Feeding Frenzy',
+    rarity: 'epic',
+    duo: ['bloodbound', 'hive'],
+    text: 'Counts as 1 more Bloodbound and 1 more Hive fighter; every troop deals 8% more damage',
+    effects: [...duoCount('bloodbound', 'hive'), { kind: 'stat', cls: null, stat: 'damage', bonus: 0.08 }],
+  },
+  phantomPain: {
+    name: 'Phantom Pain',
+    rarity: 'epic',
+    duo: ['bloodbound', 'voidweavers'],
+    text: 'Counts as 1 more Bloodbound and 1 more Voidweavers fighter; every troop attacks 8% faster',
+    effects: [...duoCount('bloodbound', 'voidweavers'), { kind: 'stat', cls: null, stat: 'attacksPerSecond', bonus: 0.08 }],
+  },
+  warPulse: {
+    name: 'War Pulse',
+    rarity: 'epic',
+    duo: ['bloodbound', 'resonance'],
+    text: 'Counts as 1 more Bloodbound and 1 more Resonance fighter; every battle starts with 25 Momentum',
+    effects: [...duoCount('bloodbound', 'resonance'), { kind: 'startMomentum', amount: 25 }],
+  },
+  chitinPlate: {
+    name: 'Chitin Plate',
+    rarity: 'epic',
+    duo: ['forgeborn', 'hive'],
+    text: 'Counts as 1 more Forgeborn and 1 more Hive fighter; every troop has 10% more HP',
+    effects: [...duoCount('forgeborn', 'hive'), { kind: 'stat', cls: null, stat: 'maxHp', bonus: 0.1 }],
+  },
+  nullEngine: {
+    name: 'Null Engine',
+    rarity: 'epic',
+    duo: ['forgeborn', 'voidweavers'],
+    text: "Counts as 1 more Forgeborn and 1 more Voidweavers fighter; every troop's skill comes back 15% sooner",
+    effects: [...duoCount('forgeborn', 'voidweavers'), { kind: 'skillHaste', cls: null, cut: 0.15 }],
+  },
+  harmonicAnvil: {
+    name: 'Harmonic Anvil',
+    rarity: 'epic',
+    duo: ['forgeborn', 'resonance'],
+    text: 'Counts as 1 more Forgeborn and 1 more Resonance fighter; you can hold 1 more pip',
+    effects: [...duoCount('forgeborn', 'resonance'), { kind: 'maxPips', amount: 1 }],
+  },
+  swarmPhase: {
+    name: 'Swarm Phase',
+    rarity: 'epic',
+    duo: ['hive', 'voidweavers'],
+    text: 'Counts as 1 more Hive and 1 more Voidweavers fighter; every troop moves 15% faster',
+    effects: [...duoCount('hive', 'voidweavers'), { kind: 'stat', cls: null, stat: 'moveSpeed', bonus: 0.15 }],
+  },
+  hiveChorus: {
+    name: 'Hive Chorus',
+    rarity: 'epic',
+    duo: ['hive', 'resonance'],
+    text: 'Counts as 1 more Hive and 1 more Resonance fighter; pips refill 15% faster',
+    effects: [...duoCount('hive', 'resonance'), { kind: 'pipRate', bonus: 0.15 }],
+  },
+  echoRift: {
+    name: 'Echo Rift',
+    rarity: 'epic',
+    duo: ['voidweavers', 'resonance'],
+    text: 'Counts as 1 more Voidweavers and 1 more Resonance fighter; every battle starts with 1 more pip and 10 Momentum',
+    effects: [...duoCount('voidweavers', 'resonance'), { kind: 'startPips', amount: 1 }, { kind: 'startMomentum', amount: 10 }],
   },
 };
 

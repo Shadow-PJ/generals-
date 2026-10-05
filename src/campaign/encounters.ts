@@ -8,11 +8,12 @@ import { BOSS_RULES, type BossId } from '../data/bosses';
 import type { TroopPlacement } from '../data/armies';
 import type { GeneralId } from '../data/generals';
 import { REGIONS } from '../data/regions';
+import { OATH_RULES, oathValue, type OathRanks } from '../data/oaths';
 import { BOSS_FIGHTS, ELITE_FIGHT, FIGHT_TIERS, RUN_LEVEL_STEP, type FightTier } from '../data/runs';
 import { MAPS } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { UnitClass } from '../data/units';
-import { nextUint32, type RngState } from '../sim';
+import { createRng, nextUint32, type RngState } from '../sim';
 import { formation } from './army';
 import { shuffled, weighted } from './random';
 import type { Encounter, RunState } from './types';
@@ -23,8 +24,11 @@ function rankAtMost(rank: number): RankNumber {
   return Math.max(1, Math.min(MAX_RANK, rank)) as RankNumber;
 }
 
-/** The enemy army for a fight of this kind on this floor of a region ruled by `ruler`, `level` bosses into the campaign. */
-export function fightTier(kind: Encounter['kind'], floor: number, level: number, ruler: BossId): FightTier {
+/**
+ * The enemy army for a fight of this kind on this floor of a region ruled by `ruler`, `level`
+ * bosses into the campaign, under the run's Oaths of Command (session 5F).
+ */
+export function fightTier(kind: Encounter['kind'], floor: number, level: number, ruler: BossId, oaths: OathRanks = {}): FightTier {
   const base = kind === 'boss' ? BOSS_FIGHTS[ruler] : FIGHT_TIERS[Math.min(floor, FIGHT_TIERS.length - 1)]!;
   let { commander, epic, rare } = base;
   if (kind === 'elite') {
@@ -34,13 +38,21 @@ export function fightTier(kind: Encounter['kind'], floor: number, level: number,
   }
   if (commander !== null) commander = rankAtMost(commander + level * RUN_LEVEL_STEP.commander);
   rare += level * RUN_LEVEL_STEP.rare;
+  // Oaths: rarer troops everywhere, sharper commanders, and a crueler ruler.
+  rare += oathValue(oaths, OATH_RULES.veteranFoes.rare, 'veteranFoes');
+  epic += oathValue(oaths, OATH_RULES.eliteGuard.epic, 'eliteGuard');
+  if (commander !== null) commander = rankAtMost(commander + oathValue(oaths, OATH_RULES.cunningCommanders.ranks, 'cunningCommanders'));
+  if (kind === 'boss') {
+    epic += oathValue(oaths, OATH_RULES.tyrantsWrath.epic, 'tyrantsWrath');
+    if (commander !== null) commander = rankAtMost(commander + oathValue(oaths, OATH_RULES.tyrantsWrath.commander, 'tyrantsWrath'));
+  }
   return { ...base, commander, epic, rare };
 }
 
 /** The encounter at a fight node, rolled from the run's generator. */
 export function makeEncounter(rng: RngState, run: RunState, kind: Encounter['kind'], floor: number): Encounter {
   const region = REGIONS[run.region];
-  const tier = fightTier(kind, floor, run.level, region.ruler);
+  const tier = fightTier(kind, floor, run.level, region.ruler, run.oaths);
   const count = tier.troops + tier.reserves;
   const classes: UnitClass[] =
     kind === 'boss' ? [...region.bossArmy].slice(0, count) : Array.from({ length: count }, () => weighted(rng, region.enemyClasses));
@@ -57,6 +69,22 @@ export function makeEncounter(rng: RngState, run: RunState, kind: Encounter['kin
     troops: [...formation(MAPS[region.map], 'enemy', troops.slice(0, tier.troops)), ...bossExtras(kind, region.ruler)],
     reserves: troops.slice(tier.troops),
   };
+}
+
+/** A node's own seed: every fight on a run's map is fixed when the map is made. */
+function nodeSeed(run: RunState, floor: number, index: number): number {
+  return (run.seed ^ ((floor + 1) * 0x9e3779b1) ^ ((index + 1) * 0x85ebca6b)) | 0;
+}
+
+/**
+ * The fight waiting at a node (session 5F: scouting). It comes from the node's own seed, not the
+ * run's generator, so the run map can show it before you choose a path, and taking the node
+ * brings exactly that army. Null for a node that isn't a fight.
+ */
+export function nodeEncounter(run: RunState, floor: number, index: number): Encounter | null {
+  const kind = run.map[floor]?.[index]?.kind;
+  if (kind !== 'battle' && kind !== 'elite' && kind !== 'boss') return null;
+  return makeEncounter(createRng(nodeSeed(run, floor, index)), run, kind, floor);
 }
 
 /** What a boss brings on top of their army: the Engineer's turrets. */

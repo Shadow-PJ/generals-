@@ -10,6 +10,7 @@
 // a name, a record, an artifact slot and a wounded flag.
 // Version 6 (session 6A): the Captain's tips. A save that has already earned XP has played its
 // first battles, so tips start off there (Settings turns them back on).
+// Version 7 (session 5F): Oaths of Command and Fear records; a run in progress took no oaths.
 
 import { defaultKeep, freshName, NO_RECORD, startingCompany } from '../campaign/company';
 import type { Fighter } from '../campaign/types';
@@ -36,7 +37,17 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   4: (save) => ({ ...save, version: 5, company: startingCompany(), insight: 0, tech: {}, ironman: false, mastery: [], run: namedFighters(save.run) }),
   /** The Captain's tips: on for a save that has earned no XP yet, off for one that has played. */
   5: (save) => ({ ...save, version: 6, tutorial: { on: !(typeof save.xp === 'number' && save.xp > 0), seen: [] } }),
+  /** No oaths and no Fear won yet; a run in progress took none, and an ended one had no Fear. */
+  6: (save) => ({ ...save, version: 7, oaths: {}, fearRecords: {}, run: withoutOaths(save.run) }),
 };
+
+/** A version 6 run: it took no oaths, and if it has ended, it had no Fear and paid no bounty. */
+function withoutOaths(run: unknown): unknown {
+  if (typeof run !== 'object' || run === null || Array.isArray(run)) return run;
+  const r = run as SaveData;
+  const stop = typeof r.stop === 'object' && r.stop !== null && (r.stop as SaveData).kind === 'end' ? { ...(r.stop as SaveData), fear: 0, bounty: 0 } : r.stop;
+  return { ...r, oaths: {}, stop };
+}
 
 /** A version 4 run: every fighter named, with a fresh record, no artifact and fit; a won end lets the usual fighters stay. */
 function namedFighters(run: unknown): unknown {

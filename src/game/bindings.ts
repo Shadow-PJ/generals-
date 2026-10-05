@@ -31,7 +31,9 @@ export type InputAction =
   /** Opens the Tech Web from the Capital. */
   | 'tech'
   /** Opens your company from the Capital. */
-  | 'company';
+  | 'company'
+  /** Opens the Oaths of Command from the Capital (session 5F). */
+  | 'oaths';
 
 /** The card slot actions, in slot order. */
 export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
@@ -63,6 +65,7 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   general: ['KeyG'],
   tech: ['KeyK'],
   company: ['KeyR'],
+  oaths: ['KeyO'],
 };
 
 const ACTION_BY_CODE = new Map<string, InputAction>();
