@@ -109,3 +109,27 @@ saying it to the generator, retrain (`npm run train:reader`) and commit the new 
 order to a test set too. When session 4B gives the player Invokers and Assassins, the generator
 needs them as your own troops, and the reader a retrain. Voice input (3D) goes through the same
 chain.
+
+## Session 6A: Legendary orders
+
+The reader now reads Legendary orders too: Hijack, Swap, Blood Pact, Fortify and Echo. The
+generator writes them (about 12% of generated cards carry one Legendary step, as slot 5 would
+hold), with their own words ("take control of", "mind control", "swap places with", "trade
+spots", "sacrifice", "put up a wall", "do that again", and more), and the reader was retrained on
+them. As with the rule parser, it refuses an order that names troops for Hijack, Blood Pact,
+Fortify or Echo (they are yours alone), and a Swap with an enemy troop.
+
+Before retraining, 60 Legendary orders were written by hand in `tools/dataset/legendary.txt`
+(15 cards, 4 ways each, with slang and typos), never used in training. Measured with
+`npm run eval -- --set <set>`; before is the reader of session 3C.
+
+| Orders | Rule parser alone | Order reader alone, before → after | Parser, then reader (the game), before → after |
+| --- | ---: | ---: | ---: |
+| legendary.txt (60) | 46.7% | 0.0% (9 wrong cards) → **90.0%** (0 wrong) | 46.7% (7 wrong) → **91.7%** (0 wrong) |
+| fresh.txt (174) | 48.9% | 95.4% (1 wrong) → 93.7% (0 wrong) | 96.6% (0 wrong) → **97.7%** (0 wrong) |
+| natural.txt, test part (249) | 39.0% | 94.0% (6 wrong) → 93.6% (6 wrong) | 94.0% (6 wrong) → 93.6% (6 wrong) |
+
+The regular orders hold steady (one more held-out order is refused, none more misread). The five
+Legendary orders still missed are all refused, none misread: "teleport the tank to where the
+archer is", "sac the weakest" (a word it doesn't know), "put up walls now", "drop a wall behind
+them so they cant run" (the reason clause) and a bare "again!".

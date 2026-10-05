@@ -14,6 +14,7 @@ import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { MAPS, OPEN_FIELD } from '../../data/maps';
 import { rankRules, RANKS } from '../../data/ranks';
 import { SYNERGIES } from '../../data/synergies';
+import { TUTORIAL_RULES } from '../../data/tutorial';
 import { UNIT_CLASSES } from '../../data/units';
 import {
   bloodPayer,
@@ -48,6 +49,7 @@ import {
   type BattleClock,
 } from '../battleClock';
 import { SLOT_ACTIONS } from '../bindings';
+import { CaptainTips } from '../captain';
 import { codexEntry } from '../codex';
 import {
   drawBar,
@@ -79,6 +81,7 @@ import { metChallenges } from '../mastery';
 import { battleXp, withIqXp } from '../progress';
 import { currentCampaign, recordCombo } from '../session';
 import { threats } from '../threats';
+import { battleMoments } from '../tutorial';
 import { bossOf, fightOutcome } from '../campaignFlow';
 import { enemyArmyOf, yourReserves } from '../troops';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
@@ -171,6 +174,8 @@ export class BattleScene extends Phaser.Scene {
   private chainText!: Phaser.GameObjects.Text;
   private chainBar!: Phaser.GameObjects.Graphics;
   private threatTexts = new Map<number, Phaser.GameObjects.Text>();
+  /** The Captain's tips in your first battles. */
+  private tips!: CaptainTips;
 
   constructor() {
     super('Battle');
@@ -247,6 +252,9 @@ export class BattleScene extends Phaser.Scene {
       .on('ultimate', () => this.pending.push({ kind: 'ultimate' }));
     SLOT_ACTIONS.forEach((action, slot) => input.on(action, () => this.pending.push({ kind: 'slot', slot })));
 
+    this.tips = new CaptainTips(this, { x: (GAME_WIDTH - 380) / 2, width: 380, top: TOP_BAR_HEIGHT + 30 }, this.setup.general);
+    this.tips.say([{ id: 'battleStart' }], TUTORIAL_RULES.battleTipSeconds);
+
     const boss = this.state.boss;
     if (boss) this.banner(`BOSS: ${GENERALS[boss].name.toUpperCase()}`, TEXT.threat, BOSSES[boss].rule, BOSS_BANNER_MS);
     else this.banner('FIGHT!', TEXT.title, this.setup.tactical ? 'Tactical mode: the battle pauses every 10 s' : undefined);
@@ -261,8 +269,10 @@ export class BattleScene extends Phaser.Scene {
         this.tacticalPause();
       }
       this.showNewEvents(time);
+      if (!this.state.result && !this.tips.showing) this.tips.say(battleMoments(this.state), TUTORIAL_RULES.battleTipSeconds);
       if (this.state.result && !this.ended) {
         this.ended = true;
+        this.tips.hide();
         this.time.delayedCall(RESULT_DELAY_MS, () => {
           const result = this.state.result!;
           // The Battle IQ report reads the event log; in a campaign battle its grade earns XP.

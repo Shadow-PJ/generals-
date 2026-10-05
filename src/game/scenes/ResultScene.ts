@@ -10,6 +10,7 @@ import { MASTERY, type MasteryId } from '../../data/mastery';
 import { rankRules } from '../../data/ranks';
 import { formatBattleTime, type BattleResult } from '../../sim';
 import type { BattleIq, Grade } from '../battleIq';
+import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -18,6 +19,7 @@ import { resultReason, resultTitle } from '../resultText';
 import { newSeed } from '../seed';
 import { currentCampaign, currentXp, gainXp, saveCampaign } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
+import { sceneTips } from '../tutorial';
 import { addButton, textStyle } from '../ui';
 
 const GRADE_COLORS: Readonly<Record<Grade, string>> = { A: TEXT.victory, B: TEXT.perfect, C: TEXT.body, D: TEXT.defeat };
@@ -58,6 +60,7 @@ export class ResultScene extends Phaser.Scene {
     const top = cy - PANEL_H / 2;
     this.add.rectangle(cx, cy, GAME_WIDTH, GAME_HEIGHT, 0x05070b, 0.6);
     this.add.rectangle(cx, cy, PANEL_W, PANEL_H, 0x1a2230, 0.97).setStrokeStyle(2, 0x3a4a60);
+    new CaptainTips(this, { x: cx - PANEL_W / 2 + 20, width: PANEL_W - 40, bottom: top + PANEL_H - 92 }).say(sceneTips('Result'));
 
     const color = result.winner === 'player' ? TEXT.victory : result.winner === 'enemy' ? TEXT.defeat : TEXT.title;
     this.add.text(cx, top + 34, resultTitle(result), textStyle(36, color, true)).setOrigin(0.5);

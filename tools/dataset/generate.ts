@@ -1,5 +1,5 @@
 // Dataset generator: combines actions, troops, targets and conditions into sentence and card
-// pairs, for training the order reader (session 3C) and for prompts. The card is built from the
+// pairs, for training the order reader (session 3C; Legendary actions since 6A) and for prompts. The card is built from the
 // same choices as the sentence, so every label is right by construction; the validator checks
 // each. Every word also comes labeled with its part of the card (see src/cards/reader/tags.ts):
 // condition, trigger, step, and its role there (who acts, what they do, whom or where).
@@ -8,8 +8,8 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Role } from '../../src/cards/reader/tags';
-import type { Actors, Card, Condition, RegularAction, Step, Target, Trigger } from '../../src/cards/types';
-import { validateCard } from '../../src/cards/validator';
+import { isLegendaryAction, LEGENDARY_ACTIONS, type Actors, type Card, type Condition, type LegendaryAction, type RegularAction, type Step, type Target, type Trigger } from '../../src/cards/types';
+import { REGULAR_SLOT, validateCard, type SlotContext } from '../../src/cards/validator';
 import { HURT_WORDS } from '../../src/data/cards';
 import type { TroopClass } from '../../src/data/units';
 
@@ -201,6 +201,34 @@ const RESERVE_ANY = [
   'call in the reinforcements', 'get reinforcements', 'we need backup', 'we need reinforcements', 'need backup', 'more troops',
 ];
 
+// Legendary actions (session 6A) ---------------------------------------------------------
+// The commander's own: no troops are named for Hijack, Blood Pact, Fortify or Echo.
+
+const HIJACK_VERBS = [
+  'hijack', 'hijack', 'hijack', 'take control of', 'take control of', 'take over', 'mind control', 'control', 'possess',
+  'seize', 'seize control of', 'brainwash', 'convert', 'charm', 'dominate', 'grab control of', 'puppet', 'steal',
+];
+/** "make their ranger fight for us" */
+const HIJACK_SPLIT: [string, string][] = [['make', 'fight for us'], ['turn', 'against them'], ['turn', 'on their own'], ['make', 'switch sides'], ['get', 'on our side']];
+const SWAP_VERBS = ['swap places', 'swap places', 'swap', 'swap', 'switch places', 'trade places', 'switch spots', 'swap spots', 'trade spots', 'switch', 'trade', 'teleport'];
+const SWAP_PREPS = ['with', 'with', 'with', 'and'];
+const BLOOD_VERBS = ['sacrifice', 'sacrifice', 'sacrifice', 'blood pact', 'make a blood pact with', 'give up', 'offer up', 'spend', 'bleed out', 'trade away'];
+const BLOOD_EXTRAS = ['for pips', 'to refill', 'for power', 'for momentum', 'to power up', 'for the cause'];
+const WALL_VERBS = [
+  'fortify', 'fortify', 'raise a wall', 'raise a wall', 'build a wall', 'build a wall', 'put up a wall', 'make a wall',
+  'throw up a wall', 'drop a wall', 'build walls', 'raise walls', 'put up a barricade', 'build a barricade', 'wall up',
+];
+const WALL_FORWARD = ['in front', 'in front of us', 'ahead', 'up front', 'forward', 'in front of the army'];
+const WALL_BACK = ['behind us', 'at the back', 'behind the army'];
+const WALL_BEHIND = ['behind the enemy', 'behind them', 'behind enemy lines', 'behind their lines', 'behind their army'];
+const WALL_AT = ['in front of', 'in front of', 'at', 'by', 'near', 'next to', 'around'];
+const ECHO_ORDERS = [
+  'repeat my last card', 'repeat my last card', 'repeat the last card', 'repeat my last order', 'repeat the last order',
+  'repeat that', 'echo', 'echo', 'echo my last card', 'do it again', 'do that again', 'once more', 'play it again',
+  'again', 'one more time', 'same again', 'redo the last card', 'replay my last order', 'run it back', 'do the same thing again',
+  'repeat last order', 'play that card again',
+];
+
 // Conditions -------------------------------------------------------------------------------
 
 const ONCE_WORDS = ['when', 'when', 'when', 'when', 'if', 'if', 'once', 'as soon as', 'the moment', 'the second', 'in case', 'soon as', 'right when', 'the instant'];
@@ -288,10 +316,13 @@ interface StepOut {
   pieces: Piece[];
 }
 
+/** The share of orders with a Legendary step (session 6A). */
+export const LEGENDARY_SHARE = 0.12;
+
 class Writer {
   /** Typos come from their own random numbers, so the same seed without typos gives the same orders. */
   constructor(
-    private readonly next: () => number,
+    readonly next: () => number,
     private readonly typoNext: (() => number) | null,
   ) {}
 
@@ -491,7 +522,10 @@ class Writer {
             })();
         break;
       case 'ally': {
-        const { target, words } = this.allyTarget(sides);
+        const picked = this.allyTarget(sides);
+        const { target } = picked;
+        // "to the front line" means forward: moving to a Vanguard calls it by another name.
+        const words = /front/.test(picked.words) && target.kind === 'class' ? `${this.pick(ALLY_DETS)}${this.pick(ALLY_NAMES.vanguard.filter((n) => !n.includes('front')))}` : picked.words;
         step = { action: 'move', actors, to: { kind: 'ally', ally: target } };
         vp = this.chance(0.12) ? [v('join'), g(words)] : [v(this.pick(MOVE_ALLY_VERBS)), g(`${this.pick(MOVE_ALLY_PREPS)} ${words}`)];
         break;
@@ -589,6 +623,67 @@ class Writer {
       [3, [v('we need'), g(`${this.pick(['a', 'another'])} ${name}`), v(this.pick(['from the reserves', 'from reserve', 'in here']))]],
     ]);
     return { step: { action: 'callReserve', reserve: cls }, pieces };
+  }
+
+  // Legendary steps --------------------------------------------------------------------------
+
+  legendaryStep(sides: Sides): StepOut {
+    const action = this.weighted<LegendaryAction>([[26, 'hijack'], [22, 'swap'], [16, 'bloodPact'], [22, 'fortify'], [14, 'echo']]);
+    switch (action) {
+      case 'hijack': {
+        const { target, words } = this.enemyTarget(sides);
+        const [verb, end] = this.pick(HIJACK_SPLIT);
+        const pieces = this.weighted<Piece[]>([
+          [80, [v(this.pick(HIJACK_VERBS)), g(words)]],
+          [12, [v(verb), g(words), v(end)]],
+          [8, [x('now'), v(this.pick(HIJACK_VERBS)), g(words)]],
+        ]);
+        return { step: { action, target }, pieces };
+      }
+      case 'swap': {
+        const cls = this.pick(OWN);
+        const actors: Actors = { kind: 'class', cls };
+        const other = this.weighted<Target>([[80, { kind: 'class', cls: this.pick(OWN.filter((c) => c !== cls)) }], [20, { kind: 'weakest' }]]);
+        const words = other.kind === 'class' ? this.allyClassWords(other.cls as Own) : this.pick(ALLY_WEAKEST);
+        const prep = this.pick(SWAP_PREPS);
+        const pieces = this.weighted<Piece[]>([
+          [50, this.withActors(actors, [v(this.pick(SWAP_VERBS)), g(`${prep === 'and' ? 'with' : prep} ${words}`)])],
+          [35, [v(this.pick(SWAP_VERBS)), a(`${this.pick(['my ', 'the ', 'our ', ''])}${this.pick(OWN_NAMES[cls])}`), g(`${prep} ${words}`)]],
+          [15, [v(this.pick(['put', 'send', 'move'])), a(`${this.pick(['my ', 'the '])}${this.pick(OWN_NAMES[cls])}`), g(`${this.pick(['where', 'to where'])} ${words} ${this.pick(['is', 'are', 'stands'])}`), x(this.pick(['instantly', 'in a flash', 'right away']))]],
+        ]);
+        return { step: { action, actors, target: other }, pieces };
+      }
+      case 'bloodPact': {
+        const { target, words } = this.allyTarget(sides);
+        const pieces = this.weighted<Piece[]>([
+          [75, [v(this.pick(BLOOD_VERBS)), g(words)]],
+          [25, [v(this.pick(BLOOD_VERBS)), g(words), x(this.pick(BLOOD_EXTRAS))]],
+        ]);
+        return { step: { action, target }, pieces };
+      }
+      case 'fortify': {
+        const where = this.weighted<'none' | 'forward' | 'back' | 'behindEnemies' | 'ally'>([[30, 'none'], [20, 'forward'], [10, 'back'], [15, 'behindEnemies'], [25, 'ally']]);
+        const verb = v(this.pick(WALL_VERBS));
+        switch (where) {
+          case 'none':
+            return { step: { action, at: { kind: 'forward' } }, pieces: [verb] };
+          case 'forward':
+            return { step: { action, at: { kind: 'forward' } }, pieces: [verb, g(this.pick(WALL_FORWARD))] };
+          case 'back':
+            return { step: { action, at: { kind: 'back' } }, pieces: [verb, g(this.pick(WALL_BACK))] };
+          case 'behindEnemies':
+            return { step: { action, at: { kind: 'behindEnemies' } }, pieces: [verb, g(this.pick(WALL_BEHIND))] };
+          case 'ally': {
+            const { target, words } = this.allyTarget(sides);
+            return { step: { action, at: { kind: 'ally', ally: target } }, pieces: [verb, g(`${this.pick(WALL_AT)} ${words}`)] };
+          }
+        }
+        break;
+      }
+      case 'echo':
+        return { step: { action }, pieces: [v(this.pick(ECHO_ORDERS))] };
+    }
+    throw new Error('No such Legendary action');
   }
 
   // Triggers ---------------------------------------------------------------------------------
@@ -698,11 +793,13 @@ class Writer {
     };
 
     const count = this.weighted([[46, 1], [37, 2], [17, 3]] as const);
+    // Now and then a Legendary order: one of the steps is a Legendary action.
+    const legendaryAt = this.chance(LEGENDARY_SHARE) ? Math.floor(this.next() * count) : -1;
     const steps: Step[] = [];
     const body: Piece[] = [];
     if (count > 1 && this.chance(0.07)) body.push(o('first'));
     for (let i = 0; i < count; i++) {
-      const { step, pieces } = this.step(sides, steps.at(-1) ?? null);
+      const { step, pieces } = i === legendaryAt ? this.legendaryStep(sides) : this.step(sides, steps.at(-1) ?? null);
       if (i > 0) body.push(...this.pick(STEP_SEPARATORS));
       steps.push(step);
       body.push(...startOf(pieces));
@@ -756,6 +853,11 @@ export function joinPieces(pieces: readonly Piece[]): string {
   return pieces.reduce((text, p) => (text === '' ? p.text : /^[,.!?;:]/.test(p.text) ? `${text}${p.text}` : `${text} ${p.text}`), '');
 }
 
+/** The slot a generated card goes in: the Legendary slot, with every action learned, for a card with a Legendary step. */
+export function slotFor(card: Card): SlotContext {
+  return card.steps.some((s) => isLegendaryAction(s.action)) ? { legendarySlot: true, learned: [...LEGENDARY_ACTIONS] } : REGULAR_SLOT;
+}
+
 /** `count` distinct, legal sentence and card pairs for a seed; `typos: false` leaves out the typos. */
 export function generate(count: number, seed = 1, options: { typos?: boolean } = {}): Pair[] {
   const writer = new Writer(random(seed), options.typos === false ? null : random(seed ^ 0x5eed));
@@ -763,7 +865,7 @@ export function generate(count: number, seed = 1, options: { typos?: boolean } =
   const seen = new Set<string>();
   for (let tries = 0; pairs.length < count && tries < count * 20; tries++) {
     const pair = writer.pair();
-    if (seen.has(pair.text) || !validateCard(pair.card, 5).ok) continue;
+    if (seen.has(pair.text) || !validateCard(pair.card, 5, slotFor(pair.card)).ok) continue;
     seen.add(pair.text);
     pairs.push(pair);
   }

@@ -13,6 +13,7 @@ import {
   changeSettings,
   chosenWindowScale,
   currentCampaign,
+  currentTutorial,
   currentXp,
   earnedRank,
   foundCombos,
@@ -20,6 +21,7 @@ import {
   recordCombo,
   remember,
   saveCampaign,
+  saveTutorial,
   savedSetup,
   startSession,
   toggleFullscreen,
@@ -119,11 +121,18 @@ describe('the session', () => {
     await startSession(fake.platform);
     expect(savedSetup()).toMatchObject({ rank: 4, tactical: true, bossesBeaten: [] });
     expect(fake.files.get('saves/profile-backup.json')).toBe(v1);
-    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 5, xp: RANK_XP[4], run: null, artifacts: [] });
+    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 6, xp: RANK_XP[4], run: null, artifacts: [], tutorial: { on: false, seen: [] } });
     // Already up to date: no new backup.
     fake.files.delete('saves/profile-backup.json');
     await startSession(fake.platform);
     expect(fake.files.has('saves/profile-backup.json')).toBe(false);
+  });
+
+  it("saves the Captain's tips you have seen, and picks them up after a restart", async () => {
+    expect(currentTutorial()).toEqual({ on: true, seen: [] });
+    await saveTutorial({ on: true, seen: ['capital', 'battleStart'] });
+    await startSession(fake.platform);
+    expect(currentTutorial()).toEqual({ on: true, seen: ['capital', 'battleStart'] });
   });
 
   it('leads with a General you have recruited by beating them, else the Captain', async () => {

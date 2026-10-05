@@ -1,4 +1,5 @@
-// The order reader: a small trained model that reads free-form orders into cards (session 3C).
+// The order reader: a small trained model that reads free-form orders into cards (session 3C;
+// Legendary orders since session 6A).
 //
 //   1. Split the order into words and fix typos against the words it knows.
 //   2. Tag every word with its part of the card (see tags.ts): condition word, trigger, step,
@@ -13,7 +14,8 @@
 import { CARD_RULES } from '../../data/cards';
 import type { TroopClass } from '../../data/units';
 import { pronounsFit, type ParseResult } from '../parser';
-import type { Actors, Card, RegularAction, Step, Target, Trigger, TriggerKind } from '../types';
+import { ACTION_NAMES } from '../describe';
+import type { ActionName, Actors, Card, Place, Step, Target, Trigger, TriggerKind } from '../types';
 import { goalFeatures, stepFeatures, triggerFeatures, wordFeatures, type StepContext } from './features';
 import { bestLabel, bestTags, type ReaderModel } from './model';
 import { roleOf, segmentsOf, type Role, type Segment, type Tag } from './tags';
@@ -24,27 +26,44 @@ export const GOALS = ['none', 'class', 'nearest', 'weakest', 'trigger', 'forward
 export type Goal = (typeof GOALS)[number];
 
 const TARGET_GOALS: readonly Goal[] = ['class', 'nearest', 'weakest', 'trigger'];
-/** The goals each action can have; null for actions that aim at nothing. The reader knows the regular actions only. */
-export const GOALS_FOR: Readonly<Record<RegularAction, readonly Goal[] | null>> = {
+const PLACE_GOALS: readonly Goal[] = ['forward', 'back', 'behind', ...TARGET_GOALS];
+/** The goals each action can have; null for actions that aim at nothing. Legendary actions since session 6A. */
+export const GOALS_FOR: Readonly<Record<ActionName, readonly Goal[] | null>> = {
   focus: TARGET_GOALS,
   protect: TARGET_GOALS,
-  move: ['forward', 'back', 'behind', ...TARGET_GOALS],
+  move: PLACE_GOALS,
   fallBack: ['none', ...TARGET_GOALS],
   overcharge: null,
   hold: null,
   callReserve: null,
+  hijack: TARGET_GOALS,
+  swap: TARGET_GOALS,
+  bloodPact: TARGET_GOALS,
+  fortify: PLACE_GOALS,
+  echo: null,
 };
+
+/** Legendary actions the commander does itself: an order naming troops for them is not one the reader can read. */
+const COMMANDER_ONLY: readonly ActionName[] = ['hijack', 'bloodPact', 'fortify', 'echo'];
+/** Words that make a troop an enemy one: Swap only ever trades places between two of yours. */
+const ENEMY_WORDS: ReadonlySet<string> = new Set(['their', 'enemy', 'enemies', 'enemys', 'opponent', 'opponents', 'foe', 'foes']);
 
 /** A step's goal, as the reader names it; null when it has none the reader can read. */
 export function goalOf(step: Step): Goal | null {
   // Named troops (legendary units, later) are picked in the card builder, never read from words.
   const aim = (target: Target): Goal | null => (target.kind === 'named' ? null : target.kind);
+  const place = (to: Place): Goal | null => (to.kind === 'ally' ? aim(to.ally) : to.kind === 'behindEnemies' ? 'behind' : to.kind);
   switch (step.action) {
     case 'focus':
     case 'protect':
+    case 'hijack':
+    case 'swap':
+    case 'bloodPact':
       return aim(step.target);
     case 'move':
-      return step.to.kind === 'ally' ? aim(step.to.ally) : step.to.kind === 'behindEnemies' ? 'behind' : step.to.kind;
+      return place(step.to);
+    case 'fortify':
+      return place(step.at);
     case 'fallBack':
       return step.to ? aim(step.to) : 'none';
     default:
@@ -207,21 +226,19 @@ class ReadingState {
   private step(seg: Segment, whoWords: readonly string[], context: StepContext): Step {
     const { label, margin } = bestLabel(this.model.action, stepFeatures(this.words, this.tags, seg, context));
     this.sure('action', margin, `what to do in ${this.quote(seg)}`);
-    const action = label as RegularAction;
+    const action = label as ActionName;
     const goal = this.goal(seg, action, context);
     const aims = this.segmentWords(seg, 'G');
     const cls = this.oneClass(whoWords, seg);
     const actors: Actors = cls ? { kind: 'class', cls } : { kind: 'all' };
+    // As the rule parser says: these are yours to do, and no troops carry them out.
+    if (COMMANDER_ONLY.includes(action) && whoWords.length > 0) throw new Unsure(`${NOT_CAUGHT} ${ACTION_NAMES[action]} is yours to do: don't name troops for it.`);
     switch (action) {
       case 'focus':
       case 'protect':
         return { action, actors, target: this.target(goal!, aims, seg) };
       case 'move':
-        return {
-          action,
-          actors,
-          to: goal === 'forward' || goal === 'back' ? { kind: goal } : goal === 'behind' ? { kind: 'behindEnemies' } : { kind: 'ally', ally: this.target(goal!, aims, seg) },
-        };
+        return { action, actors, to: this.place(goal!, aims, seg) };
       case 'fallBack':
         return { action, actors, to: goal === 'none' ? null : this.target(goal!, aims, seg) };
       case 'hold':
@@ -235,10 +252,27 @@ class ReadingState {
       }
       case 'callReserve':
         return { action, reserve: this.oneClass(aims, seg) };
+      case 'hijack':
+      case 'bloodPact':
+        return { action, target: this.target(goal!, aims, seg) };
+      case 'swap':
+        if (this.segmentWords(seg).some((w) => ENEMY_WORDS.has(w))) throw new Unsure(`${NOT_CAUGHT} Swap trades places between two of your own troops.`);
+        return { action, actors, target: this.target(goal!, aims, seg) };
+      case 'fortify':
+        return { action, at: this.place(goal!, aims, seg) };
+      case 'echo':
+        return { action };
     }
   }
 
-  private goal(seg: Segment, action: RegularAction, context: StepContext): Goal | null {
+  /** Where a step goes: forward, back, behind the enemy, or to one of your troops. */
+  private place(goal: Goal, aims: readonly string[], seg: Segment): Place {
+    if (goal === 'forward' || goal === 'back') return { kind: goal };
+    if (goal === 'behind') return { kind: 'behindEnemies' };
+    return { kind: 'ally', ally: this.target(goal, aims, seg) };
+  }
+
+  private goal(seg: Segment, action: ActionName, context: StepContext): Goal | null {
     const allowed = GOALS_FOR[action];
     if (!allowed) return null;
     const { label, margin } = bestLabel(this.model.goal, goalFeatures(this.words, this.tags, seg, action, context), allowed);

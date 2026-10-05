@@ -217,7 +217,7 @@ Your orders start simple and grow into commands that were impossible at the star
 - **Fortify** (forward, back, behind the enemy, or in front of an ally): a wall line 160 long and 20 thick rises across the way between the armies, 110 in front of (or behind) your army's middle, 90 behind theirs, or 50 in front of the ally toward its nearest enemy. It has 400 HP, blocks movement and shots like any wall, and falls after 8 s. Troops where it rises step out of it to their own army's side, so it parts the armies instead of trapping anyone.
 - **Echo** (nothing to choose): your last regular card again, as your General read it and aimed at the same units that set it off, for free. It waits until a card has fired.
 
-You write Legendary orders like any other ("hijack their ranger", "swap my vanguard into my ranger's spot", "sacrifice my weakest troop", "build a wall in front of my rangers", "repeat my last card") or build them from the menus on slot 5. The rule parser reads them; the order reader (3C) learns them in session 6A.
+You write Legendary orders like any other ("hijack their ranger", "swap my vanguard into my ranger's spot", "sacrifice my weakest troop", "build a wall in front of my rangers", "repeat my last card") or build them from the menus on slot 5. The rule parser reads them, and since session 6A so does the order reader ("take control of their archer", "do that again"). Both refuse what the rules don't allow: Hijack, Blood Pact, Fortify and Echo are yours alone, so an order that names troops for them is refused, and Swap only ever trades places between two of your troops.
 
 **How one order grows.** The same idea, protecting your Ranger from Assassins, at three points in the game:
 
@@ -512,6 +512,27 @@ Beat a General and they join you, and you learn their Legendary action: you can 
   - *Grade*: a score from 50, +20 for a win, +4 per Perfect timing, +8 per combo, +10 per Finisher, −1 per second the ultimate sat ready past 5 s, −0.5 per second the pips sat full past 8 s, −8 per troop lost in the first 20 s; A from 85, B from 65, C from 45, else D. In a campaign battle A earns 20 Command XP, B 10 and C 5.
 - **Not built yet:** naming a veteran in an order ("Raven, take their healer", from Rank III) needs the order reader to learn names; it is left for a later session.
 
+## The Captain's tips (session 6A)
+
+The tutorial is the Captain, your first General, talking you through your first battles. Each tip is a line or two in a small box, said once, the first time its moment comes; it fades by itself after 12 s (8 s in battle) or at a click, and never takes a key, so the screen under it works as usual. Tips stop once each has been said.
+
+- **On the screens of a run:** the Capital (what a region and a run are), the run's map (what the stops are), the Army screen (field and reserve), placing troops, writing orders (an order in plain words becomes a card for keys 1 to 5; B starts the battle) and the result (the Battle IQ report and its grade).
+- **In battle,** most pressing first: the battle starting (troops fight on their own; fire ready cards by their number), the ultimate ready (press U; cards fired one after another chain into combos), a card ready (press its number; fire a glowing card for a Perfect), a troop lost (Call Reserve and Protect cards), and the pips full (spend them).
+- **Settings** turns the tips on or off, and Enter there plays them all again from the start. A new save has them on.
+
+The texts are in `src/data/tutorial.ts`.
+
+## Balance (session 6A)
+
+`npm run balance` plays thousands of headless battles per matchup (1,000 by default, on every core) and reports each matchup's win rate with its 95% margin, how big the wins are (the HP edge: the share of its HP the winner keeps, on average), the draws and the average length, and flags what wins too often or too rarely for its fair range. Each battle runs exactly as in the game, from a seed; the player side fires its ultimate the moment it is ready, and commanders fire their scripted cards.
+
+- **Generals:** every General against every other and itself, both with a Rank III commander, the starter armies and reserves. Fair: 40% to 60%.
+- **Specializations:** each against none, and against its class's other one, with every class on the field and no commanders. Fair: 50% to 72% against none (a specialization should help a little), 40% to 60% against the other.
+- **Factions:** 2, 4 and 6 fighters of a faction against the same army with none. Fair: 52–72%, 58–82% and 62–90%.
+- **Bosses:** a strong run army (one Epic and four Rare troops, three reserves, a Rank III commander) against each ruler's boss fight, with and without the boss rule. Fair: 30% to 85% with it.
+
+In the first three, every troop starts up to 30 px off its spot, by the seed: without that, the same two armies fight nearly the same battle on every seed, and a tiny edge wins almost all of them. Mirror matchups swap sides on every other seed. A matchup is flagged only when it is outside its fair range by more than its margin. Number changes the script suggests are proposed in the session's pull request with their measured effect, and applied only once the owner agrees. The first report, with its proposals, is `docs/balance-6a.md`.
+
 ## Platforms and release
 
 Generals ships as a Windows desktop game on Steam first, then on the Epic Games Store. A browser build stays online as the quick test build.
@@ -519,7 +540,7 @@ Generals ships as a Windows desktop game on Steam first, then on the Epic Games 
 - **Desktop app:** the same TypeScript game wrapped in Electron, which bundles its own Chromium, so it runs the same on every PC and on Steam Deck.
 - **Voice orders:** on the Orders screen, hold V (or the Talk button) and say the order; it goes through the same translators as a typed one. The browser build uses the browser's own speech recognition (Chrome, Edge and Safari have it; Firefox doesn't), which may send the sound to the browser maker's speech service; the game itself sends nothing. The desktop app has no speech recognition yet, so players type there; a speech model running on the player's computer could add it later. Typing always works.
 - **Small model:** the order reader is about 1 MB of weights (270 KB compressed), so it ships inside both builds as an ordinary game file, loaded in the background when the game starts. It needs no download, no GPU and no internet.
-- **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display settings (window size, fullscreen, resolution) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage. Every save carries a version number; a save from an older version is brought up to date step by step when the game starts (migrations), and the old file is kept as `saves/profile-backup.json`. Version 2 (session 5A) turned the old debug rank into the Command XP for that rank, so nobody loses the rank they played at. Version 3 (session 5B) added the run you are on and your banked artifacts; a saved run that doesn't read correctly in every part is dropped, and the rest of the save still loads. Version 4 (session 5C) gave run fighters a faction and perks; those of a run saved before have none.
+- **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display settings (window size, fullscreen, resolution) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage. Every save carries a version number; a save from an older version is brought up to date step by step when the game starts (migrations), and the old file is kept as `saves/profile-backup.json`. Version 2 (session 5A) turned the old debug rank into the Command XP for that rank, so nobody loses the rank they played at. Version 3 (session 5B) added the run you are on and your banked artifacts; a saved run that doesn't read correctly in every part is dropped, and the rest of the save still loads. Version 4 (session 5C) gave run fighters a faction and perks; those of a run saved before have none. Version 5 (session 5E) added your company, Insight, the Tech Web, Ironman and Mastery. Version 6 (session 6A) added the Captain's tips: on for a new save, off for a save that has already earned XP (Settings turns them back on).
 - **Steam Deck and controllers:** full controller support. Slots map to buttons, and the card builder works without a keyboard.
 - **Multiplayer:** runs through a small relay server of our own, so Steam, Epic and browser players can play each other. Epic requires multiplayer games to cross-play with other PC stores.
 - **Store features:** Steam achievements, cloud saves and rich presence; Epic achievements, which Epic requires.

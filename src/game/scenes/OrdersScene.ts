@@ -19,6 +19,7 @@ import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { rankRules } from '../../data/ranks';
 import { keyLabel } from '../bindings';
 import { builderRows, defaultStep, newDraft, type BuilderRow } from '../cardBuilder';
+import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { orderModelState, orderModelTranslator } from '../orderModel';
@@ -28,6 +29,7 @@ import { newSeed } from '../seed';
 import { rankProgress } from '../progress';
 import { currentPlatform, currentXp, remember, savedSetup } from '../session';
 import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { sceneTips } from '../tutorial';
 import { addButton, textStyle } from '../ui';
 import { PushToTalk, VOICE_MESSAGES } from '../voice';
 
@@ -164,6 +166,7 @@ export class OrdersScene extends Phaser.Scene {
       .onRelease('talk', () => this.voice.release());
 
     this.render();
+    new CaptainTips(this, { x: GAME_WIDTH - 476, width: 460, bottom: GAME_HEIGHT - 60 }).say(sceneTips('Orders'));
   }
 
   private get draft(): Card {

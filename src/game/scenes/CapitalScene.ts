@@ -14,12 +14,14 @@ import { MAPS } from '../../data/maps';
 import { rankRules } from '../../data/ranks';
 import { openRegions, REGION_IDS, REGIONS, type RegionId } from '../../data/regions';
 import { runFloor, runNumbers } from '../campaignUi';
+import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { rankForXp, rankProgress } from '../progress';
 import { newSeed } from '../seed';
 import { currentCampaign, currentXp, saveCampaign, savedSetup } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { sceneTips } from '../tutorial';
 import { addButton, textStyle } from '../ui';
 
 const MAP_CENTER = { x: 300, y: 350 };
@@ -82,6 +84,7 @@ export class CapitalScene extends Phaser.Scene {
       .on('codex', () => this.open('Codex'))
       .on('back', () => this.open('Settings'));
     this.render();
+    new CaptainTips(this, { x: PANEL_X, width: PANEL_W, top: 330 }).say(sceneTips('Capital'));
   }
 
   /** The General, Codex and Settings screens, which come back here. */

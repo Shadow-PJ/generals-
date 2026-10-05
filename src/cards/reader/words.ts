@@ -237,6 +237,12 @@ const GROUPS: Readonly<Record<string, readonly string[]>> = {
   call: ['call', 'bring', 'summon', 'deploy', 'send'],
   filler: ['please', 'now', 'asap', 'ok', 'okay', 'yo', 'alright', 'quick', 'quickly', 'immediately', 'just', 'go', 'lets',
     'hey', 'right', 'fast', 'boys', 'thx', 'thanks'],
+  // Legendary actions (session 6A).
+  hijack: ['hijack', 'control', 'possess', 'seize', 'brainwash', 'convert', 'charm', 'dominate', 'puppet', 'steal', 'sides', 'against'],
+  swap: ['swap', 'switch', 'trade', 'places', 'spots', 'teleport', 'where'],
+  sacrifice: ['sacrifice', 'pact', 'blood', 'offer', 'spend', 'bleed', 'give'],
+  wall: ['wall', 'walls', 'fortify', 'barricade', 'raise', 'build'],
+  echo: ['repeat', 'echo', 'again', 'redo', 'replay', 'same', 'last'],
 };
 
 const GROUP_OF = new Map<string, string>();

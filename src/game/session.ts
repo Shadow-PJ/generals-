@@ -15,6 +15,7 @@ import {
   readProfile,
   writeProfile,
   type Profile,
+  type Tutorial,
 } from '../save/profile';
 import { defaultSettings, readSettings, SETTINGS_FILE, writeSettings, type Settings } from '../save/settings';
 import { recruitedGenerals } from '../data/bosses';
@@ -143,6 +144,17 @@ export function foundCombos(): CodexEntryId[] {
 export function recordCombo(id: CodexEntryId): Promise<void> | null {
   if (profile.codex.includes(id)) return null;
   profile = { ...profile, codex: CODEX_ENTRY_IDS.filter((e) => e === id || profile.codex.includes(e)) };
+  return write(PROFILE_FILE, writeProfile(profile));
+}
+
+/** The Captain's tips: on or off, and which you have seen. */
+export function currentTutorial(): Tutorial {
+  return structuredClone(profile.tutorial);
+}
+
+/** Saves the tutorial: a tip seen, tips turned off, or played again. */
+export function saveTutorial(tutorial: Tutorial): Promise<void> {
+  profile = { ...profile, tutorial: structuredClone(tutorial) };
   return write(PROFILE_FILE, writeProfile(profile));
 }
 

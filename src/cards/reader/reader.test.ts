@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import modelJson from '../../../models/order-reader.json?raw';
 import freshText from '../../../tools/dataset/fresh.txt?raw';
+import legendaryText from '../../../tools/dataset/legendary.txt?raw';
 import naturalText from '../../../tools/dataset/natural.txt?raw';
 import { cardKey, loadNatural, splitNatural } from '../../../tools/dataset/natural';
 import { describeCard } from '../describe';
@@ -42,6 +43,23 @@ describe('the order reader', () => {
     expect(read('when my archer is in trouble, call in a fresh ranger')).toBe('When your Ranger drops below 40% HP: Call the reserve Ranger');
   });
 
+  it('reads Legendary orders: Hijack, Swap, Blood Pact, Fortify and Echo (session 6A)', () => {
+    expect(read('take control of their archer')).toBe('Hijack an enemy Ranger');
+    expect(read('mind control the closest enemy')).toBe('Hijack the nearest enemy');
+    expect(read('swap my tank with my archer')).toBe('Swap your Vanguard with your Ranger');
+    expect(read('when my healer drops below 30%, sacrifice my weakest troop')).toBe('When your Guardian drops below 30% HP: Blood Pact: sacrifice your weakest troop');
+    expect(read('put up a wall in front of us')).toBe('Fortify: raise a wall in front of your army');
+    expect(read('do that again')).toBe('Echo your last card');
+  });
+
+  it('refuses Legendary orders the rules do not allow, as the rule parser does', () => {
+    // Hijack, Blood Pact, Fortify and Echo are the commander's own: no troops carry them out.
+    expect(read('rangers, hijack their vanguard')).toBe(`refused: I didn't catch that order. Hijack is yours to do: don't name troops for it.`);
+    expect(read('tanks build a wall')).toBe(`refused: I didn't catch that order. Fortify is yours to do: don't name troops for it.`);
+    // Swap trades places between two of your troops, never with an enemy.
+    expect(read('swap places with their mage')).toMatch(/^refused: .*two of your own troops/);
+  });
+
   it('fixes typos and reads chat spellings', () => {
     expect(read('rangrs retreat')).toBe('Rangers fall back');
   });
@@ -80,7 +98,7 @@ describe('the order reader', () => {
     expect(r.ok && validateCard(r.card, 5)).toMatchObject({ ok: false, problems: [{ kind: 'tooManySteps' }] });
   });
 
-  // Floors a little under the measured results (docs/model-eval-3c.md), so retraining can move
+  // Floors a little under the measured results (docs/model-eval-3c.md, with the 6A section), so retraining can move
   // them slightly; a real drop fails here.
   it('reads most held-out orders right, with few wrong cards', () => {
     const test = chain(splitNatural(loadNatural(naturalText)).test);
@@ -89,6 +107,10 @@ describe('the order reader', () => {
     const fresh = chain(loadNatural(freshText));
     expect(fresh.accuracy).toBeGreaterThan(0.9);
     expect(fresh.wrongByReader).toBeLessThanOrEqual(3);
+    // Hand-written before the reader learned Legendary orders, never trained on (session 6A).
+    const legendary = chain(loadNatural(legendaryText));
+    expect(legendary.accuracy).toBeGreaterThan(0.85);
+    expect(legendary.wrongByReader).toBeLessThanOrEqual(2);
   });
 
   it('is small and quick: under 5 MB, and well under 10 ms an order', () => {
