@@ -2,18 +2,20 @@
 // rarity, with chances that shift toward the rare ones deeper in a run and after an elite fight.
 // A fighter comes in a class you have unlocked, with a faction (more often one you already
 // field) and a perk for each step of rarity. A boon offer is one you don't have yet that helps
-// your army: a class in it, a faction in it, or every troop.
+// your army: a class in it, a faction in it, or every troop. Since session 5F the spoils can offer
+// a duo boon once two factions' bonuses are on in your army.
 
-import { BOON_IDS, BOONS, boonClasses, boonFaction, type BoonId } from '../data/boons';
-import { FACTION_IDS, FACTION_RULES, type FactionId } from '../data/factions';
+import { BOON_IDS, BOONS, boonClasses, boonFaction, DUO_RULES, type BoonId } from '../data/boons';
+import { FACTION_IDS, FACTION_RULES, factionTier, type FactionId } from '../data/factions';
 import type { GeneralId } from '../data/generals';
 import { PERK_IDS, type PerkId } from '../data/perks';
 import { RARITIES, RARITY_RULES, type Rarity } from '../data/rarity';
 import { unlockedClasses } from '../data/regions';
 import { RUN_RULES } from '../data/runs';
 import type { TroopClass } from '../data/units';
-import type { RngState } from '../sim';
+import { factionCounts, type RngState } from '../sim';
 import { addFighter } from './army';
+import { oathPrice } from './oaths';
 import { chance, pick, rollRarity, shuffled, weighted } from './random';
 import type { FighterTraits, MerchantItem, Offer, RunState } from './types';
 
@@ -25,12 +27,28 @@ function boonChoices(run: RunState, rarity: Rarity, taken: readonly BoonId[]): B
   const classes = new Set(run.roster.map((f) => f.cls));
   const factions = new Set(run.roster.flatMap((f) => f.faction ?? []));
   return BOON_IDS.filter((id) => {
-    if (BOONS[id].rarity !== rarity || run.boons.includes(id) || taken.includes(id)) return false;
+    if (BOONS[id].duo || BOONS[id].rarity !== rarity || run.boons.includes(id) || taken.includes(id)) return false;
     const faction = boonFaction(id);
     if (faction === 'largest') return factions.size > 0;
     if (faction) return factions.has(faction);
     const helps = boonClasses(id);
     return helps === null || helps.some((c) => classes.has(c));
+  });
+}
+
+/** How many fighters of each faction your army counts: the field and the reserves, and faction boons. */
+function armyFactions(run: RunState): Partial<Record<FactionId, number>> {
+  const army = [...run.field, ...run.reserves].flatMap((id) => run.roster.filter((f) => f.id === id).map((f) => ({ cls: f.cls, faction: f.faction })));
+  return factionCounts(army, run.boons);
+}
+
+/** Duo boons open to you: both factions' bonuses on in your army, and not yours or on offer yet. */
+export function duoChoices(run: RunState, taken: readonly BoonId[] = []): BoonId[] {
+  const counts = armyFactions(run);
+  return BOON_IDS.filter((id) => {
+    const duo = BOONS[id].duo;
+    if (!duo || run.boons.includes(id) || taken.includes(id)) return false;
+    return duo.every((f) => factionTier(counts[f] ?? 0) > 0);
   });
 }
 
@@ -88,7 +106,14 @@ export function rollOffers(
     const fighter = chance(rng, RUN_RULES.fighterChance);
     const rarity = rollRarity(rng, chances);
     const taken = offers.flatMap((o) => (o.kind === 'boon' ? [o.boon] : []));
-    offers.push(fighter ? fighterOffer(rng, run, rarity, bossesBeaten) : boonOffer(rng, run, rarity, taken, bossesBeaten));
+    if (fighter) {
+      offers.push(fighterOffer(rng, run, rarity, bossesBeaten));
+      continue;
+    }
+    // A boon offer may be a duo boon, once two factions' bonuses are on in your army.
+    const duos = duoChoices(run, taken);
+    if (duos.length > 0 && chance(rng, DUO_RULES.offerChance)) offers.push({ kind: 'boon', boon: pick(rng, duos) });
+    else offers.push(boonOffer(rng, run, rarity, taken, bossesBeaten));
   }
   return offers;
 }
@@ -102,7 +127,8 @@ export function rollStock(rng: RngState, run: RunState, bossesBeaten: readonly G
     const taken = offers.flatMap((o) => (o.kind === 'boon' ? [o.boon] : []));
     offers.push(boonOffer(rng, run, rollRarity(rng, chances), taken, bossesBeaten));
   }
-  return offers.map((offer) => ({ offer, price: offerPrice(offer), sold: false }));
+  // Short Supply (an oath) raises every price.
+  return offers.map((offer) => ({ offer, price: oathPrice(offerPrice(offer), run.oaths), sold: false }));
 }
 
 export function offerRarity(offer: Offer): Rarity {

@@ -16,6 +16,7 @@ import { BattleScene } from './scenes/BattleScene';
 import { CapitalScene } from './scenes/CapitalScene';
 import { CodexScene } from './scenes/CodexScene';
 import { GeneralsScene } from './scenes/GeneralsScene';
+import { OathsScene } from './scenes/OathsScene';
 import { OrdersScene } from './scenes/OrdersScene';
 import { PrepScene } from './scenes/PrepScene';
 import { ResultScene } from './scenes/ResultScene';
@@ -68,6 +69,7 @@ async function boot(): Promise<void> {
       CodexScene,
       TroopsScene,
       GeneralsScene,
+      OathsScene,
     ],
   });
 

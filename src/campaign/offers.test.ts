@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { BOON_IDS, boonFaction } from '../data/boons';
+import { BOON_IDS, BOONS, boonFaction } from '../data/boons';
 import { FACTION_IDS } from '../data/factions';
 import { PERK_IDS } from '../data/perks';
 import { RARITIES, RARITY_RULES, rarityChances, type Rarity } from '../data/rarity';
 import { RUN_RULES } from '../data/runs';
-import { createRng } from '../sim';
+import { createRng, factionCounts } from '../sim';
 import { applyChoice } from './events';
-import { offerRarity, rollFaction, rollFighter, rollOffers, rollPerks, takeOffer } from './offers';
+import { duoChoices, offerRarity, rollFaction, rollFighter, rollOffers, rollPerks, rollStock, takeOffer } from './offers';
 import { enterNode, finishFight } from './run';
 import { runOf, runThrough } from './testing';
 import type { RunState } from './types';
@@ -75,6 +75,49 @@ describe('boons on offer', () => {
     const forge = seen(withFactions(base(), ['forgeborn', 'forgeborn']));
     expect(forge.has('forgeBrand')).toBe(true);
     expect(forge.has('hiveSpawn')).toBe(false);
+  });
+});
+
+describe('duo boons (session 5F)', () => {
+  const duos = BOON_IDS.filter((id) => BOONS[id].duo);
+
+  it('are one for each pair of factions, and each counts as a fighter of both', () => {
+    expect(duos).toHaveLength(10);
+    const pairs = new Set(duos.map((id) => [...BOONS[id].duo!].sort().join('+')));
+    expect(pairs.size).toBe(10);
+    for (const id of duos) {
+      const [a, b] = BOONS[id].duo!;
+      expect(factionCounts([], [id])).toEqual({ [a]: 1, [b]: 1 });
+    }
+  });
+
+  it('open only once both factions’ bonuses are on in your army', () => {
+    expect(duoChoices(base())).toEqual([]);
+    expect(duoChoices(withFactions(base(), ['bloodbound', 'bloodbound', 'forgeborn']))).toEqual([]);
+    expect(duoChoices(withFactions(base(), ['bloodbound', 'bloodbound', 'forgeborn', 'forgeborn']))).toEqual(['bloodForge']);
+    // A faction boon counts too: two Bloodbound and one Forgeborn fighter plus a Forge Brand.
+    const branded = { ...withFactions(base(), ['bloodbound', 'bloodbound', 'forgeborn']), boons: ['forgeBrand' as const] };
+    expect(duoChoices(branded)).toEqual(['bloodForge']);
+    // Not one you have already.
+    expect(duoChoices({ ...branded, boons: ['forgeBrand', 'bloodForge'] })).toEqual([]);
+  });
+
+  it('turn up in the spoils once open, never otherwise, and never at the merchant', () => {
+    const rng = createRng(21);
+    const seen = (run: RunState) => {
+      const boons = new Set<string>();
+      for (let i = 0; i < 300; i++) for (const o of rollOffers(rng, run, [])) if (o.kind === 'boon') boons.add(o.boon);
+      return boons;
+    };
+    const plain = seen(base());
+    expect(duos.some((id) => plain.has(id))).toBe(false);
+    const mixed = withFactions(base(), ['hive', 'hive', 'resonance', 'resonance']);
+    const offered = seen(mixed);
+    expect(offered.has('hiveChorus')).toBe(true);
+    expect(duos.filter((id) => offered.has(id))).toEqual(['hiveChorus']);
+    for (let i = 0; i < 100; i++) {
+      for (const item of rollStock(rng, mixed, [])) expect(item.offer.kind === 'boon' && BOONS[item.offer.boon].duo).toBeFalsy();
+    }
   });
 });
 

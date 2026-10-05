@@ -4,6 +4,7 @@
 
 import Phaser from 'phaser';
 import { fighterLabel, offerLabel, offerText } from '../../campaign/describe';
+import { oathGold } from '../../campaign/oaths';
 import { offerRarity } from '../../campaign/offers';
 import {
   buy,
@@ -176,7 +177,7 @@ export class StopScene extends Phaser.Scene {
           problem: null,
           act: () => this.step(pickSpoils(campaign, i), 'Run'),
         })),
-        { label: 'Skip the pick', detail: `Take ${RUN_RULES.skipGold} more gold instead.`, problem: null, act: () => this.step(pickSpoils(campaign, null), 'Run') },
+        { label: 'Skip the pick', detail: `Take ${oathGold(RUN_RULES.skipGold, run.oaths)} more gold instead.`, problem: null, act: () => this.step(pickSpoils(campaign, null), 'Run') },
       ],
     };
   }
@@ -302,6 +303,11 @@ export class StopScene extends Phaser.Scene {
       lines.push({ text: 'Your company comes home with what it learned; the run’s newcomers, boons and gold were for this run only.', color: TEXT.muted });
     }
     lines.push({ text: `Fights won: ${run.fightsWon}  ·  Command XP: ${run.xp}  ·  Insight: ${run.insight} (you keep both)`, color: TEXT.body });
+    // Oaths of Command (session 5F): the run's Fear, and the bounty for a new highest Fear won here.
+    if (stop.fear > 0 || stop.bounty > 0) {
+      const bounty = stop.bounty > 0 ? `: a new highest for ${region.name}, worth ${stop.bounty} more Insight` : '';
+      lines.push({ text: `Fear ${stop.fear}${bounty}.`, color: TEXT.threat, bold: stop.bounty > 0 });
+    }
     const back: Option = { label: 'Back to the Capital', detail: stop.won ? 'Your company is the fighters marked to stay.' : 'Set out again when you are ready.', problem: null, act: leave };
     if (!stop.won) return { title: 'RUN OVER', titleColor: TEXT.defeat, lines, options: [back], leave };
 

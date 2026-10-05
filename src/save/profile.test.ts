@@ -96,8 +96,8 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(6);
-    expect(profileVersion(writeProfile(saved()))).toBe(6);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(7);
+    expect(profileVersion(writeProfile(saved()))).toBe(7);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
@@ -133,6 +133,31 @@ describe('the saved profile', () => {
     expect(new Set(roster.map((f) => f.name)).size).toBe(roster.length);
     expect(roster.every((f) => f.record.battles === 0 && f.artifact === null && f.veteranId === null && !f.wounded)).toBe(true);
     expect(profile.run).toMatchObject({ insight: 0, ironman: false });
+  });
+
+  it('loads a version 6 save: no oaths, no Fear won, and a run in progress took no oaths', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 6;
+    delete data.oaths;
+    delete data.fearRecords;
+    delete data.run.oaths;
+    const profile = readProfile(JSON.stringify(data));
+    expect(profile).toMatchObject({ oaths: {}, fearRecords: {} });
+    expect(profile.run).not.toBeNull();
+    expect(profile.run!.oaths).toEqual({});
+  });
+
+  it('keeps your Oaths of Command and Fear records, and only the parts that read', () => {
+    const profile = saved();
+    profile.oaths = { veteranFoes: 2, leanPurse: 1 };
+    profile.fearRecords = { deepForest: 6 };
+    expect(readProfile(writeProfile(profile))).toMatchObject({ oaths: { veteranFoes: 2, leanPurse: 1 }, fearRecords: { deepForest: 6 } });
+    const data = JSON.parse(writeProfile(profile));
+    data.oaths = { veteranFoes: 9, eliteGuard: 1, nonsense: 2, noQuarter: 'yes' };
+    data.fearRecords = { deepForest: -1, voidRuins: 4, atlantis: 3 };
+    const read = readProfile(JSON.stringify(data));
+    expect(read.oaths).toEqual({ eliteGuard: 1 });
+    expect(read.fearRecords).toEqual({ voidRuins: 4 });
   });
 
   it('loads a version 5 save: the Captain\'s tips are on for a new player, off for one who has played', () => {

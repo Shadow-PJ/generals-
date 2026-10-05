@@ -41,8 +41,8 @@ const base: MatchSetup = {
 
 /** A new save's campaign, as the game loads it. */
 function newSave(): Campaign {
-  const { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery } = newProfile();
-  return { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery };
+  const { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery, oaths, fearRecords } = newProfile();
+  return { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery, oaths, fearRecords };
 }
 
 /** Plays one run to its end: the first way on, the first offer, the first event choice that can be made. */
@@ -95,7 +95,8 @@ describe('a new save', () => {
   it('plays through the first region to its boss; a win recruits the ruler and keeps the company', () => {
     let won: Campaign | null = null;
     let insight = 0;
-    for (let seed = 1; seed <= 12 && !won; seed++) {
+    // A bare company firing no cards wins about one run in eight, so it gets 20 tries.
+    for (let seed = 1; seed <= 20 && !won; seed++) {
       const ended = playRun(newSave(), seed);
       const stop = ended.run!.stop;
       if (stop?.kind !== 'end') throw new Error('Not over');
@@ -113,15 +114,15 @@ describe('a new save', () => {
     expect(home.company).toHaveLength(8);
     // The troops who fought every fight of the run carry them all on their record.
     expect(Math.max(...home.company.map((v) => v.record.battles))).toBe(won!.run!.fightsWon);
-  });
+  }, 30_000);
 
   it('can also win the other region open from the start, Void Ruins', () => {
     let won: Campaign | null = null;
-    for (let seed = 1; seed <= 12 && !won; seed++) {
+    for (let seed = 1; seed <= 20 && !won; seed++) {
       const ended = playRun(newSave(), seed, 'voidRuins');
       if (ended.run!.stop?.kind === 'end' && ended.run!.stop.won) won = ended;
     }
     expect(won).not.toBeNull();
     expect(recruitedGenerals(closeRun(won!).bossesBeaten)).toContain(REGIONS.voidRuins.ruler);
-  });
+  }, 30_000);
 });

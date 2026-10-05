@@ -1,8 +1,8 @@
 // Your saved progress: the cards in your slots, your troops and where they stand, your Command
 // XP (which sets your rank), the bosses you have beaten, Tactical mode, your General, the
 // combos you have found, the run you are on, the artifacts you have banked, your company, your
-// Insight and Tech Web, Ironman mode, the Mastery challenges you have met and the Captain's tips
-// you have seen. It is plain JSON in
+// Insight and Tech Web, Ironman mode, the Mastery challenges you have met, the Captain's tips you
+// have seen, and your Oaths of Command and Fear records. It is plain JSON in
 // saves/profile.json. An older save is first brought up to this version (migrations.ts). Reading is forgiving: anything missing or damaged falls
 // back to the default, so a bad file never stops the game from starting.
 
@@ -17,6 +17,8 @@ import { MAP_IDS, OPEN_FIELD, type MapId } from '../data/maps';
 import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
 import { BOSS_ORDER } from '../data/legendary';
 import type { MasteryId } from '../data/mastery';
+import type { OathRanks } from '../data/oaths';
+import type { RegionId } from '../data/regions';
 import { RANKS, type RankNumber } from '../data/ranks';
 import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
 import { TIP_IDS, type TipId } from '../data/tutorial';
@@ -24,9 +26,9 @@ import { TROOP_CLASSES, type UnitClass } from '../data/units';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
-import { readArtifacts, readCompany, readMastery, readRun, readTech } from './run';
+import { readArtifacts, readCompany, readFearRecords, readMastery, readOaths, readRun, readTech } from './run';
 
-export const PROFILE_VERSION = 6;
+export const PROFILE_VERSION = 7;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
 /** The save as it was before the last migration, in case an update ever goes wrong. */
 export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';
@@ -66,6 +68,9 @@ export interface Profile {
   ironman: boolean;
   /** General Mastery challenges met. */
   mastery: MasteryId[];
+  /** Oaths of Command for your next run, and the highest Fear won in each region (session 5F). */
+  oaths: OathRanks;
+  fearRecords: Partial<Record<RegionId, number>>;
   /** The Captain's tips (session 6A). */
   tutorial: Tutorial;
 }
@@ -81,7 +86,7 @@ export function newTutorial(): Tutorial {
 }
 
 export function newProfile(): Profile {
-  const { run, artifacts, company, insight, tech, ironman, mastery } = newCampaign();
+  const { run, artifacts, company, insight, tech, ironman, mastery, oaths, fearRecords } = newCampaign();
   return {
     version: PROFILE_VERSION,
     loadout: emptyLoadout(),
@@ -105,6 +110,8 @@ export function newProfile(): Profile {
     tech,
     ironman,
     mastery,
+    oaths,
+    fearRecords,
     tutorial: newTutorial(),
   };
 }
@@ -157,6 +164,8 @@ export function readProfile(text: string | null): Profile {
   profile.tech = readTech(saved.tech);
   if (typeof saved.ironman === 'boolean') profile.ironman = saved.ironman;
   profile.mastery = readMastery(saved.mastery);
+  profile.oaths = readOaths(saved.oaths);
+  profile.fearRecords = readFearRecords(saved.fearRecords);
   profile.tutorial = readTutorial(saved.tutorial);
   return profile;
 }

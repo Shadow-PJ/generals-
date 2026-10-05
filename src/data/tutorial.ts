@@ -36,7 +36,7 @@ export const TIPS: Readonly<Record<TipId, Tip>> = {
   },
   runMap: {
     scene: 'Run',
-    text: 'This is the road. Pick the next stop with {key:left} {key:right} and {key:confirm}: fights win fighters and gold, camps heal, the merchant sells. The ruler waits at the end.',
+    text: 'This is the road. Pick the next stop with {key:left} {key:right} and {key:confirm}. A fight shows the army waiting there; win it for fighters and gold. Camps heal, the merchant sells. The ruler waits at the end.',
   },
   army: {
     scene: 'Army',

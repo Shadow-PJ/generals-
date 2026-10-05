@@ -1,16 +1,18 @@
 // A run's map: floors of nodes from left to right, ending at the region's ruler. You pick your
-// path one node at a time; what waits at a node (a fight, an event, the merchant, a camp) opens
-// when you get there. Your army, gold, boons and the artifacts you carry are shown below.
+// path one node at a time; what waits at a node (an event, the merchant, a camp) opens when you
+// get there, but a fight is scouted (session 5F): picking it shows the army that waits. Your army, gold, boons and the artifacts you carry are shown below.
 // ←→ (or Tab) pick a node you can reach, Enter goes there, Esc goes back to the Capital and the
 // run waits for you.
 
 import Phaser from 'phaser';
-import { NODE_NAMES, NODE_TEXT } from '../../campaign/describe';
+import { NODE_NAMES, NODE_TEXT, scoutText } from '../../campaign/describe';
+import { nodeEncounter } from '../../campaign/encounters';
 import { enterNode } from '../../campaign/run';
 import { currentNode, nextChoices } from '../../campaign/runMap';
 import type { RunState } from '../../campaign/types';
 import { ARTIFACTS } from '../../data/artifacts';
 import { BOONS } from '../../data/boons';
+import { fearOf } from '../../data/oaths';
 import { REGIONS } from '../../data/regions';
 import type { NodeKind } from '../../data/runs';
 import { drawBoon, drawFighter, runFloor } from '../campaignUi';
@@ -156,14 +158,21 @@ export class RunScene extends Phaser.Scene {
     } else if (picked !== undefined) {
       const kind = run.map[run.path.length]![picked]!.kind;
       headline = `${NODE_NAMES[kind]}  ·  Enter to go`;
-      detail = NODE_TEXT[kind];
+      // Scouting: a fight shows the army that waits there, before you choose.
+      const scouted = nodeEncounter(run, run.path.length, picked);
+      detail = scouted ? `Scouted: ${scoutText(scouted)}` : NODE_TEXT[kind];
+      if (scouted) {
+        const troops = [...scouted.troops, ...scouted.reserves];
+        troops.slice(0, 10).forEach((t, i) => drawFighter(g, t.cls, t.rarity ?? 'common', 440 + i * 30, lineY + 10, 1, i < scouted.troops.length ? 1 : 0.45, 'enemy'));
+      }
     } else {
       headline = 'The run is over.';
       detail = '';
     }
     this.ui.add(this.add.text(16, lineY, headline, textStyle(15, TEXT.perfect, true)));
     this.ui.add(this.add.text(16, lineY + 20, detail, textStyle(12, TEXT.body)));
-    this.ui.add(this.add.text(GAME_WIDTH - 16, lineY, runFloor(run), textStyle(13, TEXT.muted, true)).setOrigin(1, 0));
+    const fear = fearOf(run.oaths);
+    this.ui.add(this.add.text(GAME_WIDTH - 16, lineY, `${runFloor(run)}${fear > 0 ? `  ·  Fear ${fear}` : ''}`, textStyle(13, fear > 0 ? TEXT.threat : TEXT.muted, true)).setOrigin(1, 0));
     this.renderFooter(run);
   }
 

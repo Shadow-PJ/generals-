@@ -385,7 +385,7 @@ Forest and Ruins open first because they unlock your last two troop classes. Eac
 - **Rarity:** every fighter and boon is Common, Rare, Epic or Legendary. Each offer rolls its rarity with a chance (starting values 60%, 28%, 10% and 2%) that shifts toward the rare ones deeper in the run and after elite fights. Rarer fighters have better stats and a perk; rarer boons are stronger.
 - **Fighters and factions:** a fighter is a troop of one of the 5 classes with a faction: Bloodbound, Forgeborn, Hive, Voidweavers or Resonance (the Generals' factions), or none. Two, four and six fighters of one faction in your army switch on that faction's bonus, in the spirit of its General (the Bloodbound heal from the damage they deal, the Forgeborn harden as they heat up, and so on). Drafting one faction makes it strong; mixing keeps more class synergies.
 - **Your army in a run:** every fighter you pick joins your run roster; before each fight you choose 5 to field and 3 reserves, and the rest wait.
-- **Boons:** troop boons (a class hits harder, a skill comes back sooner), Command boons (a starting pip, faster refills, more Momentum) and faction boons (each counts as one more fighter of its faction).
+- **Boons:** troop boons (a class hits harder, a skill comes back sooner), Command boons (a starting pip, faster refills, more Momentum) and faction boons (each counts as one more fighter of its faction). Since session 5F, duo boons too: see Oaths, scouting and duo boons.
 - **Merchant and camps:** the merchant sells fighters and boons for gold (priced by rarity), heals wounded troops and rerolls offers. Rest camps heal and bank artifacts.
 - **What a run keeps:** win or lose, you keep the Command XP and Insight you earned. Fighters, boons and gold last for the run. Artifacts are kept once banked at a camp or when you win; lose the run first and you lose the ones you were carrying. Beating the boss recruits that General and teaches their Legendary action. Fighters who finish a won run can stay in your company as veterans (session 5E).
 
@@ -512,6 +512,40 @@ Beat a General and they join you, and you learn their Legendary action: you can 
   - *Grade*: a score from 50, +20 for a win, +4 per Perfect timing, +8 per combo, +10 per Finisher, −1 per second the ultimate sat ready past 5 s, −0.5 per second the pips sat full past 8 s, −8 per troop lost in the first 20 s; A from 85, B from 65, C from 45, else D. In a campaign battle A earns 20 Command XP, B 10 and C 5.
 - **Not built yet:** naming a veteran in an order ("Raven, take their healer", from Rank III) needs the order reader to learn names; it is left for a later session.
 
+## Oaths, scouting and duo boons (session 5F)
+
+After a look at Hades II, Thronefall, Nordhold, 9 Kings, Skul and The King is Watching (`docs/inspiration.md`), three things from them, chosen by the owner. Starting values to tune, in `src/data/oaths.ts` and `src/data/boons.ts`.
+
+- **Oaths of Command** (Hades II's Oath of the Unseen, Thronefall's mutators). In the Capital, O (or the button under Set out) opens the oaths for your next run: vows that make it harder, each rank adding Fear. A run keeps the oaths it began with; you change them for the next one at any time.
+
+  | Oath | Each rank | Ranks | Fear a rank |
+  | --- | --- | --- | --- |
+  | Veteran Foes | Every enemy army has 1 more Rare troop | 3 | 1 |
+  | Elite Guard | Every enemy army has 1 more Epic troop | 2 | 2 |
+  | Cunning Commanders | Enemy commanders are 1 rank higher (up to V); fights with no commander keep none | 2 | 2 |
+  | Tyrant's Wrath | The ruler's army has 2 more Epic troops and a commander 1 rank higher | 2 | 2 |
+  | Lean Purse | 25% less gold from fights and for skipping the spoils | 2 | 1 |
+  | Lasting Wounds | A fighter who falls gets back up with 10% HP instead of 25%, and camps heal half as much | 1 | 2 |
+  | Short Supply | The merchant asks 50% more, for everything | 1 | 1 |
+  | No Quarter | The spoils offer 2 picks instead of 3 | 1 | 1 |
+
+  All of them together are Fear 21. Fear pays: every battle of the run earns 10% more Insight for each point of Fear (rounded), and winning a region's run above its highest Fear yet pays 3 Insight for every point above it (the first win counts from 0). The Capital shows your Fear and each region's highest; the run map shows the run's Fear, and the end of a run its Fear and any bounty.
+- **Scouting** (Thronefall, Nordhold). Every fight on a run's map is fixed when the map is made, each node from its own seed, so picking a fight node on the map shows the army waiting there before you go: whose it is, how many troops and reserves, how many are Rare, Epic or Legendary, any turrets, and its commander. Taking the node brings exactly that army. Oaths are counted in what you see. (Until session 5F a fight was rolled when you reached it.)
+- **Duo boons** (Hades II's duo boons, 9 Kings' mixed decks). One for each pair of the five factions, ten in all, each Epic. A duo boon is offered only once both of its factions' bonuses are on in your army (2 fighters of each on the field or in reserve, faction boons counted): then each boon offer in the spoils is a duo boon 35% of the time, one you don't have yet. The merchant never sells them. Each counts as one more fighter of both its factions, which can push both toward their next step, and adds an effect of its own:
+
+  | Duo boon | Factions | Its own effect |
+  | --- | --- | --- |
+  | Blood Forge | Bloodbound + Forgeborn | Every troop heals 5% of the damage its attacks deal |
+  | Feeding Frenzy | Bloodbound + Hive | Every troop deals 8% more damage |
+  | Phantom Pain | Bloodbound + Voidweavers | Every troop attacks 8% faster |
+  | War Pulse | Bloodbound + Resonance | Every battle starts with 25 Momentum |
+  | Chitin Plate | Forgeborn + Hive | Every troop has 10% more HP |
+  | Null Engine | Forgeborn + Voidweavers | Every troop's skill comes back 15% sooner |
+  | Harmonic Anvil | Forgeborn + Resonance | You can hold 1 more pip |
+  | Swarm Phase | Hive + Voidweavers | Every troop moves 15% faster |
+  | Hive Chorus | Hive + Resonance | Pips refill 15% faster |
+  | Echo Rift | Voidweavers + Resonance | Every battle starts with 1 more pip and 10 Momentum |
+
 ## The Captain's tips (session 6A)
 
 The tutorial is the Captain, your first General, talking you through your first battles. Each tip is a line or two in a small box, said once, the first time its moment comes; it fades by itself after 12 s (8 s in battle) or at a click, and never takes a key, so the screen under it works as usual. Tips stop once each has been said.
@@ -540,7 +574,7 @@ Generals ships as a Windows desktop game on Steam first, then on the Epic Games 
 - **Desktop app:** the same TypeScript game wrapped in Electron, which bundles its own Chromium, so it runs the same on every PC and on Steam Deck.
 - **Voice orders:** on the Orders screen, hold V (or the Talk button) and say the order; it goes through the same translators as a typed one. The browser build uses the browser's own speech recognition (Chrome, Edge and Safari have it; Firefox doesn't), which may send the sound to the browser maker's speech service; the game itself sends nothing. The desktop app has no speech recognition yet, so players type there; a speech model running on the player's computer could add it later. Typing always works.
 - **Small model:** the order reader is about 1 MB of weights (270 KB compressed), so it ships inside both builds as an ordinary game file, loaded in the background when the game starts. It needs no download, no GPU and no internet.
-- **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display settings (window size, fullscreen, resolution) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage. Every save carries a version number; a save from an older version is brought up to date step by step when the game starts (migrations), and the old file is kept as `saves/profile-backup.json`. Version 2 (session 5A) turned the old debug rank into the Command XP for that rank, so nobody loses the rank they played at. Version 3 (session 5B) added the run you are on and your banked artifacts; a saved run that doesn't read correctly in every part is dropped, and the rest of the save still loads. Version 4 (session 5C) gave run fighters a faction and perks; those of a run saved before have none. Version 5 (session 5E) added your company, Insight, the Tech Web, Ironman and Mastery. Version 6 (session 6A) added the Captain's tips: on for a new save, off for a save that has already earned XP (Settings turns them back on).
+- **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display settings (window size, fullscreen, resolution) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage. Every save carries a version number; a save from an older version is brought up to date step by step when the game starts (migrations), and the old file is kept as `saves/profile-backup.json`. Version 2 (session 5A) turned the old debug rank into the Command XP for that rank, so nobody loses the rank they played at. Version 3 (session 5B) added the run you are on and your banked artifacts; a saved run that doesn't read correctly in every part is dropped, and the rest of the save still loads. Version 4 (session 5C) gave run fighters a faction and perks; those of a run saved before have none. Version 5 (session 5E) added your company, Insight, the Tech Web, Ironman and Mastery. Version 6 (session 6A) added the Captain's tips: on for a new save, off for a save that has already earned XP (Settings turns them back on). Version 7 (session 5F) added your Oaths of Command and the highest Fear won in each region; a run in progress took no oaths.
 - **Steam Deck and controllers:** full controller support. Slots map to buttons, and the card builder works without a keyboard.
 - **Multiplayer:** runs through a small relay server of our own, so Steam, Epic and browser players can play each other. Epic requires multiplayer games to cross-play with other PC stores.
 - **Store features:** Steam achievements, cloud saves and rich presence; Epic achievements, which Epic requires.
