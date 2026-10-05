@@ -9,6 +9,7 @@ import { audioStatus, setVolume, unlockAudio } from './audio/audio';
 import { actionForKey } from './bindings';
 import { onDeviceChange } from './inputDevice';
 import { currentRenderScale, renderScale, setInitialRenderScale, setRenderScale } from './display';
+import { loadFonts } from './fonts';
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
 import { loadOrderReader, orderReaderTranslator } from './orderReader';
 import { ArmyScene } from './scenes/ArmyScene';
@@ -41,7 +42,7 @@ function wantedRenderScale(): number {
 }
 
 async function boot(): Promise<void> {
-  await startSession(await createPlatform());
+  await Promise.all([startSession(await createPlatform()), loadFonts()]);
   await applyWindowSettings();
   // The order reader loads in the background; so does the experimental model, if it is on.
   void loadOrderReader().catch(() => undefined);

@@ -26,7 +26,9 @@ import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, addHint, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addPlate, addTitle, drawCornerMarks, textStyle } from '../ui';
+import { UI_PIXEL } from '../art/frames';
+import { MAP_ART, medallionTexture, regionLandTexture } from '../art/textures';
 
 const MAP_LEFT = 70;
 const MAP_RIGHT = GAME_WIDTH - 70;
@@ -34,6 +36,20 @@ const MAP_MIDDLE = 300;
 const ROW_GAP = 88;
 const NODE_R = 17;
 const FOOTER_Y = GAME_HEIGHT - 150;
+/** The region's land under the road. */
+const LAND = { x: 14, y: 76, w: GAME_WIDTH - 28, h: 400 };
+/** A stop's medallion, in art pixels across: the ruler's is bigger. */
+const MEDALLION = 20;
+const BOSS_MEDALLION = 26;
+/** The dots of a road, and how far apart. */
+const ROAD_DOT = 4;
+const ROAD_STEP = 10;
+const ROAD = { plain: 0xb8995d, walked: 0xf3d27a, ahead: 0xfff6dc } as const;
+
+/** A color a little darker. */
+function shade(color: number, by: number): number {
+  return (Math.floor(((color >> 16) & 0xff) * by) << 16) | (Math.floor(((color >> 8) & 0xff) * by) << 8) | Math.floor((color & 0xff) * by);
+}
 
 function nodePoint(run: RunState, floor: number, index: number): { x: number; y: number } {
   const count = run.map[floor]!.length;
@@ -60,9 +76,11 @@ export class RunScene extends Phaser.Scene {
       this.scene.start('Capital');
       return;
     }
-    this.add.text(16, 10, `${REGIONS[run.region].name.toUpperCase()} · RUN`, textStyle(18, TEXT.title, true));
+    addTitle(this, `${REGIONS[run.region].name.toUpperCase()} · RUN`);
     addHint(this, 16, 38, '←→ pick your path, Enter: go there. Esc: back to the Capital; your run waits.', '←→ pick your path, Ⓐ: go there. Ⓑ: back to the Capital; your run waits.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.scene.start('Capital'), 150, 34);
+    addFrame(this, LAND.x - 8, LAND.y - 8, LAND.w + 16, LAND.h + 16, 'panel');
+    this.add.image(LAND.x, LAND.y, regionLandTexture(this, LAND.w, LAND.h, run.region)).setOrigin(0).setScale(UI_PIXEL);
     this.ui = this.add.container(0, 0);
     new InputLayer(this)
       .on('left', () => this.pick(-1))
@@ -121,8 +139,7 @@ export class RunScene extends Phaser.Scene {
           const to = nodePoint(run, f + 1, j);
           const walked = taken(f, i) && taken(f + 1, j);
           const ahead = f + 1 === run.path.length && taken(f, i) && choices.includes(j);
-          g.lineStyle(walked ? 4 : 2, walked ? COLORS.glow : ahead ? COLORS.selected : COLORS.fieldLine, walked ? 0.9 : ahead ? 0.6 : 1);
-          g.lineBetween(from.x, from.y, to.x, to.y);
+          this.drawRoad(g, from, to, walked ? ROAD.walked : ahead ? ROAD.ahead : ROAD.plain, walked || ahead ? 1 : 0.75);
         }
       }),
     );
@@ -136,16 +153,23 @@ export class RunScene extends Phaser.Scene {
         // Nodes behind you fade: the ones you passed by most, the ones you took a little.
         const alpha = isHere || reachable ? 1 : f < run.path.length ? (taken(f, i) ? 0.55 : 0.3) : 0.8;
         this.drawNode(g, node.kind, p.x, p.y, alpha);
-        if (isHere) g.lineStyle(3, COLORS.glow, 1).strokeCircle(p.x, p.y, NODE_R + 6);
-        if (reachable) g.lineStyle(2, COLORS.selected, 0.7).strokeCircle(p.x, p.y, NODE_R + 5);
-        if (reachable && i === picked) g.lineStyle(4, COLORS.selected, 1).strokeCircle(p.x, p.y, NODE_R + 8);
+        // Where you stand: your banner. Where you can go: a soft gold ring; the one picked, gold corner marks.
+        if (isHere) this.ui.add(this.add.image(p.x + 14, p.y - 8, MAP_ART.banner).setOrigin(0, 1).setScale(UI_PIXEL));
+        if (reachable) g.lineStyle(2, COLORS.glow, 0.55).strokeCircle(p.x, p.y, NODE_R + 6);
+        if (reachable && i === picked) {
+          const marks = this.add.graphics();
+          drawCornerMarks(marks, p.x - NODE_R - 9, p.y - NODE_R - 9, NODE_R * 2 + 18, NODE_R * 2 + 18);
+          const arrow = this.add.image(p.x, p.y - NODE_R - 12, MAP_ART.arrow).setOrigin(0.5, 1).setScale(UI_PIXEL);
+          this.tweens.add({ targets: arrow, y: arrow.y - 5, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+          this.ui.add([marks, arrow]);
+        }
         if (reachable || node.kind === 'boss') {
           const zone = this.add.zone(p.x, p.y, NODE_R * 3, NODE_R * 3).setInteractive({ useHandCursor: reachable });
           if (reachable) zone.on('pointerdown', () => (i === picked ? this.go(i) : ((this.choice = choices.indexOf(i)), this.render())));
           this.ui.add(zone);
         }
-        const label = this.add.text(p.x, p.y + NODE_R + 6, NODE_NAMES[node.kind], textStyle(11, reachable ? TEXT.title : TEXT.muted, reachable)).setOrigin(0.5, 0);
-        this.ui.add(label.setAlpha(Math.max(alpha, 0.5)));
+        const [plate, label] = addPlate(this, p.x, p.y + NODE_R + (node.kind === 'boss' ? 22 : 15), NODE_NAMES[node.kind], textStyle(11, reachable ? TEXT.title : TEXT.body, reachable));
+        this.ui.add([plate.setAlpha(Math.max(alpha, 0.6)), label.setAlpha(Math.max(alpha, 0.6))]);
       }),
     );
 
@@ -177,22 +201,36 @@ export class RunScene extends Phaser.Scene {
     this.renderFooter(run);
   }
 
-  /** A node's mark: its kind's color, with a sign for fights, camps and the boss. */
+  /** A road between two stops: a line of dirt dots with dark edges. */
+  private drawRoad(g: Phaser.GameObjects.Graphics, from: { x: number; y: number }, to: { x: number; y: number }, color: number, alpha: number): void {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const length = Math.sqrt(dx * dx + dy * dy);
+    const dots = Math.floor((length - NODE_R * 2) / ROAD_STEP);
+    for (let i = 0; i <= dots; i++) {
+      const t = (NODE_R + i * ROAD_STEP + (length - NODE_R * 2 - dots * ROAD_STEP) / 2) / length;
+      const x = Math.round((from.x + dx * t) / 2) * 2;
+      const y = Math.round((from.y + dy * t) / 2) * 2;
+      g.fillStyle(0x0e0b12, 0.7 * alpha).fillRect(x - ROAD_DOT / 2 - 2, y - ROAD_DOT / 2 - 2, ROAD_DOT + 4, ROAD_DOT + 4);
+      g.fillStyle(color, alpha).fillRect(x - ROAD_DOT / 2, y - ROAD_DOT / 2, ROAD_DOT, ROAD_DOT);
+    }
+  }
+
+  /** A stop's mark: a medallion in its kind's color, with its sign in the middle. */
   private drawNode(g: Phaser.GameObjects.Graphics, kind: NodeKind, x: number, y: number, alpha: number): void {
-    const r = kind === 'boss' ? NODE_R + 6 : NODE_R;
-    g.fillStyle(COLORS.node[kind], alpha).fillCircle(x, y, r);
-    g.fillStyle(0x000000, 0.25 * alpha).fillCircle(x, y + 3, r - 3);
-    g.lineStyle(2, 0x0b0f16, alpha).strokeCircle(x, y, r);
-    if (kind === 'elite') g.lineStyle(2, COLORS.node.elite, alpha).strokeCircle(x, y, r + 4);
+    const color = COLORS.node[kind];
+    const size = kind === 'boss' ? BOSS_MEDALLION : MEDALLION;
+    const medallion = this.add.image(x, y, medallionTexture(this, size, { light: color, dark: shade(color, 0.55) }, shade(color, 0.32)));
+    this.ui.addAt(medallion.setScale(UI_PIXEL).setAlpha(alpha), this.ui.getIndex(g));
     // The stop's pixel-art icon in the middle.
-    paintCentered(g, NODE_ICONS[kind].frames.still!, BASE, x, y, { scale: kind === 'boss' ? 2.2 : 1.75, alpha });
+    paintCentered(g, NODE_ICONS[kind].frames.still!, BASE, x, y, { scale: kind === 'boss' ? 2 : UI_PIXEL, alpha });
   }
 
 
   /** Your army, gold, boons and carried artifacts. */
   private renderFooter(run: RunState): void {
+    this.ui.add(addFrame(this, 4, FOOTER_Y, GAME_WIDTH - 8, GAME_HEIGHT - FOOTER_Y - 4, 'panel'));
     const g = this.add.graphics();
-    g.fillStyle(COLORS.panel, 1).fillRect(0, FOOTER_Y, GAME_WIDTH, GAME_HEIGHT - FOOTER_Y);
     this.ui.add(g);
     const y = FOOTER_Y + 10;
     this.ui.add(this.add.text(16, y, `YOUR ARMY · ${run.field.length} on the field, ${run.reserves.length} in reserve, ${run.roster.length} in all`, textStyle(11, TEXT.muted, true)));

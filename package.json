@@ -28,6 +28,8 @@
     "train:reader": "tsx tools/reader/train.ts"
   },
   "devDependencies": {
+    "@fontsource/jacquard-12": "^5.3.0",
+    "@fontsource/pixelify-sans": "^5.3.0",
     "@types/node": "^22.20.5",
     "@wllama/wllama": "^3.8.1",
     "electron": "^44.5.1",

@@ -14,8 +14,8 @@ import { drawFighter } from '../campaignUi';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
-import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, addHint, textStyle } from '../ui';
+import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
 
 const LIST_X = 16;
 const LIST_W = 560;
@@ -40,7 +40,9 @@ export class CompanyScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'YOUR COMPANY', textStyle(18, TEXT.title, true));
+    addTitle(this, 'YOUR COMPANY');
+    // The details of what is picked, in a panel down the right.
+    addFrame(this, PANEL_X - 12, TOP_BAR_HEIGHT + 8, GAME_WIDTH - PANEL_X + 6, GAME_HEIGHT - 12 - (TOP_BAR_HEIGHT + 8), 'panel');
     addHint(this, 16, 38, '↑↓ pick, ←→ change the artifact (or Ironman), Esc: back to the Capital.', '↑↓ pick, ←→ change the artifact (or Ironman), Ⓑ: back to the Capital.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.scene.start('Capital'), 150, 34);
     this.ui = this.add.container(0, 0);
@@ -126,9 +128,8 @@ export class CompanyScene extends Phaser.Scene {
     this.renderPanel(campaign, campaign.company[this.selected]);
   }
 
-  private rowBox(y: number, on: boolean, i: number): Phaser.GameObjects.Rectangle {
-    const box = this.add.rectangle(LIST_X, y, LIST_W, ROW_H - 4, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
-    box.setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : COLORS.rowEdge).setInteractive({ useHandCursor: true });
+  private rowBox(y: number, on: boolean, i: number): Phaser.GameObjects.Image {
+    const box = addFrame(this, LIST_X, y, LIST_W, ROW_H - 4, on ? 'rowOn' : 'row').setInteractive({ useHandCursor: true });
     box.on('pointerdown', () => (this.selected === i ? this.change(1) : this.select(i)));
     return box;
   }

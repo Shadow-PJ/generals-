@@ -15,17 +15,17 @@ import { SYNERGIES } from '../../data/synergies';
 import { UNIT_CLASSES, type UnitClass } from '../../data/units';
 import { placementProblem } from '../../sim';
 import { drawFactionDot } from '../campaignUi';
-import { addGround } from '../art/textures';
-import { drawBar, drawBody, drawRarity, drawWall, drawZone } from '../draw';
+import { addGround, addWallImage } from '../art/textures';
+import { drawBar, drawBody, drawRarity, drawWall, drawZone, wallKind } from '../draw';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { currentCampaign, remember, saveCampaign, savedSetup } from '../session';
-import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { BOTTOM_BAR_Y, COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { enemyArmyOf, yourReserves, yourSynergies } from '../troops';
 import { sceneTips } from '../tutorial';
-import { addButton, addHint, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
 
 /** How fast the arrow keys move a troop, in world units per second. */
 const KEYBOARD_MOVE_SPEED = 220;
@@ -58,9 +58,9 @@ export class PrepScene extends Phaser.Scene {
     fitCamera(this);
     const fight = this.setup.fight;
     const region = fight ? REGION_IDS.find((id) => REGIONS[id].map === fight.encounter.map) : undefined;
-    this.add.text(16, 10, fight ? `PLACE YOUR TROOPS · ${NODE_NAMES[fight.encounter.kind].toUpperCase()}` : 'SKIRMISH', textStyle(18, TEXT.title, true));
+    addTitle(this, fight ? `PLACE YOUR TROOPS · ${NODE_NAMES[fight.encounter.kind].toUpperCase()}` : 'SKIRMISH');
     const where = fight ? `${region ? REGIONS[region].name : ''} run.` : 'Practice: no XP.';
-    addHint(this, 16, 38, `${where} Drag troops, or Tab and the arrows.`, `${fight ? where : 'No XP.'} RB: next troop, ✚ moves it.`, textStyle(13));
+    addHint(this, 16, 38, `${where} Drag troops, or Tab + arrows.`, `${fight ? where : 'No XP.'} RB: next troop, ✚ moves it.`, textStyle(12));
     if (fight) {
       addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
       addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
@@ -79,7 +79,8 @@ export class PrepScene extends Phaser.Scene {
     const field = this.add.graphics();
     drawZone(field, map.deployZones.player, 'player', 1);
     drawZone(field, map.deployZones.enemy, 'enemy', 0.6);
-    for (const wall of map.walls) drawWall(field, wall, map.id);
+    for (const wall of map.walls) drawWall(field, wall, map.id, false);
+    const walls = map.walls.map((wall) => addWallImage(this, wall, wallKind(wall, map.id)));
     const enemy = enemyArmyOf(this.setup);
     for (const t of enemy.placement) {
       const r = UNIT_CLASSES[t.cls].stats.radius;
@@ -103,9 +104,10 @@ export class PrepScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
     this.graphics = this.add.graphics();
     this.label = this.add.text(0, 0, '', textStyle(12, TEXT.title)).setOrigin(0.5, 1);
-    world.add([ground, field, band, terrain, enemyLead, this.graphics, this.label]);
+    world.add([ground, field, ...walls, band, terrain, enemyLead, this.graphics, this.label]);
 
     // Your 3 reserves wait off the field until a Call Reserve card brings them in.
+    addFrame(this, 0, BOTTOM_BAR_Y, GAME_WIDTH, GAME_HEIGHT - BOTTOM_BAR_Y, 'bar');
     this.add.text(16, BOTTOM_BAR_Y + 16, 'RESERVES', textStyle(12, TEXT.muted, true));
     const reserves = this.add.graphics();
     const waiting = yourReserves(this.setup);

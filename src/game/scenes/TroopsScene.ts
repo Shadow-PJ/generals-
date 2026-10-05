@@ -20,9 +20,9 @@ import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { earnedRank, remember } from '../session';
-import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { cycle, nextClass, specOptions, withClass, withSpec, yourSynergies } from '../troops';
-import { addButton, addHint, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addTitle, restyleFrame, textStyle } from '../ui';
 
 type Row =
   | { kind: 'troop'; index: number }
@@ -54,7 +54,7 @@ export class TroopsScene extends Phaser.Scene {
   private setup!: MatchSetup;
   private rows: Row[] = [];
   private selected = 0;
-  private boxes: Phaser.GameObjects.Rectangle[] = [];
+  private boxes: Phaser.GameObjects.Image[] = [];
   private values: Phaser.GameObjects.Text[] = [];
   private notes: (Phaser.GameObjects.Text | null)[] = [];
   private shapes!: Phaser.GameObjects.Graphics;
@@ -94,7 +94,7 @@ export class TroopsScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'SKIRMISH', textStyle(18, TEXT.title, true));
+    addTitle(this, 'SKIRMISH');
     addHint(
       this,
       16,
@@ -125,7 +125,7 @@ export class TroopsScene extends Phaser.Scene {
       }
       const x = row.kind === 'spec' || row.kind === 'practice' ? RIGHT_X : LEFT_X;
       const h = row.kind === 'spec' ? SPEC_ROW_H : ROW_H;
-      const box = this.add.rectangle(x, y, COLUMN_W, h - 4, 0x1d2939).setOrigin(0).setStrokeStyle(1, 0x34465e);
+      const box = addFrame(this, x, y, COLUMN_W, h - 4, 'row');
       box.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
         this.selected = i;
         this.change(1);
@@ -238,7 +238,7 @@ export class TroopsScene extends Phaser.Scene {
     this.rows.forEach((row, i) => {
       const box = this.boxes[i]!;
       const on = i === this.selected;
-      box.setFillStyle(on ? 0x2b3a50 : 0x1d2939).setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : 0x34465e);
+      restyleFrame(box, on ? 'rowOn' : 'row');
       const value = this.values[i]!;
       switch (row.kind) {
         case 'troop':

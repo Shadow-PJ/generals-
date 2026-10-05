@@ -30,9 +30,9 @@ import type { MatchSetup } from '../match';
 import { newSeed } from '../seed';
 import { rankProgress } from '../progress';
 import { currentPlatform, currentXp, remember, savedSetup } from '../session';
-import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, addHint, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
 import { PushToTalk, VOICE_MESSAGES } from '../voice';
 
 const SLOT_COUNT = 4;
@@ -104,8 +104,7 @@ export class OrdersScene extends Phaser.Scene {
     );
     this.events.once('shutdown', () => this.voice.cancel());
 
-    this.add.rectangle(0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, COLORS.background).setOrigin(0);
-    this.add.text(16, 10, 'WRITE YOUR ORDERS', textStyle(18, TEXT.title, true));
+    addTitle(this, 'WRITE YOUR ORDERS');
     const talkHint = this.voice.available ? ` Hold ${keyLabel('talk', 'keyboard')} to speak an order.` : '';
     addHint(
       this,
@@ -127,10 +126,11 @@ export class OrdersScene extends Phaser.Scene {
       height: '28px',
       padding: '0 8px',
       font: `13px ${FONT}`,
-      color: '#e5e7eb',
-      background: '#0f141c',
-      border: '1px solid #50627c',
-      borderRadius: '3px',
+      color: TEXT.title,
+      background: '#0f0c13',
+      border: '2px solid #0e0b12',
+      boxShadow: 'inset 0 2px 0 #0a080d, 0 0 0 2px #4d3d57',
+      borderRadius: '0',
       outline: 'none',
     });
     this.add.dom(PANEL_X + 54, 96, this.orderInput).setOrigin(0, 0.5);
@@ -400,7 +400,7 @@ export class OrdersScene extends Phaser.Scene {
     ];
     lines.forEach(([row, label, value], i) => {
       const y = 22 + i * 20;
-      if (this.row === row) this.ui.add(this.add.rectangle(x - 6, y, 292, 20, 0x2b3a50).setOrigin(0));
+      if (this.row === row) this.ui.add(addFrame(this, x - 6, y, 292, 20, 'rowOn'));
       this.ui.add(this.add.text(x, y + 3, label, textStyle(12, TEXT.muted)));
       this.arrows(x + 112, y + 10, 172, value, (d) => {
         this.row = row;
@@ -416,10 +416,8 @@ export class OrdersScene extends Phaser.Scene {
       const y = TOP_BAR_HEIGHT + 16 + i * (SLOT_H + 8);
       const card = this.savedCard(i);
       const unlock = i === LEGENDARY ? null : slotUnlockRank(i, rank);
-      const box = this.add
-        .rectangle(SLOT_X, y, SLOT_W, SLOT_H, i === this.slot ? 0x24344a : 0x19212d)
-        .setOrigin(0)
-        .setStrokeStyle(i === this.slot ? 2 : 1, i === this.slot ? 0x6ea8ff : 0x34465e)
+      const style = i === this.slot ? 'rowOn' : unlock ? 'cardDim' : card ? 'cardReady' : 'card';
+      const box = addFrame(this, SLOT_X, y, SLOT_W, SLOT_H, style)
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', () => this.selectSlot(i));
       this.ui.add(box);
@@ -450,7 +448,7 @@ export class OrdersScene extends Phaser.Scene {
     }
     if (this.legendaryOpen) return;
     const ly = TOP_BAR_HEIGHT + 16 + SLOT_COUNT * (SLOT_H + 8);
-    this.ui.add(this.add.rectangle(SLOT_X, ly, SLOT_W, 44, 0x151b25).setOrigin(0).setStrokeStyle(1, 0x2a3646));
+    this.ui.add(addFrame(this, SLOT_X, ly, SLOT_W, 44, 'cardDim'));
     this.ui.add(this.add.text(SLOT_X + 10, ly + 6, '5', textStyle(16, TEXT.muted, true)));
     this.ui.add(this.add.text(SLOT_X + 34, ly + 6, 'Legendary slot: opens when you beat your\nfirst boss General', textStyle(11, TEXT.muted)));
   }
@@ -500,7 +498,7 @@ export class OrdersScene extends Phaser.Scene {
     this.menuRows().forEach((r, i) => {
       const y = ROWS_Y + i * ROW_H;
       const selected = this.row === FIRST_MENU_ROW + i;
-      if (selected) this.ui.add(this.add.rectangle(PANEL_X - 6, y - 2, GAME_WIDTH - PANEL_X - 4, ROW_H, 0x2b3a50).setOrigin(0));
+      if (selected) this.ui.add(addFrame(this, PANEL_X - 6, y - 2, GAME_WIDTH - PANEL_X - 4, ROW_H, 'rowOn'));
       this.ui.add(this.add.text(PANEL_X, y, r.label, textStyle(12, selected ? TEXT.title : TEXT.muted, selected)));
       this.arrows(PANEL_X + 120, y + 8, 420, r.choices[r.index]!.label, (d) => {
         this.row = FIRST_MENU_ROW + i;

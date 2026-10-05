@@ -4,10 +4,11 @@
 
 import Phaser from 'phaser';
 import type { UnitClass } from '../data/units';
-import type { Side } from '../sim';
+import type { Side, Wall } from '../sim';
 import type { TroopFrame } from './art/troops';
 import { TROOP_ART_SCALE } from './art/troops';
-import { arrowKey, FX, propKey, troopKey } from './art/textures';
+import { addWallImage, arrowKey, FX, propKey, troopKey } from './art/textures';
+import { wallKind, wallStands } from './draw';
 
 /** Kinds of particle bursts, each with its look. */
 export type BurstKind = 'hit' | 'heavy' | 'fire' | 'frost' | 'magic' | 'gold' | 'puff' | 'dust' | 'stone' | 'heal';
@@ -178,4 +179,48 @@ export function addFallen(scene: Phaser.Scene, layer: Phaser.GameObjects.Contain
     .setTint(0x8a8f99)
     .setAlpha(0.55);
   layer.add(body);
+}
+
+/** The walls as pixel-art blocks, one image each, made as walls appear (Fortify raises new ones) and hidden once they fall. */
+export class WallSprites {
+  readonly layer: Phaser.GameObjects.Container;
+  private readonly images = new Map<number, Phaser.GameObjects.Image>();
+
+  constructor(private readonly scene: Phaser.Scene) {
+    this.layer = scene.add.container(0, 0);
+  }
+
+  sync(walls: readonly Wall[], mapId: string): void {
+    for (const wall of walls) {
+      let image = this.images.get(wall.id);
+      if (!image) {
+        image = addWallImage(this.scene, wall, wallKind(wall, mapId));
+        this.layer.add(image);
+        this.images.set(wall.id, image);
+      }
+      image.setVisible(wallStands(wall));
+    }
+  }
+}
+
+/** Each map's air: what drifts over the field. */
+const AMBIENCE: Readonly<Record<string, Phaser.Types.GameObjects.Particles.ParticleEmitterConfig>> = {
+  // Pollen on the breeze.
+  openField: { speedX: { min: 6, max: 16 }, speedY: { min: -4, max: 4 }, tint: [0xfff6c0, 0xffffff], alpha: { start: 0.55, end: 0 }, scale: { min: 0.5, max: 0.9 }, frequency: 260, lifespan: 7000 },
+  // Leaves falling.
+  deepForest: { texture: FX.chunk, speedX: { min: 8, max: 18 }, speedY: { min: 10, max: 22 }, rotate: { min: 0, max: 360 }, tint: [0x58b05a, 0x2f7a3f, 0xc8a040], alpha: { start: 0.8, end: 0 }, scale: { min: 0.8, max: 1.2 }, frequency: 220, lifespan: 7000 },
+  // Violet motes rising.
+  voidRuins: { speedX: { min: -4, max: 4 }, speedY: { min: -16, max: -6 }, tint: [0xd2b4ff, 0x8b5cf6], alpha: { start: 0.7, end: 0 }, scale: { min: 0.5, max: 1 }, frequency: 180, lifespan: 6000, blendMode: 'ADD' },
+  // Dust blown across the canyon.
+  redCanyon: { speedX: { min: 40, max: 80 }, speedY: { min: -3, max: 3 }, tint: [0xe0b080, 0xc89060], alpha: { start: 0.45, end: 0 }, scale: { min: 0.5, max: 1 }, frequency: 120, lifespan: 4000 },
+  // Embers from the forges.
+  ironFortress: { speedX: { min: -6, max: 6 }, speedY: { min: -24, max: -10 }, tint: [0xffb24a, 0xf2541b], alpha: { start: 0.85, end: 0 }, scale: { min: 0.4, max: 0.8 }, frequency: 160, lifespan: 4500, blendMode: 'ADD' },
+  // Glints on the glass.
+  glassPlains: { texture: FX.spark, speedX: 0, speedY: 0, tint: [0xffffff, 0x9ee7e3], alpha: { values: [0, 0.9, 0], interpolation: 'linear' }, scale: { min: 0.4, max: 0.7 }, frequency: 140, lifespan: 900, blendMode: 'ADD' },
+};
+
+/** The map's air over a field `w × h` big: drifting pollen, leaves, motes, dust, embers or glints. */
+export function addAmbience(scene: Phaser.Scene, mapId: string, w: number, h: number): Phaser.GameObjects.Particles.ParticleEmitter {
+  const { texture, ...look } = { texture: FX.dot, ...(AMBIENCE[mapId] ?? AMBIENCE.openField!) };
+  return scene.add.particles(0, 0, texture as string, { x: { min: -20, max: w }, y: { min: -10, max: h }, advance: 6000, ...look });
 }

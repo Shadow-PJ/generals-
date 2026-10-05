@@ -11,7 +11,7 @@ import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { foundCombos } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addFrame, addTitle, textStyle } from '../ui';
 
 const ROW_H = 84;
 const COLUMN_W = (GAME_WIDTH - 48) / 2;
@@ -30,7 +30,7 @@ export class CodexScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     const found = foundCombos();
-    this.add.text(16, 10, 'COMBO CODEX', textStyle(18, TEXT.title, true));
+    addTitle(this, 'COMBO CODEX');
     this.add.text(GAME_WIDTH - 16, 14, `${found.length} of ${CODEX_ENTRY_IDS.length} found`, textStyle(14, TEXT.muted)).setOrigin(1, 0);
     const { windowSeconds } = COMMAND_RULES.chain;
     this.add.text(
@@ -49,7 +49,7 @@ export class CodexScene extends Phaser.Scene {
         const y = TOP_BAR_HEIGHT + 24 + i * ROW_H;
         const known = found.includes(id);
         const entry = codexEntry(id);
-        this.add.rectangle(x, y, COLUMN_W, ROW_H - 8, known ? 0x1d2939 : 0x141a23).setOrigin(0).setStrokeStyle(1, known ? 0x50627c : 0x2a3444);
+        addFrame(this, x, y, COLUMN_W, ROW_H - 8, known ? 'plain' : 'rowDim');
         const wrap = { wordWrap: { width: COLUMN_W - 24 } };
         if (known) {
           this.add.text(x + 12, y + 8, entry.name, textStyle(15, TEXT.perfect, true));

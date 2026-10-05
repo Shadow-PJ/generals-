@@ -9,8 +9,8 @@ import type { InputAction } from './bindings';
 import type { InputLayer } from './InputLayer';
 import { onDeviceChange } from './inputDevice';
 import { applySuggestion, moveCursor, OSK_ROWS, pressKey, suggestions, type OskCursor, type OskKey } from './osk';
-import { COLORS, GAME_WIDTH, TEXT } from './theme';
-import { textStyle } from './ui';
+import { GAME_WIDTH, TEXT } from './theme';
+import { addFrame, textStyle } from './ui';
 import { playSound } from './audio/audio';
 
 const PANEL_W = 690;
@@ -155,10 +155,10 @@ export class OnScreenKeyboard {
       items.push(item);
       return item;
     };
-    add(scene.add.rectangle(left, this.top, PANEL_W, PANEL_H, COLORS.background, 0.97).setOrigin(0).setStrokeStyle(2, COLORS.glow));
+    add(addFrame(scene, left, this.top, PANEL_W, PANEL_H, 'panel'));
     add(scene.add.text(left + 16, this.top + 10, 'TYPE YOUR ORDER', textStyle(14, TEXT.title, true)));
     // The words so far, with a cursor at the end.
-    add(scene.add.rectangle(left + 16, this.top + 34, PANEL_W - 32, 46, 0x0f141c).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge));
+    add(addFrame(scene, left + 16, this.top + 34, PANEL_W - 32, 46, 'well'));
     add(
       scene.add.text(left + 24, this.top + 40, `${this.text}▌`, {
         ...textStyle(14, TEXT.body),
@@ -174,7 +174,7 @@ export class OnScreenKeyboard {
     words.forEach((word, i) => {
       const x = left + 70 + i * 100;
       const on = this.cursor.row === -1 && this.cursor.col === i;
-      const chip = add(scene.add.rectangle(x, wordY, 94, 28, on ? COLORS.rowSelected : COLORS.row).setOrigin(0).setStrokeStyle(on ? 2 : 1, on ? COLORS.glow : COLORS.rowEdge));
+      const chip = add(addFrame(scene, x, wordY, 94, 28, on ? 'rowOn' : 'row'));
       chip.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.useWord(word));
       add(scene.add.text(x + 47, wordY + 14, word, textStyle(13, on ? TEXT.title : TEXT.body, on)).setOrigin(0.5));
     });
@@ -189,17 +189,12 @@ export class OnScreenKeyboard {
         const y = keysTop + r * (KEY_H + GAP);
         const on = this.cursor.row === r && this.cursor.col === c;
         const special = typeof key.type !== 'string';
-        const box = add(
-          scene.add
-            .rectangle(x, y, w, KEY_H, on ? COLORS.rowSelected : special ? 0x22303f : COLORS.row)
-            .setOrigin(0)
-            .setStrokeStyle(on ? 3 : 1, on ? COLORS.glow : COLORS.rowEdge),
-        );
+        const box = add(addFrame(scene, x, y, w, KEY_H, on ? 'buttonOn' : special ? 'plain' : 'button'));
         box.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
           this.cursor = { row: r, col: c };
           this.type(key);
         });
-        add(scene.add.text(x + w / 2, y + KEY_H / 2, key.label, textStyle(special ? 13 : 16, on ? TEXT.title : TEXT.body, on || !special)).setOrigin(0.5));
+        add(scene.add.text(x + w / 2, y + KEY_H / 2 - (special ? 0 : 1), key.label, textStyle(special ? 13 : 16, on ? TEXT.title : TEXT.body, on || !special)).setOrigin(0.5));
         x += w + GAP;
       });
     });
