@@ -15,6 +15,7 @@ import { MAPS } from '../../data/maps';
 import { rankRules } from '../../data/ranks';
 import { openRegions, REGION_IDS, REGIONS, type RegionId } from '../../data/regions';
 import { CAPITAL_KEY, portraitKey, regionKey } from '../art/textures';
+import { keyLabel } from '../bindings';
 import { runFloor, runNumbers } from '../campaignUi';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
@@ -24,7 +25,7 @@ import { newSeed } from '../seed';
 import { currentCampaign, currentXp, saveCampaign, savedSetup } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const MAP_CENTER = { x: 300, y: 350 };
 const RING = 195;
@@ -61,7 +62,7 @@ export class CapitalScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'THE CAPITAL', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, '←→ region, Enter: set out.', textStyle(13, TEXT.muted));
+    addHint(this, 16, 38, '←→ region, Enter: set out.', '←→ region, Ⓐ: set out.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 680, TOP_BAR_HEIGHT / 2, 'Company  R', () => this.scene.start('Company'), 104, 34);
     addButton(this, GAME_WIDTH - 570, TOP_BAR_HEIGHT / 2, 'Tech Web  K', () => this.scene.start('Tech'), 104, 34);
     addButton(this, GAME_WIDTH - 460, TOP_BAR_HEIGHT / 2, 'General  G', () => this.open('Generals'), 104, 34);
@@ -202,7 +203,7 @@ export class CapitalScene extends Phaser.Scene {
       this.ui.add(addButton(this, PANEL_X + 90, y + 16, 'Carry on  ⏎', () => this.go(), 180, 34).container);
       this.ui.add(addButton(this, PANEL_X + 90, y + 58, 'Abandon run  Del', () => this.abandon(), 180, 30).container);
       y += 84;
-      if (this.confirmAbandon) add('Press Del again to give up the run. You lose the artifacts you carry; you keep your XP.', 12, TEXT.defeat, true);
+      if (this.confirmAbandon) add(`Press ${keyLabel('clear')} again to give up the run. You lose the artifacts you carry; you keep your XP.`, 12, TEXT.defeat, true);
       return;
     }
     if (status === 'locked') {

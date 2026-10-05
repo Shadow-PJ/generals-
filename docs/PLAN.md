@@ -246,10 +246,10 @@ Goal: a balanced, good-looking game that plays well with a controller and agains
 
 ### 6C. Controller and Steam Deck
 
-- [ ] Full controller support: card slots and the ultimate on buttons, and every menu usable without a mouse
-- [ ] The card builder works with a controller alone; typed orders use the on-screen keyboard
-- [ ] Layouts and text readable at Steam Deck size (1280×800)
-- [ ] A Linux build of the desktop app, for Steam Deck
+- [x] Full controller support: card slots and the ultimate on buttons, and every menu usable without a mouse
+- [x] The card builder works with a controller alone; typed orders use the on-screen keyboard
+- [x] Layouts and text readable at Steam Deck size (1280×800)
+- [x] A Linux build of the desktop app, for Steam Deck
 
 Done when: a whole battle, from writing cards to the result screen, can be played with a controller.
 

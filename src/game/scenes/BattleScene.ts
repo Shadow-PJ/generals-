@@ -48,7 +48,7 @@ import {
   toggleSpeed,
   type BattleClock,
 } from '../battleClock';
-import { SLOT_ACTIONS } from '../bindings';
+import { keyLabel, SLOT_ACTIONS } from '../bindings';
 import { CaptainTips } from '../captain';
 import { codexEntry } from '../codex';
 import { playMusic, playSound } from '../audio/audio';
@@ -88,7 +88,7 @@ import { battleMoments } from '../tutorial';
 import { bossOf, fightOutcome } from '../campaignFlow';
 import { enemyArmyOf, yourReserves } from '../troops';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle, type Button } from '../ui';
+import { addButton, addHint, textStyle, type Button } from '../ui';
 
 export interface BattleData extends MatchSetup {
   seed: number;
@@ -284,8 +284,8 @@ export class BattleScene extends Phaser.Scene {
     this.enemyCommandText = this.add.text(GAME_WIDTH - 16, 44, '', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     this.clockText = this.add.text(GAME_WIDTH / 2, 6, '0:00', textStyle(22, TEXT.title, true)).setOrigin(0.5, 0);
     this.overtimeText = this.add.text(GAME_WIDTH / 2 + 50, 12, '', textStyle(13, TEXT.overtime, true));
-    this.pausedText = this.add.text(GAME_WIDTH / 2 - 50, 12, 'PAUSED · Space to go on', textStyle(13, TEXT.perfect, true)).setOrigin(1, 0);
-    this.add.text(16, 44, '1-5: cards   U: ultimate   Space: pause   F: speed', textStyle(12, TEXT.muted));
+    this.pausedText = this.add.text(GAME_WIDTH / 2 - 50, 12, '', textStyle(13, TEXT.perfect, true)).setOrigin(1, 0);
+    addHint(this, 16, 44, '1-5: cards   U: ultimate   Space: pause   F: speed', 'ⓍⓎⒷⒶ RB: cards   RT: ultimate   Menu: pause   LB: speed', textStyle(12, TEXT.muted));
 
     const y = 48;
     this.speedButtons = {
@@ -357,7 +357,7 @@ export class BattleScene extends Phaser.Scene {
     const every = secondsToTicks(COMMAND_RULES.tacticalPauseSeconds);
     if (!this.setup.tactical || this.state.result || this.state.tick % every !== 0) return;
     this.clock.paused = true;
-    this.banner('TACTICAL PAUSE', TEXT.title, 'Pick your cards, then press Space to go on');
+    this.banner('TACTICAL PAUSE', TEXT.title, `Pick your cards, then press ${keyLabel('pause')} to go on`);
   }
 
   private rememberPositions(): void {
@@ -701,7 +701,7 @@ export class BattleScene extends Phaser.Scene {
         .setColor(charging ? TEXT.threat : TEXT.muted);
     }
 
-    this.pausedText.setVisible(this.clock.paused && !this.state.result);
+    this.pausedText.setText(`PAUSED · ${keyLabel('pause')} to go on`).setVisible(this.clock.paused && !this.state.result);
     this.speedButtons.pause.setHighlighted(this.clock.paused);
     this.speedButtons.normal.setHighlighted(!this.clock.paused && this.clock.speed === 1);
     this.speedButtons.fast.setHighlighted(!this.clock.paused && this.clock.speed === 2);
@@ -772,7 +772,8 @@ export class BattleScene extends Phaser.Scene {
       const cost = slotCost(this.state, i);
       const discounted = cost !== null && slot.card !== null && cost < cardCost(slot.card);
       texts.cost.setText(cost === null ? '' : '●'.repeat(cost)).setColor(discounted ? TEXT.victory : '#7dd3fc');
-      texts.key.setAlpha(dim ? 0.4 : 1);
+      // The slot's key, or its controller button: X, Y, B, A and RB.
+      texts.key.setText(keyLabel(SLOT_ACTIONS[i]!)).setAlpha(dim ? 0.4 : 1);
       texts.card.setAlpha(readiness === 'ready' ? 1 : 0.6);
       texts.status.setText(this.slotStatus(i, readiness)).setColor(readiness === 'ready' ? TEXT.victory : TEXT.muted);
     }
@@ -796,10 +797,11 @@ export class BattleScene extends Phaser.Scene {
     const ready = ultimateReady(this.state);
     const finisher = ready && rankRules(command.rank).finishers && nextLink(this.state) >= COMMAND_RULES.finisher.minLinks;
     const ultimate = GENERALS[this.setup.general].ultimate;
-    let label = `U: ${ultimate.name}  ${Math.floor(share * 100)}%`;
-    if (finisher) label = 'U: FINISHER now!';
-    else if (ready) label = `U: ${ultimate.name.toUpperCase()} ready!`;
-    else if (momentumFull(this.state)) label = `U: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
+    const u = keyLabel('ultimate');
+    let label = `${u}: ${ultimate.name}  ${Math.floor(share * 100)}%`;
+    if (finisher) label = `${u}: FINISHER now!`;
+    else if (ready) label = `${u}: ${ultimate.name.toUpperCase()} ready!`;
+    else if (momentumFull(this.state)) label = `${u}: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
     this.ultimateText.setText(label).setColor(finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
   }
 

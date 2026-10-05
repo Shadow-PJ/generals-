@@ -10,7 +10,11 @@ A 2D top-down strategy game. Armies fight on their own; before a battle you writ
 
 In the browser: https://shadow-pj.github.io/generals-/ (updated on every merge to `main`).
 
-On Windows: every merge to `main` builds an installer. Open the repository's **Actions** tab, pick the latest **Windows installer** run, and download **Generals-Windows-installer** under Artifacts. Unzip it and run `Generals-Setup-<version>.exe`. Windows shows an "unrecognized app" warning because test builds aren't signed yet: choose **More info**, then **Run anyway**. Your cards are saved in `%APPDATA%\Generals\saves`.
+On Windows: every merge to `main` builds an installer. Open the repository's **Actions** tab, pick the latest **Desktop builds** run, and download **Generals-Windows-installer** under Artifacts. Unzip it and run `Generals-Setup-<version>.exe`. Windows shows an "unrecognized app" warning because test builds aren't signed yet: choose **More info**, then **Run anyway**. Your cards are saved in `%APPDATA%\Generals\saves`.
+
+On Linux and the Steam Deck: the same run has **Generals-Linux-AppImage**. Unzip it, make the file executable (`chmod +x Generals-*.AppImage`, or Properties > Permissions on the Deck's desktop) and run it; on the Deck you can add it to Steam as a non-Steam game to play it in Game Mode. Saves are in `~/.config/Generals/saves`.
+
+With a controller: the D-pad or left stick moves, A chooses and B goes back; View reaches every button on the screen. In battle X, Y, B, A and RB fire the five card slots, RT the ultimate, Menu pauses and LB switches speed. On the orders screen, A on the order line opens an on-screen keyboard that suggests the words orders use. Hints show your controller's buttons once you press one.
 
 In your first battles the Captain, your first General, says a short tip the first time each moment comes: on each screen of a run, and in battle when a card is ready, your ultimate is ready, your pips are full or a troop falls. Tips fade by themselves (or click them); Settings turns them off or plays them all again.
 
@@ -55,6 +59,7 @@ npm run art:preview -- sheet.png   # draw every sprite onto sheet.png and every 
 npx tsx tools/eval/model/run.ts --model qwen2.5-0.5b --isolated   # the experimental language model, in headless Chromium
 npm run desktop             # build and open the desktop app (Electron)
 npm run desktop:installer   # build the Windows installer into release/ (run it on Windows)
+npm run desktop:linux       # build the Linux AppImage (Linux PCs and the Steam Deck) into release/
 ```
 
 The desktop app lives in `desktop/`: `main.ts` opens the window and serves the same game build as the browser version, and `preload.cts` gives the game its few requests (files, fullscreen, window size). Game code reaches them only through `src/platform`.

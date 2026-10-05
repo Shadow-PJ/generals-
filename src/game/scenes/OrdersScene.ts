@@ -22,6 +22,8 @@ import { builderRows, defaultStep, newDraft, type BuilderRow } from '../cardBuil
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
+import { inputDevice } from '../inputDevice';
+import { OnScreenKeyboard } from '../oskView';
 import { orderModelState, orderModelTranslator } from '../orderModel';
 import { orderReaderTranslator } from '../orderReader';
 import type { MatchSetup } from '../match';
@@ -30,7 +32,7 @@ import { rankProgress } from '../progress';
 import { currentPlatform, currentXp, remember, savedSetup } from '../session';
 import { COLORS, FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 import { PushToTalk, VOICE_MESSAGES } from '../voice';
 
 const SLOT_COUNT = 4;
@@ -61,6 +63,8 @@ export class OrdersScene extends Phaser.Scene {
   private translating = false;
   /** Speaking orders: hold the talk key or the Talk button. */
   private voice!: PushToTalk;
+  /** Typing orders with a controller (session 6C). */
+  private osk!: OnScreenKeyboard;
 
   constructor() {
     super('Orders');
@@ -102,11 +106,13 @@ export class OrdersScene extends Phaser.Scene {
 
     this.add.rectangle(0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, COLORS.background).setOrigin(0);
     this.add.text(16, 10, 'WRITE YOUR ORDERS', textStyle(18, TEXT.title, true));
-    const talkHint = this.voice.available ? ` Hold ${keyLabel('talk')} to speak an order.` : '';
-    this.add.text(
+    const talkHint = this.voice.available ? ` Hold ${keyLabel('talk', 'keyboard')} to speak an order.` : '';
+    addHint(
+      this,
       16,
       38,
       `↑↓ pick a line, ←→ change it, Enter saves to the slot, Tab switches slots.${talkHint}`,
+      '↑↓ pick a line, ←→ change it, Ⓐ saves (on the order line: types it), LB RB: slots, Menu: battle.',
       textStyle(12, TEXT.muted),
     );
 
@@ -151,19 +157,25 @@ export class OrdersScene extends Phaser.Scene {
 
     this.ui = this.add.container(0, 0);
 
-    new InputLayer(this)
+    const input = new InputLayer(this)
       .on('up', () => this.moveRow(-1))
       .on('down', () => this.moveRow(1))
       .on('left', () => this.change(-1))
       .on('right', () => this.change(1))
       .on('next', () => this.selectSlot(this.slot + 1))
       .on('prev', () => this.selectSlot(this.slot - 1))
-      .on('confirm', () => (this.row === TEXT_ROW ? this.orderInput.focus() : this.save()))
+      .on('confirm', () => (this.row === TEXT_ROW ? this.typeOrder() : this.save()))
       .on('clear', () => this.clear())
       .on('start', () => this.startBattle())
       .on('back', () => this.backToTroops())
       .on('talk', () => this.voice.press())
       .onRelease('talk', () => this.voice.release());
+    this.osk = new OnScreenKeyboard(this, input, ROWS_Y - 8, ({ text, read, toKeyboard }) => {
+      this.orderInput.value = text;
+      if (toKeyboard) this.orderInput.focus();
+      if (read) void this.translate();
+      else this.render();
+    });
 
     this.render();
     new CaptainTips(this, { x: GAME_WIDTH - 476, width: 460, bottom: GAME_HEIGHT - 60 }).say(sceneTips('Orders'));
@@ -229,6 +241,12 @@ export class OrdersScene extends Phaser.Scene {
     return [{ id: 'suggestion', label: 'Strategist', choices: [{ label: 'Ignore', card: this.draft }, accept], index: 0 }, ...rows];
   }
 
+  /** The order line: the text box with a keyboard, the on-screen keyboard with a controller. */
+  private typeOrder(): void {
+    if (inputDevice() === 'gamepad') this.osk.open(this.orderInput.value);
+    else this.orderInput.focus();
+  }
+
   private moveRow(step: number): void {
     const last = FIRST_MENU_ROW + this.menuRows().length - 1;
     this.row = Math.max(TACTICAL_ROW, Math.min(last, this.row + step));
@@ -291,7 +309,7 @@ export class OrdersScene extends Phaser.Scene {
         result.by === 'parser'
           ? 'Read as a card.'
           : `Read as a card by the ${result.by === 'model' ? 'small model' : 'order reader'}: check it says what you meant.`;
-      this.status = { text: `${how} Enter saves it to slot ${this.slot + 1}.`, color: TEXT.muted };
+      this.status = { text: `${how} ${keyLabel('confirm')} saves it to slot ${this.slot + 1}.`, color: TEXT.muted };
       this.orderInput.blur();
       this.row = FIRST_MENU_ROW;
     } else {
@@ -473,7 +491,9 @@ export class OrdersScene extends Phaser.Scene {
         this.add.text(PANEL_X, 222, `“${generalReply(reading)}”${warning}`, { ...textStyle(12, warning ? TEXT.defeat : TEXT.perfect), wordWrap: { width } }),
       );
     }
-    this.ui.add(this.add.text(PANEL_X, 244, this.status.text, { ...textStyle(12, this.status.color), wordWrap: { width }, maxLines: 1 }));
+    // With a controller on the order line, say how to type.
+    const status = this.status.text || (textSelected && inputDevice() === 'gamepad' ? 'Ⓐ: type the order on the on-screen keyboard.' : '');
+    this.ui.add(this.add.text(PANEL_X, 244, status, { ...textStyle(12, this.status.text ? this.status.color : TEXT.perfect), wordWrap: { width }, maxLines: 1 }));
   }
 
   private renderMenus(): void {

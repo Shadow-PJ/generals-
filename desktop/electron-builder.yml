@@ -1,4 +1,5 @@
-# Packaging for the Windows installer. Run `npm run desktop:installer`; the installer lands in release/.
+# Packaging for the Windows installer (`npm run desktop:installer`) and the Linux AppImage for
+# Steam Deck and other Linux PCs (`npm run desktop:linux`, session 6C). Both land in release/.
 appId: io.github.shadowpj.generals
 productName: Generals
 copyright: Copyright © 2026 Shadow-PJ
@@ -22,3 +23,13 @@ nsis:
   shortcutName: Generals
   # Uninstalling keeps your saves in %APPDATA%\Generals.
   deleteAppDataOnUninstall: false
+linux:
+  # One file that runs on any Linux PC, the Steam Deck's desktop mode included; Steam itself
+  # will get the unpacked folder (release/linux-unpacked) from session 7A.
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Game
+  # The window belongs to the app's menu entry (its icon and name in the task bar).
+  syncDesktopName: true
+  artifactName: Generals-${version}-x86_64.${ext}

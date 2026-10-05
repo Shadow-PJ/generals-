@@ -581,6 +581,28 @@ Generals is drawn in pixel art and sounds like a small synthesizer: every pictur
 - **Settings:** Volume, Music and Sound effects, each 0% to 100% in tenths, and Screen shake on or off, in `settings.json` (they belong to the computer, like the display settings). Browsers allow sound only after the first key press or click, so the game is silent until then.
 - **Screens** fade in from dark, buttons are rounded and lit under the mouse, and Settings shows the chosen line's explanation under the list.
 
+## Controllers and Steam Deck (session 6C)
+
+Every screen and a whole battle play with a controller alone. The game reads any controller the computer sees (Xbox, PlayStation, Switch Pro, the Steam Deck's own) through the standard layout, where A is the bottom face button; buttons map onto the same named actions the keys do, so no screen has its own controller code.
+
+| Button | In the menus | In battle |
+| --- | --- | --- |
+| D-pad or left stick | move (held, it repeats) | — |
+| A | choose | card slot 4 |
+| B | back | card slot 3 |
+| X | clear (Del) | card slot 1 |
+| Y | — | card slot 2 |
+| RB / LB | next / previous (Tab) | card slot 5 (Legendary) / speed |
+| RT or LT | — | ultimate |
+| Menu | start the battle (Orders) | pause |
+| View | move among the screen's buttons | the same |
+
+- **View** reaches every on-screen button: it puts a gold ring on the first, the D-pad moves it, A presses it and B leaves. It opens what letter keys open (the General, the Codex, the Tech Web, your company, the Oaths, the Skirmish screen), so those need no button of their own. A small "View: buttons" note shows in the corner while a controller is in use.
+- **Hints follow the device in hand.** Button labels and each screen's help line show the keys after a key press or click, and the controller's buttons (Ⓐ, Ⓑ, RB, Menu ...) after a button press; the battle's slots show Ⓧ Ⓨ Ⓑ Ⓐ RB, the ultimate RT, and the Captain's tips name the button to press.
+- **Typing orders:** on the order line, A opens the on-screen keyboard: number and letter keys, %, punctuation, space, delete, "read order" and "done". The D-pad moves over the keys, A types, X deletes, Y adds a space, Menu reads the order and B closes it keeping the words. A row of words above the keys finishes the word being typed with words the order reader knows ("ran" offers "ranger"), and offers the commonest first words after a space ("when", "my", "their" ...). Pressing a key on a real keyboard closes it and carries on in the text box. The card builder's menus work with the D-pad as they do with the arrows.
+- **Steam Deck (1280×800):** the game keeps its 960×704 layout, drawn about 1.14 times bigger, with bars at the sides. No text is smaller than 11 world pixels, about 12.5 screen pixels on the Deck, above the 9 Valve asks for. Sound starts with the first controller press, and at once in the desktop app, which needs no key press or click to play sound.
+- **Linux build:** the desktop app also builds as an AppImage for Linux PCs and the Steam Deck (desktop mode, or added to Steam as a non-Steam game until the Steam release in 7A). Saves are in `~/.config/Generals/saves`, Chromium's caches in `~/.cache/Generals`.
+
 ## Platforms and release
 
 Generals ships as a Windows desktop game on Steam first, then on the Epic Games Store. A browser build stays online as the quick test build.
@@ -589,7 +611,7 @@ Generals ships as a Windows desktop game on Steam first, then on the Epic Games 
 - **Voice orders:** on the Orders screen, hold V (or the Talk button) and say the order; it goes through the same translators as a typed one. The browser build uses the browser's own speech recognition (Chrome, Edge and Safari have it; Firefox doesn't), which may send the sound to the browser maker's speech service; the game itself sends nothing. The desktop app has no speech recognition yet, so players type there; a speech model running on the player's computer could add it later. Typing always works.
 - **Small model:** the order reader is about 1 MB of weights (270 KB compressed), so it ships inside both builds as an ordinary game file, loaded in the background when the game starts. It needs no download, no GPU and no internet.
 - **Saves:** files in the player's app data folder (on Windows, `%APPDATA%\Generals\saves`), synced by Steam Cloud. Display and sound settings (window size, fullscreen, resolution, volumes, screen shake) sit next to that folder in `settings.json` and stay on each computer, since a laptop and a big monitor want different ones. In the browser build, saves live in the browser's local storage. Every save carries a version number; a save from an older version is brought up to date step by step when the game starts (migrations), and the old file is kept as `saves/profile-backup.json`. Version 2 (session 5A) turned the old debug rank into the Command XP for that rank, so nobody loses the rank they played at. Version 3 (session 5B) added the run you are on and your banked artifacts; a saved run that doesn't read correctly in every part is dropped, and the rest of the save still loads. Version 4 (session 5C) gave run fighters a faction and perks; those of a run saved before have none. Version 5 (session 5E) added your company, Insight, the Tech Web, Ironman and Mastery. Version 6 (session 6A) added the Captain's tips: on for a new save, off for a save that has already earned XP (Settings turns them back on). Version 7 (session 5F) added your Oaths of Command and the highest Fear won in each region; a run in progress took no oaths.
-- **Steam Deck and controllers:** full controller support. Slots map to buttons, and the card builder works without a keyboard.
+- **Steam Deck and controllers:** full controller support (session 6C; see Controllers and Steam Deck): slots on buttons, every menu through the same actions, and an on-screen keyboard for typed orders. The desktop app builds for Windows and, as an AppImage, for Linux and the Steam Deck.
 - **Multiplayer:** runs through a small relay server of our own, so Steam, Epic and browser players can play each other. Epic requires multiplayer games to cross-play with other PC stores.
 - **Store features:** Steam achievements, cloud saves and rich presence; Epic achievements, which Epic requires.
 - **AI disclosure:** Steam asks about AI-made content that players see. Generals' live AI is the order reader, a small model trained for this game on generated orders, that turns orders into cards. It only ever picks parts of a card (it can't write text), and its guardrails are the fixed card format, the validator and pre-written replies, so it never writes free text for players. The optional experimental language model in Settings is held to the same card format. AI tools used only to write the code don't need disclosing, but the art and sound are AI-made (session 6B): an AI coding assistant drew every sprite pixel by pixel as text and wrote every sound recipe and piece of music as notes, for this game and from no outside material. No image or sound generation model was used. `docs/CREDITS.md` marks each of them, for Steam's disclosure of pre-generated content.

@@ -25,7 +25,7 @@ import { currentCampaign, remember, saveCampaign, savedSetup } from '../session'
 import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { enemyArmyOf, yourReserves, yourSynergies } from '../troops';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 /** How fast the arrow keys move a troop, in world units per second. */
 const KEYBOARD_MOVE_SPEED = 220;
@@ -59,12 +59,8 @@ export class PrepScene extends Phaser.Scene {
     const fight = this.setup.fight;
     const region = fight ? REGION_IDS.find((id) => REGIONS[id].map === fight.encounter.map) : undefined;
     this.add.text(16, 10, fight ? `PLACE YOUR TROOPS · ${NODE_NAMES[fight.encounter.kind].toUpperCase()}` : 'SKIRMISH', textStyle(18, TEXT.title, true));
-    this.add.text(
-      16,
-      38,
-      fight ? `${region ? REGIONS[region].name : ''} run. Drag troops, or Tab and the arrows.` : 'Practice: no XP. Drag or Tab + arrows.',
-      textStyle(13),
-    );
+    const where = fight ? `${region ? REGIONS[region].name : ''} run.` : 'Practice: no XP.';
+    addHint(this, 16, 38, `${where} Drag troops, or Tab and the arrows.`, `${fight ? where : 'No XP.'} RB: next troop, ✚ moves it.`, textStyle(13));
     if (fight) {
       addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
       addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);

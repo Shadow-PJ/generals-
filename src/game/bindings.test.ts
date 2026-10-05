@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { actionForKey, KEYBOARD_BINDINGS, keyLabel } from './bindings';
+import { actionForKey, GAMEPAD_BINDINGS, KEYBOARD_BINDINGS, keyLabel, padButtonFor, SLOT_ACTIONS, type InputAction } from './bindings';
 
 describe('key bindings', () => {
   it('maps keys to actions', () => {
@@ -38,5 +38,24 @@ describe('key bindings', () => {
   it('gives each key at most one action', () => {
     const used = Object.values(KEYBOARD_BINDINGS).flat();
     expect(new Set(used).size).toBe(used.length);
+  });
+
+  it('lays the battle out on a controller: X Y B A and RB fire the slots, a trigger the ultimate', () => {
+    expect(SLOT_ACTIONS.map((a) => padButtonFor(a))).toEqual(['X', 'Y', 'B', 'A', 'RB']);
+    expect(padButtonFor('ultimate')).toBe('RT');
+    expect(GAMEPAD_BINDINGS.LT).toContain('ultimate');
+    expect(padButtonFor('pause')).toBe('Menu');
+    expect(padButtonFor('speed')).toBe('LB');
+    expect(keyLabel('slot1', 'gamepad')).toBe('Ⓧ');
+    expect(keyLabel('slot1', 'keyboard')).toBe('1');
+  });
+
+  it('reaches every menu action from a controller; screens opened by letter keys through View', () => {
+    const menu: InputAction[] = ['confirm', 'back', 'clear', 'start', 'up', 'down', 'left', 'right', 'prev', 'next'];
+    for (const action of menu) expect(padButtonFor(action), action).not.toBeNull();
+    expect(keyLabel('confirm', 'gamepad')).toBe('Ⓐ');
+    expect(keyLabel('back', 'gamepad')).toBe('Ⓑ');
+    expect(GAMEPAD_BINDINGS.View).toEqual(['menu']);
+    for (const action of ['codex', 'general', 'troops', 'tech', 'company', 'oaths', 'talk'] as const) expect(keyLabel(action, 'gamepad')).toBe('');
   });
 });

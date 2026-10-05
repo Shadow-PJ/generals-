@@ -15,7 +15,7 @@ import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const LIST_X = 16;
 const LIST_W = 560;
@@ -41,7 +41,7 @@ export class CompanyScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'YOUR COMPANY', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, '↑↓ pick, ←→ change the artifact (or Ironman), Esc: back to the Capital.', textStyle(13, TEXT.muted));
+    addHint(this, 16, 38, '↑↓ pick, ←→ change the artifact (or Ironman), Esc: back to the Capital.', '↑↓ pick, ←→ change the artifact (or Ironman), Ⓑ: back to the Capital.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.scene.start('Capital'), 150, 34);
     this.ui = this.add.container(0, 0);
     new InputLayer(this)

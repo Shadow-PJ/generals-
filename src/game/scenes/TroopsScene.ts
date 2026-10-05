@@ -22,7 +22,7 @@ import type { MatchSetup } from '../match';
 import { earnedRank, remember } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { cycle, nextClass, specOptions, withClass, withSpec, yourSynergies } from '../troops';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 type Row =
   | { kind: 'troop'; index: number }
@@ -95,10 +95,12 @@ export class TroopsScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'SKIRMISH', textStyle(18, TEXT.title, true));
-    this.add.text(
+    addHint(
+      this,
       16,
       38,
       'Practice battles with any army, General and map; no Command XP. ↑↓ pick, ←→ change.',
+      'Practice battles with any army, General and map; no Command XP. ↑↓ pick, ←→ change, Ⓑ: done.',
       textStyle(13, TEXT.muted),
     );
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Done  Esc', () => this.goBack(), 150, 34);

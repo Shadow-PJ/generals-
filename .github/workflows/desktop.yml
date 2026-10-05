@@ -1,8 +1,11 @@
-# Builds the Windows installer on a Windows machine, installs it, checks that the installed game
-# plays and still has your card after a restart, and attaches the installer to the run as a
+# Builds the desktop app for each system and checks it, attaching each build to the run as a
 # download (Actions > this run > Artifacts). Runs on every merge to main and on pull requests,
-# so an installer can be tried before merging.
-name: Windows installer
+# so a build can be tried before merging.
+# - windows: the installer, built on Windows, installed silently, checked to play and to keep
+#   your card after a restart.
+# - linux (session 6C): the AppImage for Linux PCs and the Steam Deck, checked the same way on a
+#   virtual screen.
+name: Desktop builds
 
 on:
   push:
@@ -76,3 +79,44 @@ jobs:
           $run = Start-Process -FilePath $env:GENERALS_EXE -ArgumentList '--smoke-test=model', '--smoke-model=qwen2.5-0.5b', "--smoke-log=$log" -Wait -PassThru
           if (Test-Path $log) { Get-Content $log }
           if ($run.ExitCode -ne 0) { throw "Model smoke test failed (exit code $($run.ExitCode))" }
+
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+      # Runners have no FUSE: the AppImage unpacks itself to a temporary folder instead.
+      APPIMAGE_EXTRACT_AND_RUN: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build the AppImage
+        run: npm run desktop:linux
+      - name: A virtual screen for the game window
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      # The runner's kernel doesn't let Chromium build its sandbox, so the checks run without it;
+      # players' systems (the Steam Deck's included) have it.
+      - name: Play - save a card and start a battle
+        timeout-minutes: 3
+        run: |
+          app=$(ls release/Generals-*-x86_64.AppImage)
+          xvfb-run -a "$app" --no-sandbox --smoke-test=play --smoke-log="$RUNNER_TEMP/smoke-play.log" || status=$?
+          cat "$RUNNER_TEMP/smoke-play.log" || true
+          exit ${status:-0}
+      - name: Reopen - the card must still be in slot 1
+        timeout-minutes: 3
+        run: |
+          app=$(ls release/Generals-*-x86_64.AppImage)
+          xvfb-run -a "$app" --no-sandbox --smoke-test=reopen --smoke-log="$RUNNER_TEMP/smoke-reopen.log" || status=$?
+          cat "$RUNNER_TEMP/smoke-reopen.log" || true
+          ls -R ~/.config/Generals
+          exit ${status:-0}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Generals-Linux-AppImage
+          path: release/Generals-*-x86_64.AppImage
+          if-no-files-found: error

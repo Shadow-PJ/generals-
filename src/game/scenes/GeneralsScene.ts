@@ -15,7 +15,7 @@ import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { currentCampaign, remember } from '../session';
 import { COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const LIST_X = 16;
 const LIST_W = 270;
@@ -47,7 +47,7 @@ export class GeneralsScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'CHOOSE YOUR GENERAL', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Beat a region’s ruler to recruit them. ↑↓ pick, Enter: lead with them, Esc: back.', textStyle(13, TEXT.muted));
+    addHint(this, 16, 38, 'Beat a region’s ruler to recruit them. ↑↓ pick, Enter: lead with them, Esc: back.', 'Beat a region’s ruler to recruit them. ↑↓ pick, Ⓐ: lead with them, Ⓑ: back.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Back  Esc', () => this.goBack(), 150, 34);
 
     GENERAL_IDS.forEach((id, i) => {

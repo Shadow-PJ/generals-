@@ -12,7 +12,7 @@ import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const ROWS_X = 40;
 const ROWS_Y = TOP_BAR_HEIGHT + 24;
@@ -35,7 +35,7 @@ export class OathsScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'OATHS OF COMMAND', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Vows for your next run: each makes it harder and adds Fear. ↑↓ pick, ←→ or Enter change, Esc back.', textStyle(12, TEXT.muted));
+    addHint(this, 16, 38, 'Vows for your next run: each makes it harder and adds Fear. ↑↓ pick, ←→ or Enter change, Esc back.', 'Vows for your next run: each makes it harder and adds Fear. ↑↓ pick, ←→ or Ⓐ change, Ⓑ back.', textStyle(12, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.goBack(), 150, 34);
     this.ui = this.add.container(0, 0);
     new InputLayer(this)

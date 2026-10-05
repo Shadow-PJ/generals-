@@ -7,6 +7,7 @@ import { translateOrder, type Translator } from '../cards/translator';
 import { createPlatform } from '../platform';
 import { audioStatus, setVolume, unlockAudio } from './audio/audio';
 import { actionForKey } from './bindings';
+import { onDeviceChange } from './inputDevice';
 import { currentRenderScale, renderScale, setInitialRenderScale, setRenderScale } from './display';
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
 import { loadOrderReader, orderReaderTranslator } from './orderReader';
@@ -84,6 +85,9 @@ async function boot(): Promise<void> {
   setVolume(currentSettings().volume);
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
   window.addEventListener('keydown', unlockAudio, { capture: true });
+  // A controller's first press too; the desktop app starts sound right away, the browser when it allows.
+  onDeviceChange((device) => device === 'gamepad' && unlockAudio());
+  if (currentPlatform().kind === 'desktop') unlockAudio();
   game.events.on('settings-changed', () => setVolume(currentSettings().volume));
   // The desktop app keeps its window hidden until the first screen is drawn.
   game.events.once(Phaser.Core.Events.POST_RENDER, () => currentPlatform().ready());

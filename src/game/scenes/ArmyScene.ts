@@ -26,7 +26,7 @@ import { InputLayer } from '../InputLayer';
 import { currentCampaign, earnedRank, saveCampaign, savedSetup } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const LIST_X = 16;
 const LIST_W = 580;
@@ -59,7 +59,7 @@ export class ArmyScene extends Phaser.Scene {
       return;
     }
     this.add.text(16, 10, 'CHOOSE YOUR ARMY', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Up to 5 on the field and 3 in reserve. ↑↓ pick, ←→ change, Enter: place your troops.', textStyle(13, TEXT.muted));
+    addHint(this, 16, 38, 'Up to 5 on the field and 3 in reserve. ↑↓ pick, ←→ change, Enter: place your troops.', 'Up to 5 on the field and 3 in reserve. ↑↓ pick, ←→ change, Ⓐ: place your troops.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Map  Esc', () => this.scene.start('Run'), 140, 34);
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Place troops  ⏎', () => this.toPrep(), 150, 34);
     this.ui = this.add.container(0, 0);

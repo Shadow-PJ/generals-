@@ -1,6 +1,7 @@
 {
   "name": "generals",
   "productName": "Generals",
+  "desktopName": "generals.desktop",
   "private": true,
   "version": "0.1.0",
   "description": "A 2D strategy game: write orders before the battle, then fire them as Command cards.",
@@ -21,6 +22,7 @@
     "desktop:compile": "tsc -p desktop/tsconfig.json",
     "desktop": "npm run build && npm run desktop:compile && electron .",
     "desktop:installer": "npm run build && npm run desktop:compile && electron-builder --win --config desktop/electron-builder.yml --publish never",
+    "desktop:linux": "npm run build && npm run desktop:compile && electron-builder --linux --config desktop/electron-builder.yml --publish never",
     "dataset": "tsx tools/dataset/generate.ts",
     "eval": "tsx tools/eval/eval.ts",
     "train:reader": "tsx tools/reader/train.ts"

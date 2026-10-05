@@ -7,6 +7,7 @@ import { TIP_IDS } from '../../data/tutorial';
 import { ORDER_MODELS } from '../../platform';
 import { clampVolume, RESOLUTIONS, type Resolution, type Volume } from '../../save/settings';
 import { playSound, setVolume } from '../audio/audio';
+import { keyLabel } from '../bindings';
 import { currentRenderScale, fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { orderModelState, syncOrderModel, type ModelState } from '../orderModel';
@@ -23,7 +24,7 @@ import {
 } from '../session';
 import { replayTips } from '../tutorial';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const ROWS_X = 60;
 const ROWS_Y = TOP_BAR_HEIGHT + 24;
@@ -62,7 +63,7 @@ export class SettingsScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'SETTINGS', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, '↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. F11 switches fullscreen anywhere.', textStyle(12, TEXT.muted));
+    addHint(this, 16, 38, '↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. F11 switches fullscreen anywhere.', '↑↓ pick a line, ←→ change it, Ⓐ uses it, Ⓑ goes back.', textStyle(12, TEXT.muted));
     addButton(this, 16 + 70, GAME_HEIGHT - 34, '◀ Back  Esc', () => this.goBack(), 140, 32);
     this.ui = this.add.container(0, 0);
 
@@ -170,7 +171,7 @@ export class SettingsScene extends Phaser.Scene {
     rows.push({
       label: 'Captain’s tips',
       value: tutorial.on ? `On · ${tutorial.seen.length} of ${TIP_IDS.length} said` : 'Off',
-      note: 'In your first battles the Captain says a short tip the first time each moment comes. ←→ turns them on or off; Enter plays them all again.',
+      note: `In your first battles the Captain says a short tip the first time each moment comes. ←→ turns them on or off; ${keyLabel('confirm')} plays them all again.`,
       change: () => this.act(saveTutorial({ ...tutorial, on: !tutorial.on })),
       use: () => this.act(saveTutorial(replayTips())),
     });
@@ -180,7 +181,7 @@ export class SettingsScene extends Phaser.Scene {
       label: 'Saves',
       value: platform.saveFolder ?? 'Kept in this browser',
       note: openFolder
-        ? 'Your cards and troops are saved here as you change them. Enter opens the folder.'
+        ? `Your cards and troops are saved here as you change them. ${keyLabel('confirm')} opens the folder.`
         : 'Your cards and troops are saved as you change them. Clearing this site’s data deletes them.',
       ...(openFolder && { use: openFolder }),
     });

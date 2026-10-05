@@ -13,6 +13,18 @@ export const BOTTOM_BAR_Y = TOP_BAR_HEIGHT + OPEN_FIELD.height;
 
 export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 
+/**
+ * The smallest text the game draws, in world pixels. On a Steam Deck (1280×800) the world is
+ * drawn about 1.14 times bigger, so this is about 12.5 screen pixels, above the 9 pixels Valve
+ * asks for (session 6C).
+ */
+export const MIN_TEXT_SIZE = 11;
+
+/** A text size raised to the smallest readable one. */
+export function readableSize(size: number): number {
+  return Math.max(MIN_TEXT_SIZE, size);
+}
+
 export const COLORS = {
   background: 0x141a24,
   field: 0x1f2a38,

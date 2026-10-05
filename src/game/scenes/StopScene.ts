@@ -32,6 +32,7 @@ import { REGIONS } from '../../data/regions';
 import { RUN_RULES } from '../../data/runs';
 import { TROOP_NAMES } from '../../data/units';
 import { COMPANY_RULES } from '../../data/veterans';
+import { keyLabel } from '../bindings';
 import { drawBoon, drawFighter, runFloor, runNumbers } from '../campaignUi';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
@@ -389,7 +390,7 @@ export class StopScene extends Phaser.Scene {
     });
     // The icons go over the option rows.
     this.ui.bringToTop(g);
-    const help = view.leave ? '↑↓ pick, Enter: take it, Esc: leave' : '↑↓ pick, Enter: take it';
+    const help = `↑↓ pick, ${keyLabel('confirm')}: take it${view.leave ? `, ${keyLabel('back')}: leave` : ''}`;
     this.ui.add(this.add.text(cx, Math.max(y + 4, GAME_HEIGHT - 58), help, textStyle(12, TEXT.muted)).setOrigin(0.5, 0));
     if (run.stop?.kind !== 'end') {
       this.ui.add(this.add.text(cx, GAME_HEIGHT - 32, runNumbers(run), textStyle(13, TEXT.body, true)).setOrigin(0.5, 0));

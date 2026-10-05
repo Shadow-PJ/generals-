@@ -10,11 +10,12 @@ import { SPECIALIZATIONS, type SpecializationId } from '../../data/specializatio
 import { TECH_NODES } from '../../data/tech';
 import { TROOP_CLASSES, UNIT_CLASSES, type TroopClass } from '../../data/units';
 import { unlockedClasses } from '../../data/regions';
+import { keyLabel } from '../bindings';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const TAB_Y = TOP_BAR_HEIGHT + 12;
 const TAB_W = 120;
@@ -60,7 +61,7 @@ export class TechScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'TECH WEB', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Tab: class, arrows: pick, Enter: buy, Del: take the class’s web back, Esc: Capital.', textStyle(13, TEXT.muted));
+    addHint(this, 16, 38, 'Tab: class, arrows: pick, Enter: buy, Del: take the class’s web back, Esc: Capital.', 'LB RB: class, ✚: pick, Ⓐ: buy, Ⓧ: take the class’s web back, Ⓑ: Capital.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.scene.start('Capital'), 150, 34);
     this.ui = this.add.container(0, 0);
     new InputLayer(this)
@@ -189,11 +190,11 @@ export class TechScene extends Phaser.Scene {
     add(pickText(pick), 13, TEXT.body, false, 10);
     const problem = techProblem(campaign, this.cls, pick);
     if (hasTech(campaign.tech, this.cls, pick)) add('Yours: every troop of this class has it in your campaign battles.', 12, TEXT.victory);
-    else add(problem ?? `Enter: buy it for ${techCost(pick)} Insight.`, 12, problem ? TEXT.defeat : TEXT.perfect, true);
+    else add(problem ?? `${keyLabel('confirm')}: buy it for ${techCost(pick)} Insight.`, 12, problem ? TEXT.defeat : TEXT.perfect, true);
     const spec = classTech(campaign.tech, this.cls).spec;
     y += 8;
     add(`Specialization: ${spec ? SPECIALIZATIONS[spec].name : 'none yet'}. In skirmish you pick specializations freely; the Tech Web sets them for the campaign.`, 12, TEXT.muted);
     if (this.message) add(this.message, 13, TEXT.combo, true);
-    this.ui.add(this.add.text(16, GAME_HEIGHT - 30, campaign.run ? 'You are on a run: you can buy, but take a web back only between runs.' : 'Between runs: Del takes a class’s web back for all its Insight, free.', textStyle(12, TEXT.muted)));
+    this.ui.add(this.add.text(16, GAME_HEIGHT - 30, campaign.run ? 'You are on a run: you can buy, but take a web back only between runs.' : `Between runs: ${keyLabel('clear')} takes a class’s web back for all its Insight, free.`, textStyle(12, TEXT.muted)));
   }
 }

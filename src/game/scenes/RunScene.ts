@@ -16,6 +16,7 @@ import { fearOf } from '../../data/oaths';
 import { REGIONS } from '../../data/regions';
 import type { NodeKind } from '../../data/runs';
 import { NODE_ICONS } from '../art/icons';
+import { keyLabel } from '../bindings';
 import { paintCentered } from '../art/paint';
 import { BASE } from '../art/palette';
 import { drawBoon, drawFighter, runFloor } from '../campaignUi';
@@ -25,7 +26,7 @@ import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addHint, textStyle } from '../ui';
 
 const MAP_LEFT = 70;
 const MAP_RIGHT = GAME_WIDTH - 70;
@@ -60,7 +61,7 @@ export class RunScene extends Phaser.Scene {
       return;
     }
     this.add.text(16, 10, `${REGIONS[run.region].name.toUpperCase()} · RUN`, textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, '←→ pick your path, Enter: go there. Esc: back to the Capital; your run waits.', textStyle(13, TEXT.muted));
+    addHint(this, 16, 38, '←→ pick your path, Enter: go there. Esc: back to the Capital; your run waits.', '←→ pick your path, Ⓐ: go there. Ⓑ: back to the Capital; your run waits.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.scene.start('Capital'), 150, 34);
     this.ui = this.add.container(0, 0);
     new InputLayer(this)
@@ -154,10 +155,10 @@ export class RunScene extends Phaser.Scene {
     let detail: string;
     if (run.stop && here) {
       headline = `Waiting for you here: ${NODE_NAMES[here.node.kind]}`;
-      detail = 'Press Enter to carry on.';
+      detail = `Press ${keyLabel('confirm')} to carry on.`;
     } else if (picked !== undefined) {
       const kind = run.map[run.path.length]![picked]!.kind;
-      headline = `${NODE_NAMES[kind]}  ·  Enter to go`;
+      headline = `${NODE_NAMES[kind]}  ·  ${keyLabel('confirm')} to go`;
       // Scouting: a fight shows the army that waits there, before you choose.
       const scouted = nodeEncounter(run, run.path.length, picked);
       detail = scouted ? `Scouted: ${scoutText(scouted)}` : NODE_TEXT[kind];
