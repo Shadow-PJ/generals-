@@ -239,10 +239,10 @@ Goal: a balanced, good-looking game that plays well with a controller and agains
 
 ### 6B. Art, sound and UI
 
-- [ ] Sprites and animations replacing the shapes, plus effects, sounds and music
-- [ ] Only original assets or ones whose license allows use in a game, each listed with its license in `docs/CREDITS.md`
-- [ ] Any asset made with AI marked as such in `docs/CREDITS.md`, for Steam's AI disclosure
-- [ ] UI polish and a settings screen
+- [x] Sprites and animations replacing the shapes, plus effects, sounds and music
+- [x] Only original assets or ones whose license allows use in a game, each listed with its license in `docs/CREDITS.md`
+- [x] Any asset made with AI marked as such in `docs/CREDITS.md`, for Steam's AI disclosure
+- [x] UI polish and a settings screen
 
 ### 6C. Controller and Steam Deck
 

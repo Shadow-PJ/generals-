@@ -3,6 +3,8 @@
 // Some actions are held (push-to-talk), so screens can also listen for their release.
 
 import type Phaser from 'phaser';
+import { playSound } from './audio/audio';
+import { menuSound } from './audio/cues';
 import { actionForKey, type InputAction } from './bindings';
 
 type Listener = () => void;
@@ -22,7 +24,11 @@ export class InputLayer {
     event.preventDefault();
     this.held.add(action);
     if (event.repeat) return;
-    for (const listener of this.listeners.get(action) ?? []) listener();
+    const listeners = this.listeners.get(action) ?? [];
+    // Moving, choosing and going back click softly, on the keys the screen listens to.
+    const sound = listeners.length > 0 ? menuSound(action) : null;
+    if (sound) playSound(sound);
+    for (const listener of listeners) listener();
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {

@@ -17,6 +17,7 @@
     "test": "vitest run",
     "sim": "tsx tools/sim.ts",
     "balance": "tsx tools/balance/run.ts",
+    "art:preview": "tsx tools/art/preview.ts",
     "desktop:compile": "tsc -p desktop/tsconfig.json",
     "desktop": "npm run build && npm run desktop:compile && electron .",
     "desktop:installer": "npm run build && npm run desktop:compile && electron-builder --win --config desktop/electron-builder.yml --publish never",

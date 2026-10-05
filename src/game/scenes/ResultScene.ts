@@ -9,6 +9,7 @@ import type { GeneralId } from '../../data/generals';
 import { MASTERY, type MasteryId } from '../../data/mastery';
 import { rankRules } from '../../data/ranks';
 import { formatBattleTime, type BattleResult } from '../../sim';
+import { playMusic, playSound } from '../audio/audio';
 import type { BattleIq, Grade } from '../battleIq';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
@@ -62,6 +63,9 @@ export class ResultScene extends Phaser.Scene {
     this.add.rectangle(cx, cy, PANEL_W, PANEL_H, 0x1a2230, 0.97).setStrokeStyle(2, 0x3a4a60);
     new CaptainTips(this, { x: cx - PANEL_W / 2 + 20, width: PANEL_W - 40, bottom: top + PANEL_H - 92 }).say(sceneTips('Result'));
 
+    // The battle music stops for a fanfare, or a lament.
+    playMusic(null);
+    playSound(result.winner === 'player' ? 'victory' : 'defeat');
     const color = result.winner === 'player' ? TEXT.victory : result.winner === 'enemy' ? TEXT.defeat : TEXT.title;
     this.add.text(cx, top + 34, resultTitle(result), textStyle(36, color, true)).setOrigin(0.5);
     this.add.text(cx, top + 70, resultReason(result), textStyle(15)).setOrigin(0.5);

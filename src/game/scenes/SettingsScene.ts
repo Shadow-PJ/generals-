@@ -1,11 +1,12 @@
-// Settings: fullscreen, window size, resolution, order reading, the Captain's tips, and where your
-// saves are kept.
+// Settings: fullscreen, window size, resolution, sound and music, screen shake, order reading,
+// the Captain's tips, and where your saves are kept.
 // ↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. The mouse works too.
 
 import Phaser from 'phaser';
 import { TIP_IDS } from '../../data/tutorial';
 import { ORDER_MODELS } from '../../platform';
-import { RESOLUTIONS, type Resolution } from '../../save/settings';
+import { clampVolume, RESOLUTIONS, type Resolution, type Volume } from '../../save/settings';
+import { playSound, setVolume } from '../audio/audio';
 import { currentRenderScale, fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { orderModelState, syncOrderModel, type ModelState } from '../orderModel';
@@ -21,13 +22,13 @@ import {
   toggleFullscreen,
 } from '../session';
 import { replayTips } from '../tutorial';
-import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
 const ROWS_X = 60;
-const ROWS_Y = TOP_BAR_HEIGHT + 40;
-const ROW_H = 74;
-const VALUE_X = 260;
+const ROWS_Y = TOP_BAR_HEIGHT + 24;
+const ROW_H = 42;
+const VALUE_X = 300;
 const VALUE_W = 420;
 
 interface Row {
@@ -130,6 +131,29 @@ export class SettingsScene extends Phaser.Scene {
       },
     });
 
+    // Sound (session 6B): everything, then the music and the effects within it.
+    const volumeRow = (key: keyof Volume, label: string, note: string): Row => ({
+      label,
+      value: volumeBar(settings.volume[key]),
+      note,
+      change: (step) => {
+        const volume = { ...settings.volume, [key]: clampVolume(settings.volume[key] + step / 10) };
+        setVolume(volume);
+        // A blow at the new loudness, to hear it by (the music speaks for itself).
+        this.act(changeSettings({ volume }), () => key !== 'music' && playSound('hit'));
+      },
+    });
+    rows.push(volumeRow('master', 'Volume', 'How loud the whole game is. 0% is silent.'));
+    rows.push(volumeRow('music', 'Music', 'The Capital’s theme, the battle theme and the rulers’ theme.'));
+    rows.push(volumeRow('effects', 'Sound effects', 'Blows, arrows, spells, cards and the menus’ clicks.'));
+    rows.push({
+      label: 'Screen shake',
+      value: settings.screenShake ? 'On' : 'Off',
+      note: 'The battlefield shakes for ultimates and falling walls. Turn it off if it bothers you.',
+      change: () => this.act(changeSettings({ screenShake: !settings.screenShake })),
+      use: () => this.act(changeSettings({ screenShake: !settings.screenShake })),
+    });
+
     const modelIds: (string | null)[] = [null, ...ORDER_MODELS.map((m) => m.id)];
     const model = ORDER_MODELS.find((m) => m.id === settings.orderModel);
     rows.push({
@@ -204,10 +228,11 @@ export class SettingsScene extends Phaser.Scene {
     this.shownScale = currentRenderScale();
     this.shownModel = JSON.stringify(orderModelState());
     this.ui.removeAll(true);
-    this.rows().forEach((r, i) => {
+    const rows = this.rows();
+    rows.forEach((r, i) => {
       const y = ROWS_Y + i * ROW_H;
       const selected = i === this.row;
-      if (selected) this.ui.add(this.add.rectangle(ROWS_X - 12, y - 10, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 8, 0x2b3a50).setOrigin(0));
+      if (selected) this.ui.add(this.add.rectangle(ROWS_X - 12, y - 9, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 4, 0x2b3a50).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge));
       this.ui.add(this.add.text(ROWS_X, y, r.label, textStyle(15, selected ? TEXT.title : TEXT.body, true)));
       const valueStyle = { ...textStyle(14, r.change || r.use ? TEXT.body : TEXT.muted), wordWrap: { width: VALUE_W - 40 } };
       const value = this.add.text(VALUE_X + VALUE_W / 2, y + 1, r.value, valueStyle).setOrigin(0.5, 0);
@@ -233,8 +258,12 @@ export class SettingsScene extends Phaser.Scene {
         });
         this.ui.add([left, right]);
       }
-      this.ui.add(this.add.text(ROWS_X, y + 30, r.note, { ...textStyle(12, TEXT.muted), wordWrap: { width: GAME_WIDTH - 2 * ROWS_X } }));
     });
+    // What the chosen line does, under the list.
+    const note = rows[this.row]?.note ?? '';
+    const noteY = ROWS_Y + rows.length * ROW_H + 6;
+    this.ui.add(this.add.rectangle(ROWS_X - 12, noteY - 8, GAME_WIDTH - 2 * ROWS_X + 24, 64, COLORS.panel).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge));
+    this.ui.add(this.add.text(ROWS_X, noteY, note, { ...textStyle(13, TEXT.muted), wordWrap: { width: GAME_WIDTH - 2 * ROWS_X } }));
   }
 }
 
@@ -251,6 +280,12 @@ function modelNote(state: ModelState, sizeMb: number): string {
     case 'failed':
       return `${state.name} didn't start (${state.error}). The parser and reader still read your orders.`;
   }
+}
+
+/** A loudness as ten blocks and a percentage. */
+function volumeBar(value: number): string {
+  const filled = Math.round(value * 10);
+  return `${'■'.repeat(filled)}${'□'.repeat(10 - filled)}  ${filled * 10}%`;
 }
 
 function resolutionLabel(resolution: Resolution): string {

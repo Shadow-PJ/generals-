@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { describeCard } from '../cards/describe';
 import { translateOrder, type Translator } from '../cards/translator';
 import { createPlatform } from '../platform';
+import { audioStatus, setVolume, unlockAudio } from './audio/audio';
 import { actionForKey } from './bindings';
 import { currentRenderScale, renderScale, setInitialRenderScale, setRenderScale } from './display';
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
@@ -13,6 +14,7 @@ import { ArmyScene } from './scenes/ArmyScene';
 import { CompanyScene } from './scenes/CompanyScene';
 import { TechScene } from './scenes/TechScene';
 import { BattleScene } from './scenes/BattleScene';
+import { BootScene } from './scenes/BootScene';
 import { CapitalScene } from './scenes/CapitalScene';
 import { CodexScene } from './scenes/CodexScene';
 import { GeneralsScene } from './scenes/GeneralsScene';
@@ -24,6 +26,7 @@ import { RunScene } from './scenes/RunScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { StopScene } from './scenes/StopScene';
 import { TroopsScene } from './scenes/TroopsScene';
+import { watchScenes } from './sceneHooks';
 import { applyWindowSettings, currentPlatform, currentSettings, startSession, toggleFullscreen } from './session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from './theme';
 
@@ -53,8 +56,11 @@ async function boot(): Promise<void> {
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
     // The order text box on the Orders screen is a real HTML input laid over the canvas.
     dom: { createContainer: true },
-    // The Capital, the world map hub, is the first screen.
+    // Sound is the game's own synthesizer (src/game/audio), not Phaser's.
+    audio: { noAudio: true },
+    // Boot makes the textures, then opens the Capital, the world map hub.
     scene: [
+      BootScene,
       CapitalScene,
       RunScene,
       ArmyScene,
@@ -73,6 +79,12 @@ async function boot(): Promise<void> {
     ],
   });
 
+  watchScenes(game);
+  // Sound: as loud as Settings say, starting with the first key press or click (browsers allow no sooner).
+  setVolume(currentSettings().volume);
+  window.addEventListener('pointerdown', unlockAudio, { capture: true });
+  window.addEventListener('keydown', unlockAudio, { capture: true });
+  game.events.on('settings-changed', () => setVolume(currentSettings().volume));
   // The desktop app keeps its window hidden until the first screen is drawn.
   game.events.once(Phaser.Core.Events.POST_RENDER, () => currentPlatform().ready());
   // A bigger window or fullscreen needs more pixels to stay sharp.
@@ -98,6 +110,7 @@ function exposeTestHook(): void {
   Object.assign(window, {
     __smoke: {
       modelState: orderModelState,
+      audio: audioStatus,
       translate: (text: string) => translate(text, [orderReaderTranslator, orderModelTranslator()]),
       translateWithModel: (text: string) => translate(text, [orderModelTranslator()]),
     },

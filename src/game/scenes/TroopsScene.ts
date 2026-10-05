@@ -13,7 +13,9 @@ import { RANKS, rankRules, type RankNumber } from '../../data/ranks';
 import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
 import { TROOP_CLASSES, UNIT_CLASSES, type UnitClass } from '../../data/units';
-import { drawBody, drawField, drawWall, drawZone } from '../draw';
+import { groundTexture } from '../art/textures';
+import { TROOP_ART_SCALE } from '../art/troops';
+import { drawBody, drawWall, drawZone } from '../draw';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -58,6 +60,7 @@ export class TroopsScene extends Phaser.Scene {
   private shapes!: Phaser.GameObjects.Graphics;
   private synergyText!: Phaser.GameObjects.Text;
   private preview!: Phaser.GameObjects.Graphics;
+  private previewGround!: Phaser.GameObjects.Image;
   private terrainText!: Phaser.GameObjects.Text;
 
   constructor() {
@@ -134,6 +137,7 @@ export class TroopsScene extends Phaser.Scene {
 
     // The chosen map, small, under the specializations, with how its terrain plays.
     const previewY = TOP_BAR_HEIGHT + 14 + 20 + TROOP_CLASSES.length * SPEC_ROW_H + ROW_H + 10;
+    this.previewGround = this.add.image(RIGHT_X, previewY, groundTexture(this, MAPS[this.setup.map])).setOrigin(0).setScale(TROOP_ART_SCALE * PREVIEW_SCALE);
     this.preview = this.add.graphics().setPosition(RIGHT_X, previewY).setScale(PREVIEW_SCALE);
     const previewW = MAPS.openField.width * PREVIEW_SCALE;
     this.terrainText = this.add.text(RIGHT_X + previewW + 10, previewY, '', {
@@ -278,11 +282,11 @@ export class TroopsScene extends Phaser.Scene {
       }
     });
     const map = MAPS[this.setup.map];
+    this.previewGround.setTexture(groundTexture(this, map));
     const p = this.preview.clear();
-    drawField(p, map);
     drawZone(p, map.deployZones.player, 'player', 1);
     drawZone(p, map.deployZones.enemy, 'enemy', 0.6);
-    for (const wall of map.walls) drawWall(p, wall);
+    for (const wall of map.walls) drawWall(p, wall, map.id);
     this.terrainText.setText(`${map.name.toUpperCase()}\n${map.terrainText}`);
     const on = yourSynergies(this.setup);
     this.synergyText.setText(

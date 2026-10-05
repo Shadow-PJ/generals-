@@ -9,6 +9,7 @@ import { recruitedGenerals } from '../../data/bosses';
 import { GENERAL_IDS, GENERALS, type GeneralId } from '../../data/generals';
 import { MASTERY } from '../../data/mastery';
 import { REGIONS, regionOf } from '../../data/regions';
+import { portraitKey } from '../art/textures';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
@@ -58,8 +59,10 @@ export class GeneralsScene extends Phaser.Scene {
       });
       this.boxes.push(box);
       const general = GENERALS[id];
-      this.add.text(LIST_X + 12, y + 8, general.name, textStyle(15, TEXT.title, true));
-      this.add.text(LIST_X + 12, y + 30, general.faction ?? 'No faction', textStyle(12, TEXT.muted));
+      // A small portrait, dimmed for Generals you haven't recruited.
+      this.add.image(LIST_X + 8, y + 6, portraitKey(id)).setOrigin(0).setScale(2.625).setAlpha(this.recruited.includes(id) ? 1 : 0.4);
+      this.add.text(LIST_X + 60, y + 8, general.name, textStyle(15, TEXT.title, true));
+      this.add.text(LIST_X + 60, y + 30, general.faction ?? 'No faction', textStyle(12, TEXT.muted));
       if (id === this.setup.general) this.add.text(LIST_X + LIST_W - 12, y + 10, 'Leading', textStyle(12, TEXT.victory, true)).setOrigin(1, 0);
       else if (!this.recruited.includes(id)) this.add.text(LIST_X + LIST_W - 12, y + 10, 'Locked', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     });
@@ -120,6 +123,7 @@ export class GeneralsScene extends Phaser.Scene {
       this.panel.add(label);
       y += label.height + gap;
     };
+    this.panel.add(this.add.image(PANEL_X + PANEL_W, y - 2, portraitKey(id)).setOrigin(1, 0).setScale(4));
     add(`${general.name}${general.faction ? ` · ${general.faction}` : ''}`, 22, TEXT.title, true, 4);
     add(general.motto, 13, TEXT.muted, false, 16);
     const parts: [string, string][] = [

@@ -14,6 +14,7 @@ import { LEGENDARY_ACTION_DATA, learnedActions } from '../../data/legendary';
 import { MAPS } from '../../data/maps';
 import { rankRules } from '../../data/ranks';
 import { openRegions, REGION_IDS, REGIONS, type RegionId } from '../../data/regions';
+import { CAPITAL_KEY, portraitKey, regionKey } from '../art/textures';
 import { runFloor, runNumbers } from '../campaignUi';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
@@ -145,6 +146,7 @@ export class CapitalScene extends Phaser.Scene {
     });
     g.fillStyle(COLORS.capital, 1).fillCircle(MAP_CENTER.x, MAP_CENTER.y, 34);
     g.lineStyle(3, 0x7c5f22, 1).strokeCircle(MAP_CENTER.x, MAP_CENTER.y, 34);
+    this.ui.add(this.add.image(MAP_CENTER.x, MAP_CENTER.y + 4, CAPITAL_KEY).setScale(2.5));
     this.ui.add(this.add.text(MAP_CENTER.x, MAP_CENTER.y + 42, 'THE CAPITAL', textStyle(12, TEXT.title, true)).setOrigin(0.5, 0));
 
     REGION_IDS.forEach((id, i) => {
@@ -157,11 +159,13 @@ export class CapitalScene extends Phaser.Scene {
       if (i === this.selected) g.lineStyle(3, COLORS.selected, 1).strokeCircle(p.x, p.y, REGION_R + (here ? 11 : 6));
       const zone = this.add.zone(p.x, p.y, REGION_R * 2, REGION_R * 2).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => (this.selected === i ? this.go() : this.select(i)));
-      const name = this.add.text(p.x, p.y - 8, REGIONS[id].name, textStyle(13, status === 'locked' ? TEXT.muted : TEXT.title, true)).setOrigin(0.5);
+      // The region's emblem over its name.
+      const emblem = this.add.image(p.x, p.y - 18, regionKey(id)).setScale(2).setAlpha(status === 'locked' ? 0.35 : 1);
+      const name = this.add.text(p.x, p.y + 7, REGIONS[id].name, textStyle(13, status === 'locked' ? TEXT.muted : TEXT.title, true)).setOrigin(0.5);
       const label = here ? 'Your run' : { cleared: 'Cleared', open: 'Open', locked: 'Locked' }[status];
       const color = here ? TEXT.perfect : status === 'cleared' ? TEXT.victory : TEXT.muted;
-      const note = this.add.text(p.x, p.y + 10, label, textStyle(11, color, true)).setOrigin(0.5);
-      this.ui.add([zone, name, note]);
+      const note = this.add.text(p.x, p.y + 23, label, textStyle(11, color, true)).setOrigin(0.5);
+      this.ui.add([zone, emblem, name, note]);
     });
 
     this.renderPanel();
@@ -180,6 +184,9 @@ export class CapitalScene extends Phaser.Scene {
       this.ui.add(t);
       y += t.height + gap;
     };
+    // The ruler's portrait, beside the region's name.
+    this.ui.add(this.add.rectangle(PANEL_X + PANEL_W, y - 6, 52, 52, COLORS.panel).setOrigin(1, 0).setStrokeStyle(1, COLORS.panelEdge));
+    this.ui.add(this.add.image(PANEL_X + PANEL_W - 2, y - 4, portraitKey(region.ruler)).setOrigin(1, 0).setScale(3));
     add(region.name.toUpperCase(), 20, TEXT.title, true, 2);
     add(`Ruled by ${GENERALS[region.ruler].name}`, 13, TEXT.threat, true, 10);
     add(MAPS[region.map].terrainText, 13, TEXT.body, false, 10);
