@@ -12,10 +12,11 @@ import { GENERALS } from '../../data/generals';
 import { RANKS } from '../../data/ranks';
 import { SPECIALIZATIONS } from '../../data/specializations';
 import { SYNERGIES } from '../../data/synergies';
-import { UNIT_CLASSES } from '../../data/units';
+import { UNIT_CLASSES, type UnitClass } from '../../data/units';
 import { placementProblem } from '../../sim';
 import { drawFactionDot } from '../campaignUi';
-import { CLASS_LEGEND, drawBar, drawBody, drawField, drawRarity, drawWall, drawZone } from '../draw';
+import { addGround } from '../art/textures';
+import { drawBar, drawBody, drawRarity, drawWall, drawZone } from '../draw';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
@@ -77,12 +78,12 @@ export class PrepScene extends Phaser.Scene {
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
 
     const world = this.add.container(0, TOP_BAR_HEIGHT);
-    const field = this.add.graphics();
     const map = MAPS[this.setup.map];
-    drawField(field, map);
+    const ground = addGround(this, map);
+    const field = this.add.graphics();
     drawZone(field, map.deployZones.player, 'player', 1);
     drawZone(field, map.deployZones.enemy, 'enemy', 0.6);
-    for (const wall of map.walls) drawWall(field, wall);
+    for (const wall of map.walls) drawWall(field, wall, map.id);
     const enemy = enemyArmyOf(this.setup);
     for (const t of enemy.placement) {
       const r = UNIT_CLASSES[t.cls].stats.radius;
@@ -90,7 +91,9 @@ export class PrepScene extends Phaser.Scene {
       drawRarity(field, t.x, t.y, r, t.rarity ?? 'common', 0.85);
     }
     // The map's terrain rule over the field, and who leads the enemy under its deploy zone.
-    const terrain = this.add.text(map.width / 2, 10, `${map.name}: ${map.terrainText}`, textStyle(12, TEXT.muted)).setOrigin(0.5, 0);
+    const terrain = this.add.text(map.width / 2, 10, `${map.name}: ${map.terrainText}`, textStyle(12, TEXT.body)).setOrigin(0.5, 0);
+    // A dark band behind it, so it reads on any ground.
+    const band = this.add.rectangle(map.width / 2, 7, terrain.width + 24, terrain.height + 6, COLORS.background, 0.88).setOrigin(0.5, 0);
     const zone = map.deployZones.enemy;
     const rank = RANKS.find((r) => r.rank === enemy.commander?.rank);
     const enemyReserves = enemy.reserves.length > 0 ? ` · ${enemy.reserves.length} in reserve` : '';
@@ -104,7 +107,7 @@ export class PrepScene extends Phaser.Scene {
       .setOrigin(0.5, 0);
     this.graphics = this.add.graphics();
     this.label = this.add.text(0, 0, '', textStyle(12, TEXT.title)).setOrigin(0.5, 1);
-    world.add([field, terrain, enemyLead, this.graphics, this.label]);
+    world.add([ground, field, band, terrain, enemyLead, this.graphics, this.label]);
 
     // Your 3 reserves wait off the field until a Call Reserve card brings them in.
     this.add.text(16, BOTTOM_BAR_Y + 16, 'RESERVES', textStyle(12, TEXT.muted, true));
@@ -126,7 +129,13 @@ export class PrepScene extends Phaser.Scene {
       waiting.length === 0 ? 'None. Pick reserves on the Army screen.' : 'They join at your edge of the map when you fire a Call Reserve card (Rank III).',
       textStyle(12, TEXT.muted),
     );
-    this.add.text(16, BOTTOM_BAR_Y + 76, CLASS_LEGEND, textStyle(12, TEXT.muted));
+    // Which troop is which: each class small, with its name.
+    const legend = this.add.graphics();
+    (Object.keys(UNIT_CLASSES) as UnitClass[]).forEach((cls, i) => {
+      const x = 26 + i * 98;
+      drawBody(legend, cls, 'player', x, BOTTOM_BAR_Y + 84, UNIT_CLASSES[cls].stats.radius * 0.5, x + 100, BOTTOM_BAR_Y + 84);
+      this.add.text(x + 14, BOTTOM_BAR_Y + 77, UNIT_CLASSES[cls].name, textStyle(12, TEXT.muted));
+    });
     // What the army you brought switches on by itself, and the specializations you picked.
     const synergies = yourSynergies(this.setup).map((id) => SYNERGIES.find((s) => s.id === id)!.name);
     const specs = Object.values(this.setup.specs).map((id) => SPECIALIZATIONS[id].name);

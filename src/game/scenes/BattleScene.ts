@@ -51,14 +51,17 @@ import {
 import { SLOT_ACTIONS } from '../bindings';
 import { CaptainTips } from '../captain';
 import { codexEntry } from '../codex';
+import { playMusic, playSound } from '../audio/audio';
+import { eventSounds } from '../audio/cues';
+import { LUNGE_DISTANCE, LUNGE_MS, lungeShare, poseAt, RECOIL_DISTANCE } from '../art/animate';
+import { addGround, portraitKey } from '../art/textures';
+import { addFallen, ArrowSprites, Bursts, TroopSprites, type BurstKind } from '../battleFx';
 import {
   drawBar,
   drawBarrier,
   drawBeam,
-  drawBody,
   drawCasting,
   drawChased,
-  drawField,
   drawGeneralEffects,
   drawGravityWell,
   drawHeat,
@@ -79,7 +82,7 @@ import { battleFacts } from '../battleFacts';
 import { battleIq } from '../battleIq';
 import { metChallenges } from '../mastery';
 import { battleXp, withIqXp } from '../progress';
-import { currentCampaign, recordCombo } from '../session';
+import { currentCampaign, currentSettings, recordCombo } from '../session';
 import { threats } from '../threats';
 import { battleMoments } from '../tutorial';
 import { bossOf, fightOutcome } from '../campaignFlow';
@@ -112,6 +115,22 @@ const SKILL_LABELS = {
   phaseShift: 'Phase Shift!',
   shatter: 'Shatter!',
 } as const;
+
+/** The burst of particles each skill shows on the troop that used it. */
+const SKILL_BURSTS: Readonly<Partial<Record<keyof typeof SKILL_LABELS, BurstKind>>> = {
+  shove: 'dust',
+  barrier: 'frost',
+  rift: 'magic',
+  shadowstep: 'puff',
+  vampiricLink: 'fire',
+  vent: 'fire',
+  assimilation: 'heal',
+  phaseShift: 'magic',
+  shatter: 'heavy',
+};
+
+/** How long a melee swing's arc stays, in milliseconds. */
+const SLASH_MS = 110;
 
 /** How long a beam or a Gravity Well stays on screen, in milliseconds. */
 const STRIKE_MS = 700;
@@ -157,8 +176,22 @@ export class BattleScene extends Phaser.Scene {
   /** Ultimates that strike a place, shown for a moment: Thermal Detonation's beam, Gravity Well. */
   private strikes: { kind: 'beam' | 'well'; at: Point; to: Point | null; until: number }[] = [];
 
+  /** Melee blows (a lunge toward the target) and shots (a small recoil), by troop: when, and which way. */
+  private lunges = new Map<number, { at: number; dx: number; dy: number; recoil: boolean }>();
+  /** Projectiles already seen, so a new one makes its shooter recoil once. */
+  private seenShots = new Set<number>();
+  /** Melee swings: a white arc in front of the striker for a moment. */
+  private slashes: { x: number; y: number; angle: number; until: number }[] = [];
+
   private world!: Phaser.GameObjects.Container;
   private wallsLayer!: Phaser.GameObjects.Graphics;
+  /** Under the troops: Rifts, shadows, slow rings, taunt lines. */
+  private groundLayer!: Phaser.GameObjects.Graphics;
+  private troopSprites!: TroopSprites;
+  private arrowSprites!: ArrowSprites;
+  private fallenLayer!: Phaser.GameObjects.Container;
+  private bursts!: Bursts;
+  /** Over the troops: rings, marks, bars and the other signs of what is happening to them. */
   private unitsLayer!: Phaser.GameObjects.Graphics;
   private topBar!: Phaser.GameObjects.Graphics;
   private bottomBar!: Phaser.GameObjects.Graphics;
@@ -215,20 +248,39 @@ export class BattleScene extends Phaser.Scene {
     this.bannerFreeAt = 0;
     this.merged = new Set();
     this.strikes = [];
+    this.lunges = new Map();
+    this.seenShots = new Set();
+    this.slashes = [];
   }
 
   create(): void {
     fitCamera(this);
     this.world = this.add.container(0, TOP_BAR_HEIGHT);
-    const field = this.add.graphics();
-    drawField(field, this.state.map);
+    const ground = addGround(this, this.state.map);
+    this.fallenLayer = this.add.container(0, 0);
     this.wallsLayer = this.add.graphics();
+    this.groundLayer = this.add.graphics();
+    this.troopSprites = new TroopSprites(this);
+    this.arrowSprites = new ArrowSprites(this);
     this.unitsLayer = this.add.graphics();
-    this.world.add([field, this.wallsLayer, this.unitsLayer]);
+    this.bursts = new Bursts(this);
+    this.world.add([
+      ground,
+      this.fallenLayer,
+      this.wallsLayer,
+      this.groundLayer,
+      this.troopSprites.layer,
+      this.arrowSprites.layer,
+      this.unitsLayer,
+      ...this.bursts.emitters,
+    ]);
 
     this.topBar = this.add.graphics();
     this.add.text(16, 8, `YOU · ${GENERALS[this.setup.general].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
     this.add.text(GAME_WIDTH - 16, 8, `${GENERALS[this.state.generals.enemy].name.toUpperCase()} · ENEMY`, textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
+    // Both Generals' portraits, beside their armies' HP bars.
+    this.add.image(16 + 300 + 8, 6, portraitKey(this.setup.general)).setOrigin(0).setScale(2).setDepth(1);
+    this.add.image(GAME_WIDTH - 16 - 300 - 8, 6, portraitKey(this.state.generals.enemy)).setOrigin(1, 0).setScale(2).setFlipX(true).setDepth(1);
     this.enemyCommandText = this.add.text(GAME_WIDTH - 16, 44, '', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     this.clockText = this.add.text(GAME_WIDTH / 2, 6, '0:00', textStyle(22, TEXT.title, true)).setOrigin(0.5, 0);
     this.overtimeText = this.add.text(GAME_WIDTH / 2 + 50, 12, '', textStyle(13, TEXT.overtime, true));
@@ -256,6 +308,8 @@ export class BattleScene extends Phaser.Scene {
     this.tips.say([{ id: 'battleStart' }], TUTORIAL_RULES.battleTipSeconds);
 
     const boss = this.state.boss;
+    playMusic(boss ? 'boss' : 'battle');
+    playSound('fight');
     if (boss) this.banner(`BOSS: ${GENERALS[boss].name.toUpperCase()}`, TEXT.threat, BOSSES[boss].rule, BOSS_BANNER_MS);
     else this.banner('FIGHT!', TEXT.title, this.setup.tactical ? 'Tactical mode: the battle pauses every 10 s' : undefined);
   }
@@ -323,8 +377,11 @@ export class BattleScene extends Phaser.Scene {
     const events = this.state.events;
     for (; this.eventCursor < events.length; this.eventCursor++) {
       const e = events[this.eventCursor]!;
+      for (const sound of eventSounds(e)) playSound(sound);
       if (e.type === 'damage' && e.amount + e.absorbed > 0) {
-        this.flashUntil.set(e.targetId, time + HIT_FLASH_MS);
+        // Blows flash the troop; burns and Rift pulses only spark, or a troop in a Rift would glow all the time.
+        if (e.cause !== 'burn' && e.cause !== 'rift') this.flashUntil.set(e.targetId, time + HIT_FLASH_MS);
+        this.showHit(e, time);
         const unit = e.cause === 'execute' ? this.unit(e.targetId) : undefined;
         if (unit) this.popup(unit.x, unit.y - 34, 'Executed!', TEXT.threat);
       } else if (e.type === 'interrupted') {
@@ -332,7 +389,10 @@ export class BattleScene extends Phaser.Scene {
         if (unit) this.popup(unit.x, unit.y - 26, 'Interrupted!', TEXT.overtime);
       } else if (e.type === 'phased') {
         const unit = this.unit(e.unitId);
-        if (unit) this.popup(unit.x, unit.y - 26, 'Phased!', TEXT.combo);
+        if (unit) {
+          this.popup(unit.x, unit.y - 26, 'Phased!', TEXT.combo);
+          this.bursts.burst('magic', unit.x, unit.y);
+        }
       } else if (e.type === 'stolen') {
         const victim = this.unit(e.victimId);
         const trait = BOSS_RULES.hiveMother.steals[e.trait];
@@ -344,13 +404,26 @@ export class BattleScene extends Phaser.Scene {
         if (e.side === 'player') this.comboBanner(`${synergy.name.toUpperCase()}!`, synergy.bonusText, this.found(e.synergy));
       } else if (e.type === 'skill') {
         const unit = this.unit(e.unitId);
-        if (unit) this.popup(unit.x, unit.y - 26, SKILL_LABELS[e.skill], unit.side === 'player' ? '#bfe0ff' : '#ffc9c0');
+        if (unit) {
+          this.popup(unit.x, unit.y - 26, SKILL_LABELS[e.skill], unit.side === 'player' ? '#bfe0ff' : '#ffc9c0');
+          const burst = SKILL_BURSTS[e.skill];
+          if (burst) this.bursts.burst(burst, unit.x, unit.y);
+        }
       } else if (e.type === 'death') {
         const unit = this.unit(e.unitId);
-        if (unit) this.popup(unit.x, unit.y - 20, '✖', unit.side === 'player' ? '#7fb8ff' : '#ff8f80');
+        if (unit) {
+          this.popup(unit.x, unit.y - 20, '✖', unit.side === 'player' ? '#7fb8ff' : '#ff8f80');
+          addFallen(this, this.fallenLayer, unit.rooted ? 'turret' : unit.cls, unit.side, unit.x, unit.y);
+          this.bursts.burst('puff', unit.x, unit.y + 6);
+        }
       } else if (e.type === 'wallBreak') {
         const wall = this.state.walls.find((w) => w.id === e.wallId);
-        if (wall) this.popup(wall.x + wall.w / 2, wall.y + wall.h / 2, 'Wall broken!', TEXT.title);
+        if (wall) {
+          this.popup(wall.x + wall.w / 2, wall.y + wall.h / 2, 'Wall broken!', TEXT.title);
+          this.bursts.burstOver('stone', wall.x, wall.y, wall.w, wall.h, 6);
+          this.bursts.burstOver('dust', wall.x, wall.y, wall.w, wall.h, 4);
+          this.shake(180, 0.004);
+        }
       } else if (e.type === 'overtime') {
         this.banner('OVERTIME', TEXT.overtime, 'Damage grows every second');
       } else if (e.type === 'cardFired' && e.side === 'player') {
@@ -374,17 +447,51 @@ export class BattleScene extends Phaser.Scene {
         else this.banner(`${name}!`, TEXT.perfect, ultimate.text);
         if (e.name === 'thermalDetonation' && e.at && e.to) this.strikes.push({ kind: 'beam', at: e.at, to: e.to, until: time + STRIKE_MS });
         if (e.name === 'gravityWell' && e.at) this.strikes.push({ kind: 'well', at: e.at, to: null, until: time + STRIKE_MS });
+        // The whole field flashes in the side's color, and shakes.
+        const color = COLORS.side[e.side];
+        this.cameras.main.flash(260, (color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff);
+        this.shake(320, 0.007);
       } else if (e.type === 'evolved') {
         this.merged.add(e.mergedId);
         const unit = this.unit(e.unitId);
-        if (unit) this.popup(unit.x, unit.y - 30, 'Evolved!', '#fde68a');
+        if (unit) {
+          this.popup(unit.x, unit.y - 30, 'Evolved!', '#fde68a');
+          this.bursts.burst('gold', unit.x, unit.y);
+        }
+      } else if (e.type === 'revived') {
+        const unit = this.unit(e.unitId);
+        if (unit) this.bursts.burst('gold', unit.x, unit.y);
       } else if (e.type === 'legendary') {
         this.showLegendary(e);
       } else if (e.type === 'reserveCalled') {
         const unit = this.unit(e.unitId);
-        if (unit) this.popup(unit.x, unit.y - 26, 'Reserve arrives!', '#bfe0ff');
+        if (unit) {
+          this.popup(unit.x, unit.y - 26, 'Reserve arrives!', '#bfe0ff');
+          this.bursts.burst('dust', unit.x, unit.y + 8);
+        }
       }
     }
+  }
+
+  /** A blow landing: sparks (or fire, or magic) on the target, and a melee striker leaning into it. */
+  private showHit(e: Extract<BattleEvent, { type: 'damage' }>, time: number): void {
+    const target = this.unit(e.targetId);
+    if (!target) return;
+    const kind: BurstKind =
+      e.cause === 'burn' ? 'fire' : e.cause === 'rift' ? 'magic' : e.cause === 'shove' ? 'heavy' : e.amount === 0 ? 'frost' : 'hit';
+    this.bursts.burst(kind, target.x, target.y - 4, e.amount >= 40 ? 1.5 : 1);
+    const source = e.cause === 'attack' ? this.unit(e.sourceId) : undefined;
+    if (!source || source.cls === 'ranger' || source.rooted) return;
+    const dx = target.x - source.x;
+    const dy = target.y - source.y;
+    const len = Math.hypot(dx, dy) || 1;
+    this.lunges.set(source.id, { at: time, dx: dx / len, dy: dy / len, recoil: false });
+    this.slashes.push({ x: source.x + (dx / len) * 14, y: source.y + (dy / len) * 14, angle: Math.atan2(dy, dx), until: time + SLASH_MS });
+  }
+
+  /** Shakes the battlefield, unless the player turned shaking off in Settings. */
+  private shake(ms: number, intensity: number): void {
+    if (currentSettings().screenShake) this.cameras.main.shake(ms, intensity);
   }
 
   /** A Legendary action: its name across the field, and a word over each troop it acted on. */
@@ -392,6 +499,7 @@ export class BattleScene extends Phaser.Scene {
     const action = LEGENDARY_ACTION_DATA[e.action];
     const yours = e.side === 'player';
     this.banner(`${yours ? '' : 'ENEMY '}${action.name.toUpperCase()}!`, yours ? TEXT.perfect : TEXT.threat, action.text);
+    if (e.at) this.bursts.burst('dust', e.at.x, e.at.y, 2);
     const words = { hijack: 'Hijacked!', swap: 'Swapped!', bloodPact: 'Sacrificed', fortify: '', echo: '' } as const;
     for (const id of e.unitIds) {
       const unit = this.unit(id);
@@ -405,21 +513,16 @@ export class BattleScene extends Phaser.Scene {
 
   private draw(time: number, blend: number): void {
     const walls = this.wallsLayer.clear();
-    for (const wall of this.state.walls) drawWall(walls, wall);
+    for (const wall of this.state.walls) drawWall(walls, wall, this.state.map.id);
 
+    const under = this.groundLayer.clear();
     const g = this.unitsLayer.clear();
     // Rifts lie on the ground, under everyone.
     const riftTicks = secondsToTicks(UNIT_CLASSES.invoker.rift.durationSeconds);
     const pulseTicks = secondsToTicks(UNIT_CLASSES.invoker.rift.pulseSeconds);
-    for (const zone of this.state.zones) drawRift(g, zone, zone.ticksLeft / riftTicks, Math.max(0, zone.pulseIn / pulseTicks - 0.5) * 2);
-    // Fallen troops next, so the living are drawn on top.
-    for (const u of this.state.units) {
-      if (u.alive || this.merged.has(u.id)) continue;
-      const r = u.stats.radius * 0.6;
-      g.lineStyle(3, COLORS.side[u.side], 0.35);
-      g.lineBetween(u.x - r, u.y - r, u.x + r, u.y + r).lineBetween(u.x - r, u.y + r, u.x + r, u.y - r);
-    }
+    for (const zone of this.state.zones) drawRift(under, zone, zone.ticksLeft / riftTicks, Math.max(0, zone.pulseIn / pulseTicks - 0.5) * 2, time);
     const focused = new Set<number>();
+    this.troopSprites.begin();
     for (const u of this.state.units) {
       if (!u.alive) continue;
       const at = this.smoothed(`u${u.id}`, u.x, u.y, blend);
@@ -429,27 +532,43 @@ export class BattleScene extends Phaser.Scene {
       // Troops the other side can't see (Shadow Escort, or deep in the woods) show faintly: yours a little clearer.
       const hidden = u.invisibleTicks > 0 || (!this.state.result && hiddenFromSide(this.state, u, otherSide(u.side)));
       const alpha = hidden ? (u.side === 'player' ? 0.35 : 0.15) : 1;
-      if (hidden && u.side === 'enemy') {
-        // Only a faint shape: no HP bar or effects to give it away.
-        drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash: 0, alpha });
-        continue;
-      }
-      if (u.slow) drawSlowed(g, at.x, at.y, r);
+      // Walking, standing, and leaning into a blow.
+      const before = this.previous.get(`u${u.id}`);
+      const moving = !this.state.result && !this.clock.paused && before !== undefined && Math.abs(before.x - u.x) + Math.abs(before.y - u.y) > 0.05;
+      const pose = poseAt(moving && !u.rooted, time, u.id);
+      const lunge = this.lunges.get(u.id);
+      const lean = lunge ? lungeShare(time - lunge.at) * (lunge.recoil ? -RECOIL_DISTANCE : LUNGE_DISTANCE) : 0;
+      if (lunge && time - lunge.at >= LUNGE_MS) this.lunges.delete(u.id);
+      const x = at.x + (lunge?.dx ?? 0) * lean;
+      const y = at.y + (lunge?.dy ?? 0) * lean + pose.bob;
+      this.troopSprites.show(u.id, {
+        cls: u.rooted ? 'turret' : u.cls,
+        side: u.side,
+        frame: pose.frame,
+        x,
+        y,
+        flipX: face.x < at.x,
+        alpha: u.wraithTicks > 0 ? Math.min(alpha, 0.75) : alpha,
+        flash: hidden ? 0 : flash,
+        tint: u.wraithTicks > 0 ? COLORS.wraith : null,
+        size: u.elite ? 1.25 : 1,
+      });
+      if (hidden && u.side === 'enemy') continue; // Only a faint shape: no shadow, HP bar or effects to give it away.
+      under.fillStyle(0x000000, 0.28 * alpha).fillEllipse(at.x, at.y + r * 0.9, r * 1.7, r * 0.55);
+      if (u.slow) drawSlowed(under, at.x, at.y, r);
+      const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
+      if (taunter?.alive) drawTaunted(under, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
       drawGeneralEffects(g, at.x, at.y, r, u);
       if (u.barrier) drawBarrier(g, at.x, at.y, r, u.barrier.amount / UNIT_CLASSES.guardian.barrier.amount);
       if (u.rallyTicks > 0) g.lineStyle(2, COLORS.glow, 0.7).strokeCircle(at.x, at.y, r + 9);
       // Hijacked: a ring in the color of the side that controls it.
       if (u.hijackTicks > 0) g.lineStyle(3, COLORS.side[otherSide(u.side)], 0.95).strokeCircle(at.x, at.y, r + 6);
-      const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
-      if (taunter?.alive) drawTaunted(g, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
-      drawBody(g, u.cls, u.side, at.x, at.y, r, face.x, face.y, { flash, alpha });
       drawRarity(g, at.x, at.y, r, u.rarity, alpha);
       // General Mastery: with all three of your General's challenges met, your troops wear a gold trim.
       if (this.goldTrim && u.side === 'player') g.lineStyle(2, COLORS.capital, alpha).strokeCircle(at.x, at.y, r + 2);
-      // Boss fights: a turret's base, the Warlord's rage, the Strategist's phases left.
-      if (u.rooted) g.lineStyle(3, COLORS.wallEdge, alpha).strokeRect(at.x - r - 5, at.y - r - 5, 2 * r + 10, 2 * r + 10);
+      // Boss fights: the Warlord's rage, the Strategist's phases left (a turret wears its own tower).
       if (u.rage) g.lineStyle(1 + u.rage.stacks, COLORS.haste, 0.85).strokeCircle(at.x, at.y, r + 8);
-      for (let i = 0; i < u.bossPhases; i++) g.fillStyle(COLORS.chased, 1).fillCircle(at.x - 5 * (u.bossPhases - 1) + i * 10, at.y - r - 17, 3);
+      for (let i = 0; i < u.bossPhases; i++) g.fillStyle(COLORS.chased, 1).fillCircle(at.x - 5 * (u.bossPhases - 1) + i * 10, at.y - r - 21, 3);
       if (u.casting) {
         const total = secondsToTicks(UNIT_CLASSES.invoker.rift.castSeconds);
         drawCasting(g, at.x, at.y, r, u.casting, 1 - u.casting.ticksLeft / total);
@@ -460,19 +579,27 @@ export class BattleScene extends Phaser.Scene {
       if (u.vibration || u.shatterTicks > 0) drawVibration(g, at.x, at.y, r, u.vibration?.stacks ?? 0, u.shatterTicks > 0);
       if (u.heat > 0) drawHeat(g, at.x, at.y, r, u.heat);
       if (u.stunTicks > 0 && !u.knockback) drawStun(g, at.x, at.y, r, time);
-      drawBar(g, at.x, at.y - r - 9, 26, u.hp / u.stats.maxHp);
+      drawBar(g, at.x, at.y - r - 13, 26, u.hp / u.stats.maxHp);
       // A small white dot: this troop is carrying out a card order.
       const order = u.orders[0];
       if (order?.started) {
-        g.fillStyle(0xffffff, 0.9).fillCircle(at.x, at.y + r + 6, 2.5);
+        g.fillStyle(0xffffff, 0.9).fillCircle(at.x, at.y + r + 8, 2.5);
         if (order.kind === 'focus' && order.unitId !== null) focused.add(order.unitId);
       }
     }
+    this.troopSprites.end();
     for (const id of focused) {
       const t = this.unit(id);
       if (!t?.alive || t.invisibleTicks > 0 || hiddenFromSide(this.state, t, otherSide(t.side))) continue;
       const at = this.smoothed(`u${t.id}`, t.x, t.y, blend);
       g.lineStyle(2, COLORS.invalid, 0.9).strokeCircle(at.x, at.y, t.stats.radius + 12);
+    }
+    // Melee swings: a white arc in front of the striker.
+    this.slashes = this.slashes.filter((s) => s.until > time);
+    for (const s of this.slashes) {
+      const share = (s.until - time) / SLASH_MS;
+      g.lineStyle(3, 0xffffff, 0.8 * share);
+      g.beginPath().arc(s.x, s.y, 10, s.angle - 1, s.angle + 1).strokePath();
     }
     this.strikes = this.strikes.filter((s) => s.until > time);
     for (const s of this.strikes) {
@@ -480,12 +607,27 @@ export class BattleScene extends Phaser.Scene {
       if (s.kind === 'beam' && s.to) drawBeam(g, s.at, s.to, share);
       else drawGravityWell(g, s.at, share, time);
     }
+    // Arrows and bolts, turned along their flight; a new one makes its shooter rock back.
+    this.arrowSprites.begin();
     for (const p of this.state.projectiles) {
       const at = this.smoothed(`p${p.id}`, p.x, p.y, blend);
-      const tail = this.previous.get(`p${p.id}`) ?? at;
-      g.lineStyle(2, COLORS.projectile[p.side], 0.5).lineBetween(tail.x, tail.y, at.x, at.y);
-      g.fillStyle(COLORS.projectile[p.side], 1).fillCircle(at.x, at.y, 3);
+      const target = this.unit(p.targetId);
+      const tail = this.previous.get(`p${p.id}`);
+      const dx = tail && (tail.x !== p.x || tail.y !== p.y) ? p.x - tail.x : (target?.x ?? p.x + 1) - p.x;
+      const dy = tail && (tail.x !== p.x || tail.y !== p.y) ? p.y - tail.y : (target?.y ?? p.y) - p.y;
+      const owner = this.unit(p.ownerId);
+      const tint = p.element === 'burn' ? 0xffb24a : p.element === 'frost' ? 0xc8efff : null;
+      this.arrowSprites.show(p.id, p.side, at.x, at.y, Math.atan2(dy, dx), owner?.rooted ?? false, tint);
+      if (!this.seenShots.has(p.id)) {
+        this.seenShots.add(p.id);
+        playSound('arrow');
+        if (owner) {
+          const len = Math.hypot(dx, dy) || 1;
+          this.lunges.set(owner.id, { at: time, dx: dx / len, dy: dy / len, recoil: true });
+        }
+      }
     }
+    this.arrowSprites.end();
 
     this.drawThreats(blend);
     this.drawTopBar();

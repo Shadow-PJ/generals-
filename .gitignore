@@ -6,3 +6,6 @@ coverage/
 desktop/build/
 release/
 tools/dataset/out/
+
+# The art preview sheets (npm run art:preview)
+art-preview*.png

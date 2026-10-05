@@ -65,7 +65,7 @@ Create folders only when a session needs them.
 - Small modules with clear names. Pure functions in `src/sim` and `src/cards` wherever possible.
 - Tests sit next to the code as `*.test.ts`. Every rule in `docs/DESIGN.md` that is built gets at least one test.
 - No new dependency without a one-line reason in the pull request.
-- Until session 6B, draw everything with simple shapes and colors.
+- Art is pixel art written as text in `src/game/art`, and sound is synthesizer recipes and notes in `src/game/audio` (since session 6B); check art with `npm run art:preview`.
 - Assets: only original work or assets whose license allows use in a game, each listed with its license in `docs/CREDITS.md`. Mark any asset made with AI there too; Steam asks about AI-made content players see.
 
 ## How to work a session

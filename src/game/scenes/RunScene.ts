@@ -15,6 +15,9 @@ import { BOONS } from '../../data/boons';
 import { fearOf } from '../../data/oaths';
 import { REGIONS } from '../../data/regions';
 import type { NodeKind } from '../../data/runs';
+import { NODE_ICONS } from '../art/icons';
+import { paintCentered } from '../art/paint';
+import { BASE } from '../art/palette';
 import { drawBoon, drawFighter, runFloor } from '../campaignUi';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
@@ -142,9 +145,6 @@ export class RunScene extends Phaser.Scene {
         }
         const label = this.add.text(p.x, p.y + NODE_R + 6, NODE_NAMES[node.kind], textStyle(11, reachable ? TEXT.title : TEXT.muted, reachable)).setOrigin(0.5, 0);
         this.ui.add(label.setAlpha(Math.max(alpha, 0.5)));
-        if (node.kind === 'event' || node.kind === 'merchant') {
-          this.ui.add(this.add.text(p.x, p.y, node.kind === 'event' ? '?' : '$', textStyle(16, '#0b0f16', true)).setOrigin(0.5).setAlpha(alpha));
-        }
       }),
     );
 
@@ -180,20 +180,13 @@ export class RunScene extends Phaser.Scene {
   private drawNode(g: Phaser.GameObjects.Graphics, kind: NodeKind, x: number, y: number, alpha: number): void {
     const r = kind === 'boss' ? NODE_R + 6 : NODE_R;
     g.fillStyle(COLORS.node[kind], alpha).fillCircle(x, y, r);
+    g.fillStyle(0x000000, 0.25 * alpha).fillCircle(x, y + 3, r - 3);
     g.lineStyle(2, 0x0b0f16, alpha).strokeCircle(x, y, r);
-    const ink = 0x0b0f16;
-    if (kind === 'battle' || kind === 'elite') {
-      g.lineStyle(3, ink, alpha).lineBetween(x - 7, y - 7, x + 7, y + 7).lineBetween(x - 7, y + 7, x + 7, y - 7);
-      if (kind === 'elite') g.lineStyle(2, COLORS.node.elite, alpha).strokeCircle(x, y, r + 4);
-    } else if (kind === 'camp') {
-      g.fillStyle(ink, alpha).fillTriangle(x, y - 8, x - 9, y + 7, x + 9, y + 7);
-    } else if (kind === 'boss') {
-      g.fillStyle(ink, alpha).fillTriangle(x - 11, y + 6, x - 11, y - 6, x - 4, y + 1);
-      g.fillTriangle(x - 5, y + 6, x, y - 10, x + 5, y + 6);
-      g.fillTriangle(x + 11, y + 6, x + 11, y - 6, x + 4, y + 1);
-      g.fillRect(x - 11, y + 4, 22, 4);
-    }
+    if (kind === 'elite') g.lineStyle(2, COLORS.node.elite, alpha).strokeCircle(x, y, r + 4);
+    // The stop's pixel-art icon in the middle.
+    paintCentered(g, NODE_ICONS[kind].frames.still!, BASE, x, y, { scale: kind === 'boss' ? 2.2 : 1.75, alpha });
   }
+
 
   /** Your army, gold, boons and carried artifacts. */
   private renderFooter(run: RunState): void {

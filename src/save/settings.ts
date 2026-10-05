@@ -1,5 +1,6 @@
-// Settings for this computer's screen, in settings.json. They stay out of saves/ on purpose:
-// a laptop and a big monitor want different window sizes, so they don't sync between computers.
+// Settings for this computer's screen and speakers, in settings.json. They stay out of saves/ on
+// purpose: a laptop and a big monitor want different window sizes (and a laptop at night wants
+// quieter sound), so they don't sync between computers.
 
 import type { FileName } from '../platform';
 
@@ -25,10 +26,34 @@ export interface Settings {
    * null for the rule parser alone. Off by default: the model is a download of several hundred MB.
    */
   orderModel: string | null;
+  /** Loudness, 0 (off) to 1, in steps of a tenth: all sound, then music and effects within it (session 6B). */
+  volume: Volume;
+  /** The battlefield shakes for big blows (ultimates, walls falling); off for players it bothers. */
+  screenShake: boolean;
 }
 
+export interface Volume {
+  master: number;
+  music: number;
+  effects: number;
+}
+
+
 export function defaultSettings(): Settings {
-  return { version: SETTINGS_VERSION, fullscreen: false, windowScale: null, resolution: 'auto', orderModel: null };
+  return {
+    version: SETTINGS_VERSION,
+    fullscreen: false,
+    windowScale: null,
+    resolution: 'auto',
+    orderModel: null,
+    volume: { master: 0.8, music: 0.6, effects: 0.8 },
+    screenShake: true,
+  };
+}
+
+/** A loudness kept to 0 to 1 in tenths. */
+export function clampVolume(value: number): number {
+  return Math.max(0, Math.min(10, Math.round(value * 10))) / 10;
 }
 
 export function writeSettings(settings: Settings): string {
@@ -53,5 +78,13 @@ export function readSettings(text: string | null): Settings {
   }
   if ((RESOLUTIONS as readonly unknown[]).includes(saved.resolution)) settings.resolution = saved.resolution as Resolution;
   if (typeof saved.orderModel === 'string' && saved.orderModel.length <= 40) settings.orderModel = saved.orderModel;
+  if (typeof saved.volume === 'object' && saved.volume !== null) {
+    const volume = saved.volume as Record<string, unknown>;
+    for (const key of ['master', 'music', 'effects'] as const) {
+      const value = volume[key];
+      if (typeof value === 'number' && Number.isFinite(value)) settings.volume[key] = clampVolume(value);
+    }
+  }
+  if (typeof saved.screenShake === 'boolean') settings.screenShake = saved.screenShake;
   return settings;
 }
