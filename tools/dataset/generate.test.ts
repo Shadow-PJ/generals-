@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { parseOrder } from '../../src/cards/parser';
 import { validateCard } from '../../src/cards/validator';
-import { generate, joinPieces } from './generate';
+import { isLegendaryAction } from '../../src/cards/types';
+import { generate, joinPieces, LEGENDARY_SHARE, slotFor } from './generate';
 import { cardKey } from './natural';
 
 const pairs = generate(2000, 7);
@@ -10,7 +11,7 @@ describe('the dataset generator', () => {
   it('makes the asked number of distinct, legal sentence and card pairs', () => {
     expect(pairs).toHaveLength(2000);
     expect(new Set(pairs.map((p) => p.text)).size).toBe(2000);
-    for (const p of pairs) expect(validateCard(p.card, 5).ok, p.text).toBe(true);
+    for (const p of pairs) expect(validateCard(p.card, 5, slotFor(p.card)).ok, p.text).toBe(true);
   });
 
   it('gives the same dataset for the same seed, and a different one for another seed', () => {
@@ -18,9 +19,13 @@ describe('the dataset generator', () => {
     expect(generate(50, 8)).not.toEqual(pairs.slice(0, 50));
   });
 
-  it('combines every action with conditions, repeats and several steps', () => {
+  it('combines every action, Legendary ones too, with conditions, repeats and several steps', () => {
     const actions = new Set(pairs.flatMap((p) => p.card.steps.map((s) => s.action)));
-    expect(actions.size).toBe(7);
+    expect(actions.size).toBe(12);
+    // About one order in eight has a Legendary step, never more than one.
+    const legendary = pairs.filter((p) => p.card.steps.some((s) => isLegendaryAction(s.action)));
+    expect(legendary.length / pairs.length).toBeCloseTo(LEGENDARY_SHARE, 1);
+    expect(legendary.every((p) => p.card.steps.filter((s) => isLegendaryAction(s.action)).length === 1)).toBe(true);
     const triggers = new Set(pairs.flatMap((p) => p.card.condition?.triggers.map((t) => t.kind) ?? []));
     expect(triggers.size).toBe(4);
     expect(pairs.some((p) => p.card.condition?.repeat)).toBe(true);

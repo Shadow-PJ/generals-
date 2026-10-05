@@ -1,7 +1,8 @@
-// The campaign end to end, headless: a new save sets out into the first region, fights every
-// battle it meets (troops on their own, no cards fired), takes the spoils, and goes on until the
-// run ends; a won run recruits the ruler and keeps its fighters in the company. Session 5E's
-// "done when": a new save can be played through the first region and its boss.
+// The campaign end to end, headless: a new save sets out into a region open from the start,
+// fights every battle it meets (troops on their own, no cards fired), takes the spoils, and goes
+// on until the run ends; a won run recruits the ruler and keeps its fighters in the company.
+// Session 5E's "done when": a new save can be played through the first region and its boss. Since
+// session 6A, the other region open from the start too, so tuning the bosses can't wall a new save.
 
 import { describe, expect, it } from 'vitest';
 import { closeRun, chooseEvent, enterNode, eventChoiceProblem, finishFight, leaveStop, newRun, pickSpoils } from '../campaign/run';
@@ -9,6 +10,7 @@ import { nextChoices } from '../campaign/runMap';
 import type { Campaign } from '../campaign/types';
 import { emptyLoadout } from '../cards/types';
 import { recruitedGenerals } from '../data/bosses';
+import { REGIONS, type RegionId } from '../data/regions';
 import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
 import { MAPS } from '../data/maps';
 import { EVENTS } from '../data/events';
@@ -44,8 +46,8 @@ function newSave(): Campaign {
 }
 
 /** Plays one run to its end: the first way on, the first offer, the first event choice that can be made. */
-function playRun(start: Campaign, seed: number): Campaign {
-  let c = newRun(start, 'deepForest', seed);
+function playRun(start: Campaign, seed: number, region: RegionId = 'deepForest'): Campaign {
+  let c = newRun(start, region, seed);
   for (let guard = 0; guard < 100; guard++) {
     const run = c.run!;
     const stop = run.stop;
@@ -111,5 +113,15 @@ describe('a new save', () => {
     expect(home.company).toHaveLength(8);
     // The troops who fought every fight of the run carry them all on their record.
     expect(Math.max(...home.company.map((v) => v.record.battles))).toBe(won!.run!.fightsWon);
+  });
+
+  it('can also win the other region open from the start, Void Ruins', () => {
+    let won: Campaign | null = null;
+    for (let seed = 1; seed <= 12 && !won; seed++) {
+      const ended = playRun(newSave(), seed, 'voidRuins');
+      if (ended.run!.stop?.kind === 'end' && ended.run!.stop.won) won = ended;
+    }
+    expect(won).not.toBeNull();
+    expect(recruitedGenerals(closeRun(won!).bossesBeaten)).toContain(REGIONS.voidRuins.ruler);
   });
 });

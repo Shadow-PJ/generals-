@@ -1,0 +1,95 @@
+# Legendary orders for testing the order reader (session 6A), written by hand by Claude before the
+# reader was retrained on Legendary orders, and never used in training. Same format as natural.txt:
+# "== <order>" starts a group whose card (read by the rule parser) is the expected card for every
+# sentence below it. Hijack, Blood Pact, Fortify and Echo are the commander's own; Swap moves one
+# kind of your troops into another's spot.
+
+== hijack their ranger
+take control of their archer
+mind control the enemy sniper
+make their ranger fight for us
+possess the enemy marksman
+hijack that archer pls
+turn their ranger against them
+
+== hijack the nearest enemy
+take over the closest enemy
+control whoever is closest
+seize the nearest one
+brainwash the closest guy
+hijack whoevers nearest
+
+== when their assassin dives, hijack him
+if their rogue jumps our backline take control of him
+the moment the assassin dives in, mind control it
+once their ninja gets to our backline make him fight for us
+when the assassin reaches us hijack that guy
+
+== hijack the weakest enemy
+take control of the lowest hp enemy
+seize whoever is almost dead
+possess the weakest one
+
+== swap my vanguard with my ranger
+vanguard swap places with the ranger
+swap the tank with the sniper
+my vanguard should switch spots with my ranger
+tanks, trade places with the archers
+teleport the tank to where the archer is
+
+== swap my guardian with my vanguard
+healer, swap with the tank
+swap my medic and my frontline
+guardians switch places with vanguards
+trade spots with the tank, healer
+
+== sacrifice my weakest troop
+sacrifice the weakest one
+blood pact with whoever is weakest
+give up our lowest hp unit for pips
+spend the most hurt troop
+sac the weakest
+
+== sacrifice my ranger
+blood pact my archer
+give up the sniper
+offer up my ranger for power
+sacrifice one of my rangers
+
+== fortify
+build a wall
+put up walls now
+wall up!
+throw up a barricade
+raise a wall quick
+
+== build a wall in front of my rangers
+put up a wall in front of the archers
+fortify next to my shooters
+raise a wall by our rangers
+make a wall near the snipers
+
+== raise a wall behind the enemy
+build a wall behind their lines
+drop a wall behind them so they cant run
+barricade behind enemy lines
+
+== repeat my last card
+do that again
+again!
+one more time
+same again pls
+run it back
+replay the last order
+
+== when one of my troops drops below 30%, sacrifice my weakest troop, then fall back
+if anyone gets low, blood pact the weakest and retreat
+once an ally is at 30 hp sacrifice the lowest one then pull back
+
+== hijack their healer, then everyone focus their ranger
+take control of the healer and then kill the archer
+mind control their medic, after that all units shoot the sniper
+
+== fortify, then rangers focus the nearest enemy
+build a wall then archers shoot the closest one
+wall up, rangers hit whoever is closest

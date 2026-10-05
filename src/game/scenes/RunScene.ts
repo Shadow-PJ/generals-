@@ -14,10 +14,12 @@ import { BOONS } from '../../data/boons';
 import { REGIONS } from '../../data/regions';
 import type { NodeKind } from '../../data/runs';
 import { drawBoon, drawFighter, runFloor } from '../campaignUi';
+import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { sceneTips } from '../tutorial';
 import { addButton, textStyle } from '../ui';
 
 const MAP_LEFT = 70;
@@ -66,6 +68,7 @@ export class RunScene extends Phaser.Scene {
       .on('confirm', () => this.go())
       .on('back', () => this.scene.start('Capital'));
     this.render();
+    new CaptainTips(this, { x: GAME_WIDTH - 376, width: 360, bottom: GAME_HEIGHT - 8 }).say(sceneTips('Run'));
   }
 
   private run(): RunState {

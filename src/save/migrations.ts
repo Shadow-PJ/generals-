@@ -8,6 +8,8 @@
 // Version 4 (session 5C): run fighters have a faction and perks; those from version 3 have none.
 // Version 5 (session 5E): your company, Insight, Tech Web, Ironman and Mastery; run fighters have
 // a name, a record, an artifact slot and a wounded flag.
+// Version 6 (session 6A): the Captain's tips. A save that has already earned XP has played its
+// first battles, so tips start off there (Settings turns them back on).
 
 import { defaultKeep, freshName, NO_RECORD, startingCompany } from '../campaign/company';
 import type { Fighter } from '../campaign/types';
@@ -32,6 +34,8 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   3: (save) => ({ ...save, version: 4, run: plainFighters(save.run) }),
   /** The starting company, no Insight or Tech Web yet; a run in progress names its fighters, who start their records now. */
   4: (save) => ({ ...save, version: 5, company: startingCompany(), insight: 0, tech: {}, ironman: false, mastery: [], run: namedFighters(save.run) }),
+  /** The Captain's tips: on for a save that has earned no XP yet, off for one that has played. */
+  5: (save) => ({ ...save, version: 6, tutorial: { on: !(typeof save.xp === 'number' && save.xp > 0), seen: [] } }),
 };
 
 /** A version 4 run: every fighter named, with a fresh record, no artifact and fit; a won end lets the usual fighters stay. */

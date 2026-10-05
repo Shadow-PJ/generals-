@@ -16,12 +16,14 @@ import { UNIT_CLASSES } from '../../data/units';
 import { placementProblem } from '../../sim';
 import { drawFactionDot } from '../campaignUi';
 import { CLASS_LEGEND, drawBar, drawBody, drawField, drawRarity, drawWall, drawZone } from '../draw';
+import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { currentCampaign, remember, saveCampaign, savedSetup } from '../session';
 import { BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { enemyArmyOf, yourReserves, yourSynergies } from '../troops';
+import { sceneTips } from '../tutorial';
 import { addButton, textStyle } from '../ui';
 
 /** How fast the arrow keys move a troop, in world units per second. */
@@ -157,6 +159,7 @@ export class PrepScene extends Phaser.Scene {
       if (this.drag) this.drag = { ...this.drag, x: p.worldX, y: p.worldY - TOP_BAR_HEIGHT };
     });
     this.input.on('pointerup', () => this.drop());
+    new CaptainTips(this, { x: (GAME_WIDTH - 340) / 2, width: 340, top: TOP_BAR_HEIGHT + 30 }).say(sceneTips('Prep'));
   }
 
   override update(_time: number, delta: number): void {

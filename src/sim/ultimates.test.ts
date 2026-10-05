@@ -7,6 +7,7 @@ import { dealDamage } from './combat';
 import { ultimateReady } from './command';
 import { battleWith, freeze, sideUnits } from './testing/fixtures';
 import { secondsToTicks } from './time';
+import { ultimateUsable } from './ultimates';
 import type { BattleEvent, BattleState } from './types';
 
 function charged(player: TroopPlacement[], enemy: TroopPlacement[], general: GeneralId): BattleState {
@@ -77,7 +78,7 @@ describe("the Generals' ultimates", () => {
     expect(theirs(state, 0).hp).toBe(theirs(state, 0).stats.maxHp - (rules.beamDamage + rules.beamDamagePerHeat * 6));
   });
 
-  it('Forced Evolution (Hive Mother): your two most hurt troops merge into one elite', () => {
+  it('Forced Evolution (Hive Mother): once two troops are below 50%, the two most hurt merge into one elite at full HP', () => {
     const state = charged(
       [
         { cls: 'vanguard', x: 200, y: 300 },
@@ -90,12 +91,15 @@ describe("the Generals' ultimates", () => {
     const [vanguard, r1, r2] = sideUnits(state, 'player');
     vanguard!.hp = 600;
     r1!.hp = 300;
+    // Only one troop below 50%: it waits.
+    expect(ultimateUsable(state, 'player')).toBe(false);
+    r1!.hp = 200;
     const damage = vanguard!.stats.damage;
     expect(fire(state)).toMatchObject({ name: 'forcedEvolution' });
-    // The Vanguard (39% HP) and the first Ranger (67%) are the most hurt; the Vanguard has more HP left, so it stays.
+    // The Vanguard (39% HP) and the first Ranger (44%) are the most hurt; the Vanguard has more HP left, so it stays.
     expect(vanguard!.elite).toBe(true);
     expect(vanguard!.stats.maxHp).toBe(1550 + 450);
-    expect(vanguard!.hp).toBe(900);
+    expect(vanguard!.hp).toBe(1550 + 450);
     expect(vanguard!.stats.damage).toBeCloseTo(damage * (1 + ULTIMATE_RULES.forcedEvolution.damageBonus));
     expect(r1!.alive).toBe(false);
     expect(r2!.alive).toBe(true);

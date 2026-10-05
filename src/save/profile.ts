@@ -1,7 +1,8 @@
 // Your saved progress: the cards in your slots, your troops and where they stand, your Command
 // XP (which sets your rank), the bosses you have beaten, Tactical mode, your General, the
 // combos you have found, the run you are on, the artifacts you have banked, your company, your
-// Insight and Tech Web, Ironman mode and the Mastery challenges you have met. It is plain JSON in
+// Insight and Tech Web, Ironman mode, the Mastery challenges you have met and the Captain's tips
+// you have seen. It is plain JSON in
 // saves/profile.json. An older save is first brought up to this version (migrations.ts). Reading is forgiving: anything missing or damaged falls
 // back to the default, so a bad file never stops the game from starting.
 
@@ -18,13 +19,14 @@ import { BOSS_ORDER } from '../data/legendary';
 import type { MasteryId } from '../data/mastery';
 import { RANKS, type RankNumber } from '../data/ranks';
 import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
+import { TIP_IDS, type TipId } from '../data/tutorial';
 import { TROOP_CLASSES, type UnitClass } from '../data/units';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
 import { readArtifacts, readCompany, readMastery, readRun, readTech } from './run';
 
-export const PROFILE_VERSION = 5;
+export const PROFILE_VERSION = 6;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
 /** The save as it was before the last migration, in case an update ever goes wrong. */
 export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';
@@ -64,6 +66,18 @@ export interface Profile {
   ironman: boolean;
   /** General Mastery challenges met. */
   mastery: MasteryId[];
+  /** The Captain's tips (session 6A). */
+  tutorial: Tutorial;
+}
+
+/** The Captain's tutorial: are tips on, and which you have seen. */
+export interface Tutorial {
+  on: boolean;
+  seen: TipId[];
+}
+
+export function newTutorial(): Tutorial {
+  return { on: true, seen: [] };
 }
 
 export function newProfile(): Profile {
@@ -91,6 +105,7 @@ export function newProfile(): Profile {
     tech,
     ironman,
     mastery,
+    tutorial: newTutorial(),
   };
 }
 
@@ -142,7 +157,18 @@ export function readProfile(text: string | null): Profile {
   profile.tech = readTech(saved.tech);
   if (typeof saved.ironman === 'boolean') profile.ironman = saved.ironman;
   profile.mastery = readMastery(saved.mastery);
+  profile.tutorial = readTutorial(saved.tutorial);
   return profile;
+}
+
+/** The tutorial as saved; anything damaged gets its default. */
+function readTutorial(value: unknown): Tutorial {
+  const tutorial = newTutorial();
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return tutorial;
+  const saved = value as Record<string, unknown>;
+  if (typeof saved.on === 'boolean') tutorial.on = saved.on;
+  if (Array.isArray(saved.seen)) tutorial.seen = TIP_IDS.filter((id) => (saved.seen as unknown[]).includes(id));
+  return tutorial;
 }
 
 function isClass(value: unknown): value is UnitClass {

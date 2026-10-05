@@ -96,8 +96,8 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(5);
-    expect(profileVersion(writeProfile(saved()))).toBe(5);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(6);
+    expect(profileVersion(writeProfile(saved()))).toBe(6);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
@@ -135,6 +135,24 @@ describe('the saved profile', () => {
     expect(profile.run).toMatchObject({ insight: 0, ironman: false });
   });
 
+  it('loads a version 5 save: the Captain\'s tips are on for a new player, off for one who has played', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 5;
+    delete data.tutorial;
+    expect(readProfile(JSON.stringify(data)).tutorial).toEqual({ on: false, seen: [] });
+    expect(readProfile(JSON.stringify({ ...data, xp: 0 })).tutorial).toEqual({ on: true, seen: [] });
+  });
+
+  it('keeps the Captain\'s tips you have seen, and only real ones', () => {
+    const profile = saved();
+    profile.tutorial = { on: false, seen: ['capital', 'cardReady'] };
+    expect(readProfile(writeProfile(profile)).tutorial).toEqual({ on: false, seen: ['capital', 'cardReady'] });
+    const data = JSON.parse(writeProfile(profile));
+    data.tutorial = { on: 'yes', seen: ['cardReady', 'nonsense', 'capital'] };
+    expect(readProfile(JSON.stringify(data)).tutorial).toEqual({ on: true, seen: ['capital', 'cardReady'] });
+    expect(newProfile().tutorial).toEqual({ on: true, seen: [] });
+  });
+
   it('keeps your company, Insight, Tech Web, Ironman and Mastery, and only the parts that read', () => {
     const profile = saved();
     profile.company = startingCompany().map((v, i) => (i === 0 ? { ...v, artifact: 'ironHeart', record: { battles: 5, kills: 3, bossKills: 1 } } : v));
@@ -162,14 +180,15 @@ describe('the saved profile', () => {
   it('loads a version 2 save: no run yet, and nothing banked', () => {
     const { run: _r, artifacts: _a, ...rest } = saved();
     const v2 = { ...rest, version: 2 };
-    expect(readProfile(JSON.stringify(v2))).toEqual({ ...saved(), run: null, artifacts: [] });
+    // A save that has earned XP has played its first battles: the Captain's tips start off.
+    expect(readProfile(JSON.stringify(v2))).toEqual({ ...saved(), run: null, artifacts: [], tutorial: { on: false, seen: [] } });
   });
 
   it('loads a version 1 save: the debug rank it had becomes the XP for that rank, and everything else stays', () => {
     const { xp: _xp, bossesBeaten: _b, practiceRank: _p, run: _r, artifacts: _a, ...rest } = saved();
     const v1 = { ...rest, version: 1, rank: 4 };
     const profile = readProfile(JSON.stringify(v1));
-    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [], practiceRank: null, run: null, artifacts: [] });
+    expect(profile).toEqual({ ...saved(), xp: RANK_XP[4], bossesBeaten: [], practiceRank: null, run: null, artifacts: [], tutorial: { on: false, seen: [] } });
     // A version 1 save with no rank (or a broken one) had the debug default, Rank III.
     expect(readProfile(JSON.stringify({ ...v1, rank: 'high' })).xp).toBe(RANK_XP[3]);
     // The very first saves wrote no version at all.

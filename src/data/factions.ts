@@ -44,25 +44,25 @@ export const FACTIONS: Readonly<Record<FactionId, FactionData>> = {
     name: 'Forgeborn',
     general: 'engineer',
     text: `Forgeborn troops harden as they heat up: each attack adds ${Math.round(FACTION_RULES.forgeArmorPerAttack * 100)}% armor, up to {value}`,
-    values: [0.04, 0.07, 0.11],
+    values: [0.025, 0.045, 0.06],
   },
   hive: {
     name: 'Hive',
     general: 'hiveMother',
     text: 'Hive troops hit {value} harder for each other Hive troop still standing',
-    values: [0.025, 0.035, 0.05],
+    values: [0.03, 0.03, 0.035],
   },
   voidweavers: {
     name: 'Voidweavers',
     general: 'strategist',
     text: 'Voidweavers troops phase out of every {value} hit they take, and take no damage from it',
-    values: [12, 9, 6],
+    values: [16, 12, 10],
   },
   resonance: {
     name: 'Resonance',
     general: 'conductor',
     text: `Every ${ordinal(FACTION_RULES.resonanceEvery)} attack of a Resonance troop resonates for {value} more damage`,
-    values: [0.25, 0.3, 0.5],
+    values: [0.25, 0.25, 0.3],
   },
 };
 

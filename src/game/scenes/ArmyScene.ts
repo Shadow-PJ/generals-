@@ -20,10 +20,12 @@ import { activeSynergies, factionCounts } from '../../sim';
 import { fightSetup } from '../campaignFlow';
 import { drawBar } from '../draw';
 import { drawFighter } from '../campaignUi';
+import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, earnedRank, saveCampaign, savedSetup } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { sceneTips } from '../tutorial';
 import { addButton, textStyle } from '../ui';
 
 const LIST_X = 16;
@@ -71,6 +73,7 @@ export class ArmyScene extends Phaser.Scene {
       .on('confirm', () => this.toPrep())
       .on('back', () => this.scene.start('Run'));
     this.render();
+    new CaptainTips(this, { x: GAME_WIDTH - 352, width: 336, bottom: GAME_HEIGHT - 16 }).say(sceneTips('Army'));
   }
 
   private run(): RunState {

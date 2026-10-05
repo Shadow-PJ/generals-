@@ -66,7 +66,7 @@ describe("the Generals' troop skills", () => {
     expect(vanguard.hp).toBe(vanguard.stats.maxHp - Math.round(vanguard.stats.maxHp * venting.selfDamageShare));
   });
 
-  it('Assimilation (Hive Mother): a troop that kills grows a shell from a tank, claws from anyone else', () => {
+  it('Assimilation (Hive Mother): a troop that kills grows a shell from a tank, claws from anyone else, for the rest of the battle', () => {
     const kill = (victim: 'vanguard' | 'ranger') => {
       const state = battleWith([{ cls: 'vanguard', x: 300, y: 300 }], [{ cls: victim, x: 330, y: 300 }, { cls: 'ranger', x: 900, y: 300 }], {
         general: 'hiveMother',
@@ -77,14 +77,17 @@ describe("the Generals' troop skills", () => {
       target.hp = 1;
       dealDamage(state, killer!.id, target, 50, 0, 'attack');
       stepBattle(state);
-      return killer!;
+      return { state, killer: killer! };
     };
-    const shelled = kill('vanguard');
+    const { killer: shelled } = kill('vanguard');
     expect(shelled.adaptation?.kind).toBe('shell');
     expect(effectiveArmor(shelled)).toBeCloseTo(UNIT_CLASSES.vanguard.stats.armor + TROOP_SKILLS.assimilation.shellArmor);
-    const clawed = kill('ranger');
+    const { state, killer: clawed } = kill('ranger');
     expect(clawed.adaptation?.kind).toBe('claws');
     expect(damageFactor(clawed)).toBeCloseTo(1 + TROOP_SKILLS.assimilation.clawsDamageBonus);
+    // It lasts the rest of the battle (session 6A; it used to fade after 10 s).
+    for (let i = 0; i < secondsToTicks(30); i++) stepBattle(state);
+    expect(clawed.adaptation?.kind).toBe('claws');
   });
 
   it('Phase Shift (Strategist): once per battle, a troop about to fall teleports behind its attacker and stuns it', () => {
@@ -98,6 +101,8 @@ describe("the Generals' troop skills", () => {
     dealDamage(state, attacker.id, ranger, 100, 0, 'attack');
     expect(ranger.hp).toBe(10);
     resolvePhaseShifts(state);
+    // It heals a little as it phases (session 6A), so the dodge can save it.
+    expect(ranger.hp).toBe(10 + Math.round(ranger.stats.maxHp * TROOP_SKILLS.phaseShift.healShare));
     expect(ranger.x).toBeGreaterThan(attacker.x);
     expect(attacker.stunTicks).toBe(secondsToTicks(TROOP_SKILLS.phaseShift.stunSeconds));
     expect(skills(state, 'phaseShift')[0]!.targetIds).toEqual([attacker.id]);

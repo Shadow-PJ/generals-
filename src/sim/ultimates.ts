@@ -27,7 +27,7 @@ export function ultimateUsable(state: BattleState, side: Side): boolean {
     case 'reapersToll':
       return mine.some((u) => u.wraithTicks <= 0 && hpShare(u) < ULTIMATE_RULES.reapersToll.hpShareBelow);
     case 'forcedEvolution':
-      return mine.filter((u) => u.wraithTicks <= 0).length >= 2;
+      return mine.filter((u) => u.wraithTicks <= 0 && hpShare(u) < ULTIMATE_RULES.forcedEvolution.hurtShareBelow).length >= 2;
     case 'gravityWell':
       return theirs.length > 0;
     case 'shatterstorm':
@@ -128,8 +128,9 @@ function beamEnd(state: BattleState, from: Point, dx: number, dy: number): Point
 }
 
 /**
- * Hive Mother's Forced Evolution: the two most hurt troops merge. The one with more HP left
- * stays, now an elite: their HP together, more damage and armor. The other is gone.
+ * Hive Mother's Forced Evolution, once two troops are badly hurt: the two most hurt troops merge.
+ * The one with more HP left stays, now an elite at full HP: their max HP together, more damage and
+ * armor. The other is gone.
  */
 function forcedEvolution(state: BattleState, side: Side, power: number): UltimateMark {
   const rules = ULTIMATE_RULES.forcedEvolution;
@@ -141,7 +142,7 @@ function forcedEvolution(state: BattleState, side: Side, power: number): Ultimat
   const [a, b] = hurt as [Unit, Unit];
   const [elite, merged] = b.hp > a.hp || (b.hp === a.hp && b.id < a.id) ? [b, a] : [a, b];
   elite.stats.maxHp += merged.stats.maxHp;
-  elite.hp = Math.min(elite.stats.maxHp, elite.hp + merged.hp);
+  elite.hp = elite.stats.maxHp;
   elite.stats.damage *= 1 + rules.damageBonus * power;
   elite.stats.armor = Math.min(0.8, elite.stats.armor + rules.armorBonus);
   elite.elite = true;

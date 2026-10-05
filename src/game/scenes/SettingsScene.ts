@@ -1,7 +1,9 @@
-// Settings: fullscreen, window size, resolution, and where your saves are kept.
+// Settings: fullscreen, window size, resolution, order reading, the Captain's tips, and where your
+// saves are kept.
 // ↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. The mouse works too.
 
 import Phaser from 'phaser';
+import { TIP_IDS } from '../../data/tutorial';
 import { ORDER_MODELS } from '../../platform';
 import { RESOLUTIONS, type Resolution } from '../../save/settings';
 import { currentRenderScale, fitCamera } from '../display';
@@ -14,8 +16,11 @@ import {
   chosenWindowScale,
   currentPlatform,
   currentSettings,
+  currentTutorial,
+  saveTutorial,
   toggleFullscreen,
 } from '../session';
+import { replayTips } from '../tutorial';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
@@ -135,6 +140,15 @@ export class SettingsScene extends Phaser.Scene {
         const i = (modelIds.indexOf(settings.orderModel) + step + modelIds.length) % modelIds.length;
         this.act(changeSettings({ orderModel: modelIds[i]! }), syncOrderModel);
       },
+    });
+
+    const tutorial = currentTutorial();
+    rows.push({
+      label: 'Captain’s tips',
+      value: tutorial.on ? `On · ${tutorial.seen.length} of ${TIP_IDS.length} said` : 'Off',
+      note: 'In your first battles the Captain says a short tip the first time each moment comes. ←→ turns them on or off; Enter plays them all again.',
+      change: () => this.act(saveTutorial({ ...tutorial, on: !tutorial.on })),
+      use: () => this.act(saveTutorial(replayTips())),
     });
 
     const openFolder = platform.openSaveFolder;

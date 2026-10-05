@@ -1,6 +1,7 @@
 // Runs the rule parser and the order reader over the hand-written orders and prints the report:
 //   npm run eval                    the held-out test part of natural.txt
 //   npm run eval -- --set fresh     fresh.txt, written before the reader was built
+//   npm run eval -- --set legendary legendary.txt, Legendary orders written before the reader learned them
 //   npm run eval -- --set train     (or all) natural.txt's training part, or all of it
 //   npm run eval -- --out report.md
 // The experimental language model is evaluated in a real browser by tools/eval/model/run.ts,
@@ -22,6 +23,7 @@ function option(name: string): string | undefined {
 
 export const READER_FILE = fileURLToPath(new URL('../../models/order-reader.json', import.meta.url));
 const FRESH_FILE = fileURLToPath(new URL('../dataset/fresh.txt', import.meta.url));
+const LEGENDARY_FILE = fileURLToPath(new URL('../dataset/legendary.txt', import.meta.url));
 
 function timed(example: Example, by: string, read: () => Outcome['result']): Outcome {
   const start = performance.now();
@@ -49,6 +51,7 @@ export function runChain(examples: readonly Example[], reader: OrderReader): Out
 
 export function exampleSet(set: string): Example[] {
   if (set === 'fresh') return loadNatural(readFileSync(FRESH_FILE, 'utf8'));
+  if (set === 'legendary') return loadNatural(readFileSync(LEGENDARY_FILE, 'utf8'));
   const all = loadNatural();
   return set === 'all' ? all : splitNatural(all)[set === 'train' ? 'train' : 'test'];
 }
@@ -62,7 +65,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const loadMs = performance.now() - loadStart;
   // Warm up, so the first order's timing isn't the JavaScript engine starting.
   runChain(examples.slice(0, 20), reader);
-  const name = set === 'fresh' ? 'fresh.txt' : set === 'all' ? 'all of natural.txt' : `natural.txt, ${set} part`;
+  const name = set === 'fresh' ? 'fresh.txt' : set === 'legendary' ? 'legendary.txt' : set === 'all' ? 'all of natural.txt' : `natural.txt, ${set} part`;
   const report = [
     `## ${name} (${examples.length} orders)`,
     '',

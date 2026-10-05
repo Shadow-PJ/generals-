@@ -220,10 +220,10 @@ Goal: a balanced, good-looking game that plays well with a controller and agains
 
 ### 6A. Balance and tutorial
 
-- [ ] Balance script that runs thousands of headless battles per matchup and reports what wins too often
-- [ ] Number changes proposed in the pull request, not applied silently
-- [ ] A tutorial with the Captain for the first battles
-- [ ] The order reader learns Legendary orders: new generated training sentences, retrained, checked by the eval
+- [x] Balance script that runs thousands of headless battles per matchup and reports what wins too often
+- [x] Number changes proposed in the pull request, not applied silently
+- [x] A tutorial with the Captain for the first battles
+- [x] The order reader learns Legendary orders: new generated training sentences, retrained, checked by the eval
 
 ### 6B. Art, sound and UI
 
