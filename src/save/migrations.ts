@@ -6,7 +6,11 @@
 // Version 2 (session 5A): the rank is earned with Command XP; boss wins open the Legendary slot.
 // Version 3 (session 5B): the campaign: the run you are on, and the artifacts you have banked.
 // Version 4 (session 5C): run fighters have a faction and perks; those from version 3 have none.
+// Version 5 (session 5E): your company, Insight, Tech Web, Ironman and Mastery; run fighters have
+// a name, a record, an artifact slot and a wounded flag.
 
+import { defaultKeep, freshName, NO_RECORD, startingCompany } from '../campaign/company';
+import type { Fighter } from '../campaign/types';
 import { RANK_XP } from '../data/progression';
 import { RANKS, type RankNumber } from '../data/ranks';
 
@@ -26,7 +30,32 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   2: (save) => ({ ...save, version: 3, run: null, artifacts: [] }),
   /** The fighters of a run in progress, and those on offer, join no faction and have no perks. */
   3: (save) => ({ ...save, version: 4, run: plainFighters(save.run) }),
+  /** The starting company, no Insight or Tech Web yet; a run in progress names its fighters, who start their records now. */
+  4: (save) => ({ ...save, version: 5, company: startingCompany(), insight: 0, tech: {}, ironman: false, mastery: [], run: namedFighters(save.run) }),
 };
+
+/** A version 4 run: every fighter named, with a fresh record, no artifact and fit; a won end lets the usual fighters stay. */
+function namedFighters(run: unknown): unknown {
+  if (typeof run !== 'object' || run === null || Array.isArray(run)) return run;
+  const r = run as SaveData;
+  if (!Array.isArray(r.roster)) return run;
+  const seed = typeof r.seed === 'number' ? r.seed : 0;
+  const used: string[] = [];
+  const roster = r.roster.map((f) => {
+    if (typeof f !== 'object' || f === null) return f;
+    const id = typeof (f as SaveData).id === 'number' ? ((f as SaveData).id as number) : 0;
+    const name = freshName(used, seed + id * 37);
+    used.push(name);
+    return { ...(f as SaveData), name, record: { ...NO_RECORD }, artifact: null, veteranId: null, wounded: false };
+  });
+  let stop = r.stop;
+  if (typeof stop === 'object' && stop !== null && (stop as SaveData).kind === 'end') {
+    const s = stop as SaveData;
+    const keep = s.won === true ? defaultKeep(roster.filter((f): f is Fighter => typeof f === 'object' && f !== null) as Fighter[]) : [];
+    stop = { ...s, keep, died: [] };
+  }
+  return { ...r, roster, stop, insight: 0, ironman: false };
+}
 
 /** A version 3 run with every fighter, and every fighter on offer, given no faction and no perks. */
 function plainFighters(run: unknown): unknown {

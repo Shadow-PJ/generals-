@@ -1,8 +1,8 @@
-// Reading a saved run back. Like the rest of the profile, reading is forgiving: a run that doesn't
-// read correctly in every part is dropped (null) rather than half-loaded, and the rest of your
-// save still loads.
+// Reading a saved run back, and the rest of the campaign: your company, Tech Web and Mastery.
+// Like the rest of the profile, reading is forgiving: a run that doesn't read correctly in every
+// part is dropped (null) rather than half-loaded, and the rest of your save still loads.
 
-import type { Encounter, Fighter, MerchantItem, Offer, RunNode, RunState, Stop } from '../campaign/types';
+import type { Encounter, Fighter, FighterRecord, MerchantItem, Offer, RunNode, RunState, Stop, TechWeb, Veteran } from '../campaign/types';
 import { LEGENDARY_ACTIONS, type LegendaryAction } from '../cards/types';
 import { ARMY_SIZE, RESERVE_COUNT, type Troop, type TroopPlacement } from '../data/armies';
 import { ARTIFACT_IDS, type ArtifactId } from '../data/artifacts';
@@ -11,11 +11,15 @@ import { EVENT_IDS, type EventId } from '../data/events';
 import { FACTION_IDS, type FactionId } from '../data/factions';
 import { GENERAL_IDS, type GeneralId } from '../data/generals';
 import { MAP_IDS, type MapId } from '../data/maps';
+import { MASTERY, type MasteryId } from '../data/mastery';
 import { RANKS, type RankNumber } from '../data/ranks';
 import { RARITIES, type Rarity } from '../data/rarity';
 import { REGION_IDS, type RegionId } from '../data/regions';
 import { NODE_KINDS, type NodeKind } from '../data/runs';
 import { PERK_IDS, type PerkId } from '../data/perks';
+import { SPECIALIZATIONS, type SpecializationId } from '../data/specializations';
+import { TECH_NODE_IDS } from '../data/tech';
+import { COMPANY_RULES } from '../data/veterans';
 import { TROOP_CLASSES, type TroopClass } from '../data/units';
 import type { RngState } from '../sim';
 
@@ -79,6 +83,7 @@ function troop(value: unknown): Troop {
   if (d.faction !== undefined) t.faction = faction(d.faction);
   if (d.perks !== undefined) t.perks = ids<PerkId>(PERK_IDS, d.perks);
   if (d.turret !== undefined) t.turret = bool(d.turret);
+  if (d.artifact !== undefined) t.artifact = oneOf<ArtifactId>(ARTIFACT_IDS, d.artifact);
   return t;
 }
 
@@ -151,11 +156,24 @@ function stop(value: unknown): Stop {
         learned: nullable(d.learned, (v) => oneOf<LegendaryAction>(LEGENDARY_ACTIONS, v)),
         opened: ids<RegionId>(REGION_IDS, d.opened),
         unlocked: nullable(d.unlocked, (v) => oneOf<TroopClass>(TROOP_CLASSES, v)),
+        keep: ids<number>(list(d.keep).map((v) => int(v)), d.keep),
+        died: ids<number>(list(d.died).map((v) => int(v)), d.died),
       };
     default:
       return fail();
   }
 }
+
+function name(value: unknown): string {
+  return typeof value === 'string' && value.trim().length > 0 ? value : fail();
+}
+
+function record(value: unknown): FighterRecord {
+  const d = obj(value);
+  return { battles: int(d.battles), kills: int(d.kills), bossKills: int(d.bossKills) };
+}
+
+const artifactOrNull = (v: unknown): ArtifactId | null => nullable(v, (a) => oneOf<ArtifactId>(ARTIFACT_IDS, a));
 
 function fighter(value: unknown): Fighter {
   const d = obj(value);
@@ -165,7 +183,22 @@ function fighter(value: unknown): Fighter {
     const s = obj(v);
     return { x: num(s.x), y: num(s.y) };
   });
-  return { id: int(d.id, 1), ...traits(d), hp, spot };
+  return {
+    id: int(d.id, 1),
+    name: name(d.name),
+    ...traits(d),
+    record: record(d.record),
+    artifact: artifactOrNull(d.artifact),
+    veteranId: nullable(d.veteranId, (v) => int(v, 1)),
+    hp,
+    wounded: bool(d.wounded),
+    spot,
+  };
+}
+
+function veteran(value: unknown): Veteran {
+  const d = obj(value);
+  return { id: int(d.id, 1), name: name(d.name), ...traits(d), record: record(d.record), artifact: artifactOrNull(d.artifact) };
 }
 
 /** The floors of a run's map: each node leads only to nodes that exist on the next floor. */
@@ -199,6 +232,8 @@ function run(value: unknown): RunState {
   const field = team(d.field, ARMY_SIZE, 1);
   const reserves = team(d.reserves, RESERVE_COUNT, 0);
   if (reserves.some((id) => field.includes(id))) fail();
+  const end = nullable(d.stop, stop);
+  if (end?.kind === 'end' && [...end.keep, ...end.died].some((id) => !known.has(id))) fail();
   const nextFighterId = int(d.nextFighterId, Math.max(...known) + 1);
   return {
     region: oneOf<RegionId>(REGION_IDS, d.region),
@@ -207,7 +242,7 @@ function run(value: unknown): RunState {
     rng: rng(d.rng),
     map,
     path,
-    stop: nullable(d.stop, stop),
+    stop: end,
     gold: int(d.gold),
     roster,
     nextFighterId,
@@ -218,6 +253,8 @@ function run(value: unknown): RunState {
     eventsSeen: ids<EventId>(EVENT_IDS, d.eventsSeen),
     fightsWon: int(d.fightsWon),
     xp: int(d.xp),
+    insight: int(d.insight),
+    ironman: bool(d.ironman),
   };
 }
 
@@ -235,4 +272,43 @@ export function readRun(value: unknown): RunState | null {
 /** Banked artifacts as saved: the known ones, each once. */
 export function readArtifacts(value: unknown): ArtifactId[] {
   return Array.isArray(value) ? ARTIFACT_IDS.filter((id) => value.includes(id)) : [];
+}
+
+/** Your company as saved: every troop that reads correctly, each id and name once, at most a company's worth. Each artifact on one troop at most. */
+export function readCompany(value: unknown, banked: readonly ArtifactId[]): Veteran[] {
+  if (!Array.isArray(value)) return [];
+  const company: Veteran[] = [];
+  for (const v of value) {
+    try {
+      const vet = veteran(v);
+      if (company.some((c) => c.id === vet.id || c.name === vet.name) || company.length >= COMPANY_RULES.size) continue;
+      const carried = vet.artifact !== null && (!banked.includes(vet.artifact) || company.some((c) => c.artifact === vet.artifact));
+      company.push(carried ? { ...vet, artifact: null } : vet);
+    } catch (error) {
+      if (!(error instanceof Unreadable)) throw error;
+    }
+  }
+  return company;
+}
+
+/** The Tech Web as saved: for each class, its known nodes (once each) and its specialization, if it belongs to the class. */
+export function readTech(value: unknown): TechWeb {
+  const web: TechWeb = {};
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return web;
+  for (const cls of TROOP_CLASSES) {
+    const d = (value as Data)[cls];
+    if (typeof d !== 'object' || d === null) continue;
+    const saved = d as Data;
+    const nodes = Array.isArray(saved.nodes) ? TECH_NODE_IDS.filter((n) => (saved.nodes as unknown[]).includes(n)) : [];
+    const spec = typeof saved.spec === 'string' && SPECIALIZATIONS[saved.spec as SpecializationId]?.cls === cls ? (saved.spec as SpecializationId) : null;
+    if (nodes.length > 0 || spec) web[cls] = { nodes, spec };
+  }
+  return web;
+}
+
+/** The Mastery challenges met, as saved: the known ones, each once. */
+export function readMastery(value: unknown): MasteryId[] {
+  if (!Array.isArray(value)) return [];
+  const known = GENERAL_IDS.flatMap((g) => MASTERY[g].map((_, i) => `${g}.${i}` as MasteryId));
+  return value.filter((id, i): id is MasteryId => known.includes(id as MasteryId) && value.indexOf(id) === i);
 }

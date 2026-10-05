@@ -10,6 +10,8 @@ import { currentRenderScale, renderScale, setInitialRenderScale, setRenderScale 
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
 import { loadOrderReader, orderReaderTranslator } from './orderReader';
 import { ArmyScene } from './scenes/ArmyScene';
+import { CompanyScene } from './scenes/CompanyScene';
+import { TechScene } from './scenes/TechScene';
 import { BattleScene } from './scenes/BattleScene';
 import { CapitalScene } from './scenes/CapitalScene';
 import { CodexScene } from './scenes/CodexScene';
@@ -55,6 +57,8 @@ async function boot(): Promise<void> {
       CapitalScene,
       RunScene,
       ArmyScene,
+      TechScene,
+      CompanyScene,
       StopScene,
       PrepScene,
       OrdersScene,

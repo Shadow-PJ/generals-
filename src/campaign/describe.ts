@@ -1,4 +1,4 @@
-// Words for the campaign's screens: fighters, offers and node kinds.
+// Words for the campaign's screens: fighters, their records, offers and node kinds.
 
 import { BOONS } from '../data/boons';
 import { FACTIONS, type FactionId } from '../data/factions';
@@ -6,7 +6,8 @@ import { PERKS, type PerkId } from '../data/perks';
 import { RARITY_RULES, type Rarity } from '../data/rarity';
 import type { NodeKind } from '../data/runs';
 import { TROOP_NAMES, type TroopClass } from '../data/units';
-import type { Offer } from './types';
+import { veteranRank } from './company';
+import type { FighterRecord, Offer } from './types';
 
 /** "Rare Hive Ranger"; a Common fighter of no faction is just "Ranger". */
 export function fighterLabel(cls: TroopClass, rarity: Rarity, faction: FactionId | null = null): string {
@@ -17,6 +18,12 @@ export function fighterLabel(cls: TroopClass, rarity: Rarity, faction: FactionId
 /** "Tough (15% more HP), Leech (heals 10% of the damage its attacks deal)", or '' for none. */
 export function perksText(perks: readonly PerkId[]): string {
   return perks.map((p) => `${PERKS[p].name} (${PERKS[p].text})`).join(', ');
+}
+
+/** "Veteran · 5 battles, 3 kills (1 in boss fights)". */
+export function recordText(record: FighterRecord): string {
+  const kills = `${record.kills} kill${record.kills === 1 ? '' : 's'}${record.bossKills > 0 ? ` (${record.bossKills} in boss fights)` : ''}`;
+  return `${veteranRank(record).name} · ${record.battles} battle${record.battles === 1 ? '' : 's'}, ${kills}`;
 }
 
 /** The offer's name: "Epic Bloodbound Vanguard", "Supply Lines". */

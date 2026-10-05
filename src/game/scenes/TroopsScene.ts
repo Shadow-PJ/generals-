@@ -1,7 +1,7 @@
 // The Skirmish screen: practice battles, earning no Command XP. Pick the class of each of your
 // 5 troops and 3 reserves, a specialization for each class, and the battle: the map, your
-// General (one you have recruited), the enemy's General (any), its army and its commander. It
-// also sets your specializations for the campaign until the Tech Web sells them (5E).
+// General (one you have recruited), the enemy's General (any), its army and its commander. In the
+// campaign your specializations come from the Tech Web instead (session 5E).
 // Up and Down pick a row, Left and Right change it; a click changes it too.
 
 import Phaser from 'phaser';

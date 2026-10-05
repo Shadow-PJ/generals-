@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { newCampaign, startingCompany } from '../campaign/company';
 import { parseOrder } from '../cards/parser';
 import type { Card } from '../cards/types';
 import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
@@ -32,7 +33,7 @@ function saved(): Profile {
   profile.enemyCommander = 4;
   profile.artifacts = ['ironHeart', 'warHorn'];
   // A run with a few steps taken: the spoils of its first fight wait.
-  const campaign = finishFight(enterNode(newRun({ run: null, artifacts: [], bossesBeaten: [] }, 'voidRuins', 31), 0), {
+  const campaign = finishFight(enterNode(newRun(newCampaign(), 'voidRuins', 31), 0), {
     won: true,
     fighters: [{ id: 2, hp: 0.35 }],
     xp: 55,
@@ -95,8 +96,8 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(4);
-    expect(profileVersion(writeProfile(saved()))).toBe(4);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(5);
+    expect(profileVersion(writeProfile(saved()))).toBe(5);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
@@ -116,6 +117,46 @@ describe('the saved profile', () => {
     const offers = profile.run!.stop?.kind === 'spoils' ? profile.run!.stop.offers : [];
     expect(offers).toHaveLength(3);
     for (const o of offers) if (o.kind === 'fighter') expect(o).toMatchObject({ faction: null, perks: [] });
+  });
+
+  it('loads a version 4 save: the starting company, no Insight, Tech Web or Mastery; a run in progress names its fighters', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 4;
+    for (const key of ['company', 'insight', 'tech', 'ironman', 'mastery']) delete data[key];
+    delete data.run.insight;
+    delete data.run.ironman;
+    for (const f of data.run.roster) for (const key of ['name', 'record', 'artifact', 'veteranId', 'wounded']) delete f[key];
+    const profile = readProfile(JSON.stringify(data));
+    expect(profile).toMatchObject({ company: startingCompany(), insight: 0, tech: {}, ironman: false, mastery: [] });
+    expect(profile.run).not.toBeNull();
+    const roster = profile.run!.roster;
+    expect(new Set(roster.map((f) => f.name)).size).toBe(roster.length);
+    expect(roster.every((f) => f.record.battles === 0 && f.artifact === null && f.veteranId === null && !f.wounded)).toBe(true);
+    expect(profile.run).toMatchObject({ insight: 0, ironman: false });
+  });
+
+  it('keeps your company, Insight, Tech Web, Ironman and Mastery, and only the parts that read', () => {
+    const profile = saved();
+    profile.company = startingCompany().map((v, i) => (i === 0 ? { ...v, artifact: 'ironHeart', record: { battles: 5, kills: 3, bossKills: 1 } } : v));
+    profile.insight = 7;
+    profile.tech = { ranger: { nodes: ['drills'], spec: 'sniper' } };
+    profile.ironman = true;
+    profile.mastery = ['captain.1', 'warlord.0'];
+    expect(readProfile(writeProfile(profile))).toEqual(profile);
+    const data = JSON.parse(writeProfile(profile));
+    data.company[1].artifact = 'ironHeart'; // the same artifact twice: the second loses it
+    data.company[2].artifact = 'eagleEye'; // not banked
+    data.company[3].name = data.company[0].name; // a name twice: dropped
+    data.company[4] = { nonsense: true };
+    data.insight = -3;
+    data.tech = { ranger: { nodes: ['drills', 'drills', 'flying'], spec: 'breaker' }, wizard: { nodes: ['arms'] } };
+    data.mastery = ['captain.1', 'captain.9', 'captain.1'];
+    const read = readProfile(JSON.stringify(data));
+    expect(read.company.map((v) => v.artifact)).toEqual(['ironHeart', null, null, null, null, null]);
+    expect(read.company).toHaveLength(6);
+    expect(read.insight).toBe(0);
+    expect(read.tech).toEqual({ ranger: { nodes: ['drills'], spec: null } });
+    expect(read.mastery).toEqual(['captain.1']);
   });
 
   it('loads a version 2 save: no run yet, and nothing banked', () => {

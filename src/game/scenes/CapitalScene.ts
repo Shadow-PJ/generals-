@@ -1,9 +1,11 @@
 // The Capital: your hub and the first screen. The world map shows the five regions around it,
 // each ruled by a General; entering one starts a run that ends at its ruler. From here you also
-// pick your General, practise in skirmish, read the Codex and change the settings.
+// see your company and equip its artifacts, spend Insight on the Tech Web, pick your General,
+// practise in skirmish, read the Codex and change the settings.
 // ←→ (or Tab) pick a region, Enter sets out or carries on your run, Del abandons it.
 
 import Phaser from 'phaser';
+import { titles } from '../../campaign/mastery';
 import { abandonRun, newRun, setOutProblem } from '../../campaign/run';
 import { ARTIFACTS } from '../../data/artifacts';
 import { GENERALS } from '../../data/generals';
@@ -55,11 +57,13 @@ export class CapitalScene extends Phaser.Scene {
   create(): void {
     fitCamera(this);
     this.add.text(16, 10, 'THE CAPITAL', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, '←→ pick a region, Enter: set out.', textStyle(13, TEXT.muted));
-    addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'General  G', () => this.open('Generals'), 112, 34);
-    addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.scene.start('Prep'), 112, 34);
-    addButton(this, GAME_WIDTH - 262, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.open('Codex'), 112, 34);
-    addButton(this, GAME_WIDTH - 110, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.open('Settings'), 170, 34);
+    this.add.text(16, 38, '←→ region, Enter: set out.', textStyle(13, TEXT.muted));
+    addButton(this, GAME_WIDTH - 680, TOP_BAR_HEIGHT / 2, 'Company  R', () => this.scene.start('Company'), 104, 34);
+    addButton(this, GAME_WIDTH - 570, TOP_BAR_HEIGHT / 2, 'Tech Web  K', () => this.scene.start('Tech'), 104, 34);
+    addButton(this, GAME_WIDTH - 460, TOP_BAR_HEIGHT / 2, 'General  G', () => this.open('Generals'), 104, 34);
+    addButton(this, GAME_WIDTH - 350, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.scene.start('Prep'), 104, 34);
+    addButton(this, GAME_WIDTH - 240, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.open('Codex'), 104, 34);
+    addButton(this, GAME_WIDTH - 100, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.open('Settings'), 160, 34);
     this.ui = this.add.container(0, 0);
 
     new InputLayer(this)
@@ -73,6 +77,8 @@ export class CapitalScene extends Phaser.Scene {
       .on('clear', () => this.abandon())
       .on('troops', () => this.scene.start('Prep'))
       .on('general', () => this.open('Generals'))
+      .on('tech', () => this.scene.start('Tech'))
+      .on('company', () => this.scene.start('Company'))
       .on('codex', () => this.open('Codex'))
       .on('back', () => this.open('Settings'));
     this.render();
@@ -211,7 +217,8 @@ export class CapitalScene extends Phaser.Scene {
       this.ui.add(this.add.text(x, y, title, textStyle(11, TEXT.muted, true)));
       this.ui.add(this.add.text(x, y + 16, text, { ...textStyle(13, color, true), wordWrap: { width: 290 } }));
     };
-    line(16, 'COMMAND RANK', `Rank ${rank.numeral} · ${rank.name}\n${next}`);
+    const title = titles(campaign).at(-1);
+    line(16, 'COMMAND RANK', `Rank ${rank.numeral} · ${rank.name}\n${next}\nInsight: ${campaign.insight}${title ? ` · ${title}` : ''}`);
     line(330, 'LEGENDARY ACTIONS', learned.length > 0 ? learned.join(', ') : 'None yet: beat a ruler', TEXT.combo);
     line(640, 'BANKED ARTIFACTS', banked.length > 0 ? banked.join(', ') : 'None yet: bank them at a camp', TEXT.gold);
   }

@@ -44,6 +44,7 @@ export function createBattle(setup: BattleSetup): BattleState {
   const asTroop = (r: UnitClass | Troop): Troop => (typeof r === 'string' ? { cls: r } : { ...r });
   const reserves = { player: (setup.reserves?.player ?? []).map(asTroop), enemy: (setup.reserves?.enemy ?? []).map(asTroop) };
   const boons = { player: [...(setup.boons?.player ?? [])], enemy: [...(setup.boons?.enemy ?? [])] };
+  const tech = { player: { ...setup.tech?.player }, enemy: { ...setup.tech?.enemy } };
 
   // Ids alternate between the sides (player, enemy, player, ...) so neither side always acts first.
   const count = Math.max(setup.player.length, setup.enemy.length);
@@ -51,7 +52,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     for (const side of SIDES) {
       const placement = setup[side][i];
       if (placement) {
-        units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side], setup.map, boons[side]));
+        units.push(createUnit(units.length + 1, side, placement, rng, specFor(specs[side], placement.cls), generals[side], setup.map, boons[side], tech[side]));
       }
     }
   }
@@ -94,6 +95,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     boons,
     factions: { player: factionCounts([...setup.player, ...reserves.player], boons.player), enemy: factionCounts([...setup.enemy, ...reserves.enemy], boons.enemy) },
     boss: setup.boss ?? null,
+    tech,
     tactical: setup.tactical ?? false,
     inputLog: [],
   };
@@ -270,6 +272,13 @@ function carryOut(state: BattleState, unit: Unit, action: Action): void {
 function resolveDeaths(state: BattleState): void {
   for (const unit of state.units) {
     if (!unit.alive || unit.hp > 0) continue;
+    // A Phoenix Feather: once, the troop gets back up instead of falling.
+    if (unit.reviveHp > 0) {
+      unit.hp = Math.max(1, Math.round(unit.stats.maxHp * unit.reviveHp));
+      unit.reviveHp = 0;
+      state.events.push({ tick: state.tick, type: 'revived', unitId: unit.id });
+      continue;
+    }
     unit.alive = false;
     unit.hp = 0;
     unit.mark = null;

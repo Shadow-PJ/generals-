@@ -3,11 +3,12 @@
 import type { GeneralId } from '../data/generals';
 import type { RegionId } from '../data/regions';
 import type { NodeKind } from '../data/runs';
+import { newCampaign } from './company';
 import { newRun } from './run';
 import type { Campaign, RunState } from './types';
 
 export function freshCampaign(bossesBeaten: GeneralId[] = []): Campaign {
-  return { run: null, artifacts: [], bossesBeaten };
+  return newCampaign(bossesBeaten);
 }
 
 /**

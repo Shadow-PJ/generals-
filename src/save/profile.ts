@@ -1,10 +1,12 @@
 // Your saved progress: the cards in your slots, your troops and where they stand, your Command
 // XP (which sets your rank), the bosses you have beaten, Tactical mode, your General, the
-// combos you have found, the run you are on and the artifacts you have banked. It is plain JSON in saves/profile.json. An older save is first brought
-// up to this version (migrations.ts). Reading is forgiving: anything missing or damaged falls
+// combos you have found, the run you are on, the artifacts you have banked, your company, your
+// Insight and Tech Web, Ironman mode and the Mastery challenges you have met. It is plain JSON in
+// saves/profile.json. An older save is first brought up to this version (migrations.ts). Reading is forgiving: anything missing or damaged falls
 // back to the default, so a bad file never stops the game from starting.
 
-import type { RunState } from '../campaign/types';
+import { newCampaign } from '../campaign/company';
+import type { RunState, TechWeb, Veteran } from '../campaign/types';
 import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
 import type { ArtifactId } from '../data/artifacts';
@@ -13,15 +15,16 @@ import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { MAP_IDS, OPEN_FIELD, type MapId } from '../data/maps';
 import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
 import { BOSS_ORDER } from '../data/legendary';
+import type { MasteryId } from '../data/mastery';
 import { RANKS, type RankNumber } from '../data/ranks';
 import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
 import { TROOP_CLASSES, type UnitClass } from '../data/units';
 import type { FileName } from '../platform';
 import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
-import { readArtifacts, readRun } from './run';
+import { readArtifacts, readCompany, readMastery, readRun, readTech } from './run';
 
-export const PROFILE_VERSION = 4;
+export const PROFILE_VERSION = 5;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
 /** The save as it was before the last migration, in case an update ever goes wrong. */
 export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';
@@ -52,9 +55,19 @@ export interface Profile {
   run: RunState | null;
   /** Artifacts banked for good, at a rest camp or by winning a run. */
   artifacts: ArtifactId[];
+  /** Your company (session 5E): the troops you set out with, with their names, records and artifacts. */
+  company: Veteran[];
+  /** Insight to spend on the Tech Web, and what each class has bought. */
+  insight: number;
+  tech: TechWeb;
+  /** Ironman mode for the next run. */
+  ironman: boolean;
+  /** General Mastery challenges met. */
+  mastery: MasteryId[];
 }
 
 export function newProfile(): Profile {
+  const { run, artifacts, company, insight, tech, ironman, mastery } = newCampaign();
   return {
     version: PROFILE_VERSION,
     loadout: emptyLoadout(),
@@ -71,8 +84,13 @@ export function newProfile(): Profile {
     enemyArmy: 'starter',
     enemyGeneral: STARTING_GENERAL,
     enemyCommander: null,
-    run: null,
-    artifacts: [],
+    run,
+    artifacts,
+    company,
+    insight,
+    tech,
+    ironman,
+    mastery,
   };
 }
 
@@ -119,6 +137,11 @@ export function readProfile(text: string | null): Profile {
   if (RANKS.some((r) => r.rank === saved.enemyCommander)) profile.enemyCommander = saved.enemyCommander as RankNumber;
   profile.run = readRun(saved.run);
   profile.artifacts = readArtifacts(saved.artifacts);
+  profile.company = readCompany(saved.company, profile.artifacts);
+  if (typeof saved.insight === 'number' && Number.isInteger(saved.insight) && saved.insight >= 0) profile.insight = saved.insight;
+  profile.tech = readTech(saved.tech);
+  if (typeof saved.ironman === 'boolean') profile.ironman = saved.ironman;
+  profile.mastery = readMastery(saved.mastery);
   return profile;
 }
 

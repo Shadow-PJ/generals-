@@ -47,6 +47,12 @@ export function battleXp(events: readonly BattleEvent[], result: BattleResult): 
   return { total: parts.reduce((sum, p) => sum + p.xp, 0), parts };
 }
 
+/** The XP with the Battle IQ grade's bonus added, when it earns one. */
+export function withIqXp(xp: XpGain, grade: string, bonus: number): XpGain {
+  if (bonus <= 0) return xp;
+  return { total: xp.total + bonus, parts: [...xp.parts, { label: `Battle IQ ${grade}`, xp: bonus }] };
+}
+
 /** What a rank brings, for the rank-up note: "4 slots, 3 steps per card, "when X and Y", Finishers". */
 export function rankUnlocks(rank: RankNumber): string {
   const rules = RANKS[rank - 1]!;

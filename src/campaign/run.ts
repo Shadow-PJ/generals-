@@ -3,15 +3,16 @@
 // returns the next one; nothing is changed in place, and every roll comes from the run's
 // generator, so a run is the same for the same seed and the same choices.
 
-import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
 import { boonGold } from '../data/boons';
 import { EVENT_IDS, EVENTS } from '../data/events';
 import { BOSS_ORDER, learnedActions } from '../data/legendary';
 import { rarityChances } from '../data/rarity';
 import { openRegions, REGIONS, type RegionId } from '../data/regions';
 import { RUN_RULES } from '../data/runs';
+import { COMPANY_RULES } from '../data/veterans';
 import { createRng, nextInt, type RngState } from '../sim';
-import { addFighter } from './army';
+import { benchWounded, joined, removeFighter } from './army';
+import { afterBattle, defaultKeep, fighterFromVeteran, filledCompany, veteranFromFighter } from './company';
 import { makeEncounter } from './encounters';
 import { applyChoice, choiceProblem, newArtifact } from './events';
 import { rollOffers, rollStock, takeOffer } from './offers';
@@ -19,13 +20,15 @@ import { pick } from './random';
 import { currentNode, generateRunMap, nextChoices } from './runMap';
 import type { Campaign, RunState, Stop } from './types';
 
-/** How a fight went, for the run: who is left standing, and with how much HP. */
+/** How a fight went, for the run: who is left standing, with how much HP, and what they did. */
 export interface FightOutcome {
   won: boolean;
-  /** Each fighter who took the field: their share of HP left, or null if they fell. Reserves never called in are left out. */
-  fighters: { id: number; hp: number | null }[];
+  /** Each fighter who took the field: their share of HP left, or null if they fell, and the enemies they killed (none when left out). Reserves never called in are left out. */
+  fighters: { id: number; hp: number | null; kills?: number }[];
   /** The Command XP the battle earned, for the run's tally. */
   xp: number;
+  /** The Insight it earned, for the Tech Web; none when left out. */
+  insight?: number;
 }
 
 /** Why you can't set out into a region now, or null if you can. */
@@ -35,11 +38,15 @@ export function setOutProblem(campaign: Campaign, region: RegionId): string | nu
   return null;
 }
 
-/** A new run into `region`, with the starter squad: 5 troops on the field and 3 in reserve. */
+/**
+ * A new run into `region`, with your company: 5 troops on the field and 3 in reserve. Empty places
+ * in the company are filled with fresh Recruits first, who join it for good.
+ */
 export function newRun(campaign: Campaign, region: RegionId, seed: number): Campaign {
   const problem = setOutProblem(campaign, region);
   if (problem) throw new Error(problem);
   const rng = createRng(seed);
+  const company = filledCompany(campaign.company, seed);
   let run: RunState = {
     region,
     level: BOSS_ORDER.filter((g) => campaign.bossesBeaten.includes(g)).length,
@@ -58,11 +65,11 @@ export function newRun(campaign: Campaign, region: RegionId, seed: number): Camp
     eventsSeen: [],
     fightsWon: 0,
     xp: 0,
+    insight: 0,
+    ironman: campaign.ironman,
   };
-  for (const t of [...STARTER_ARMY, ...STARTER_RESERVES.map((cls) => ({ cls }))]) run = addFighter(run, { cls: t.cls, rarity: 'common', faction: null, perks: [] });
-  // The starter troops stand where the starter army does.
-  run = { ...run, roster: run.roster.map((f, i) => (STARTER_ARMY[i] ? { ...f, spot: { x: STARTER_ARMY[i].x, y: STARTER_ARMY[i].y } } : f)) };
-  return { ...campaign, run: { ...run, rng: { ...rng } } };
+  for (const v of company) run = joined(run, fighterFromVeteran(v, 0));
+  return { ...campaign, company, run: { ...run, rng: { ...rng } } };
 }
 
 function runOf(campaign: Campaign): RunState {
@@ -128,21 +135,32 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
   const run = runOf(campaign);
   if (run.stop?.kind !== 'fight') throw new Error('No fight to finish');
   const encounter = run.stop.encounter;
-  const tallied: RunState = { ...run, xp: run.xp + Math.max(0, outcome.xp) };
-  if (!outcome.won) return endRun(campaign, tallied, false);
+  const insight = Math.max(0, outcome.insight ?? 0);
+  const earned: Campaign = { ...campaign, insight: campaign.insight + insight };
+  // Every fighter who fought adds the battle to their record, and may rank up.
+  const recorded = rolling(run, (rng) => {
+    const fought = new Map(outcome.fighters.map((f) => [f.id, f.kills ?? 0]));
+    const roster = run.roster.map((f) => (fought.has(f.id) ? afterBattle(rng, f, fought.get(f.id)!, encounter.kind === 'boss') : f));
+    return { ...run, roster, xp: run.xp + Math.max(0, outcome.xp), insight: run.insight + insight };
+  });
+  const fell = new Set(outcome.fighters.filter((f) => f.hp === null || f.hp <= 0).map((f) => f.id));
+  if (!outcome.won) return endRun(earned, recorded, false, fell);
 
   const hp = new Map(outcome.fighters.map((f) => [f.id, f.hp]));
-  const healed: RunState = {
-    ...tallied,
+  // A fighter who fell gets back up hurt and sits the next fight out (in Ironman, it dies); the
+  // others keep the HP they ended with, and last fight's wounded are fit again.
+  let healed: RunState = {
+    ...recorded,
     fightsWon: run.fightsWon + 1,
-    // A fighter who fell gets back up, hurt; the others keep the HP they ended with.
-    roster: run.roster.map((f) => {
-      if (!hp.has(f.id)) return f;
+    roster: recorded.roster.map((f) => {
+      if (!hp.has(f.id)) return { ...f, wounded: false };
       const left = hp.get(f.id)!;
-      return { ...f, hp: left === null || left <= 0 ? RUN_RULES.fallenHp : Math.min(1, left) };
+      return fell.has(f.id) ? { ...f, hp: RUN_RULES.fallenHp, wounded: true } : { ...f, hp: Math.min(1, left!), wounded: false };
     }),
   };
-  if (encounter.kind === 'boss') return endRun(campaign, healed, true);
+  if (run.ironman) for (const id of fell) healed = removeFighter(healed, id);
+  healed = benchWounded(healed);
+  if (encounter.kind === 'boss') return endRun(earned, healed, true);
 
   const floor = run.path.length - 1;
   const next = rolling(healed, (rng) => {
@@ -160,7 +178,7 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
       stop: { kind: 'spoils', gold, artifact, offers },
     };
   });
-  return { ...campaign, run: next };
+  return { ...earned, run: next };
 }
 
 /** Takes one of the spoils' offers, or skips them for a little gold (index null). */
@@ -277,19 +295,45 @@ export function abandonRun(campaign: Campaign): Campaign {
   return endRun(campaign, run, false);
 }
 
-/** Back to the Capital once the run is over. */
+/** After a won run: a fighter stays in your company, or doesn't. At most 8 stay. */
+export function toggleKeep(campaign: Campaign, fighterId: number): Campaign {
+  const run = runOf(campaign);
+  const stop = run.stop;
+  if (stop?.kind !== 'end' || !stop.won) throw new Error('Only a won run lets fighters stay');
+  if (!run.roster.some((f) => f.id === fighterId)) return campaign;
+  const keep = stop.keep.includes(fighterId) ? stop.keep.filter((id) => id !== fighterId) : [...stop.keep, fighterId];
+  if (keep.length > COMPANY_RULES.size) return campaign;
+  return { ...campaign, run: { ...run, stop: { ...stop, keep } } };
+}
+
+/**
+ * Back to the Capital once the run is over. After a win, your company is the fighters you kept;
+ * after a loss, your company comes home without the run's newcomers. Either way they come home
+ * healed, with their records, and a troop that is gone (it left, or died in Ironman) is gone for
+ * good; any artifact it carried goes back to your bank.
+ */
 export function closeRun(campaign: Campaign): Campaign {
-  if (campaign.run?.stop?.kind !== 'end') throw new Error('The run isn’t over');
-  return { ...campaign, run: null };
+  const stop = campaign.run?.stop;
+  if (stop?.kind !== 'end') throw new Error('The run isn’t over');
+  const run = campaign.run!;
+  const usedIds = new Set(campaign.company.map((v) => v.id));
+  let nextId = Math.max(0, ...usedIds) + 1;
+  const home = stop.won
+    ? stop.keep.flatMap((id) => run.roster.filter((f) => f.id === id))
+    : run.roster.filter((f) => f.veteranId !== null && !stop.died.includes(f.id) && campaign.company.some((v) => v.id === f.veteranId));
+  const company = home.map((f) => veteranFromFighter(f, f.veteranId ?? nextId++));
+  return { ...campaign, company, run: null };
 }
 
 /**
  * The end of a run. A win banks what you carry and beats the ruler: that opens the next region,
- * may unlock a class, and teaches the ruler's Legendary action. A loss loses what you carry.
+ * may unlock a class, and teaches the ruler's Legendary action. A loss loses what you carry, and
+ * in Ironman the fighters who fell in the last fight die.
  */
-function endRun(campaign: Campaign, run: RunState, won: boolean): Campaign {
+function endRun(campaign: Campaign, run: RunState, won: boolean, fell: ReadonlySet<number> = new Set()): Campaign {
   if (!won) {
-    const stop: Stop = { kind: 'end', won, banked: [], lost: [...run.artifacts], learned: null, opened: [], unlocked: null };
+    const died = run.ironman ? run.roster.filter((f) => fell.has(f.id)).map((f) => f.id) : [];
+    const stop: Stop = { kind: 'end', won, banked: [], lost: [...run.artifacts], learned: null, opened: [], unlocked: null, keep: [], died };
     return { ...campaign, run: { ...run, artifacts: [], stop } };
   }
   const region = REGIONS[run.region];
@@ -305,8 +349,10 @@ function endRun(campaign: Campaign, run: RunState, won: boolean): Campaign {
     learned: learnedActions(bossesBeaten).find((a) => !knew.includes(a)) ?? null,
     opened: openRegions(bossesBeaten).filter((r) => !before.includes(r)),
     unlocked: firstWin ? region.unlocksClass : null,
+    keep: defaultKeep(run.roster),
+    died: [],
   };
-  return { bossesBeaten, artifacts: banked(campaign, run), run: { ...run, artifacts: [], stop } };
+  return { ...campaign, bossesBeaten, artifacts: banked(campaign, run), run: { ...run, artifacts: [], stop } };
 }
 
 /** Where you are: about to set out, at a node, or done with it and choosing the next. */

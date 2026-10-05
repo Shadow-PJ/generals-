@@ -1,6 +1,6 @@
 // Your army for a battle: the classes of your 5 troops and 3 reserves, your specializations, and
-// the enemy you face. The debug Troops screen changes them until the campaign unlocks classes
-// and the Tech Web sells specializations (phase 5).
+// the enemy you face. The Skirmish screen changes them for a skirmish; in the campaign they come
+// from your run and your Tech Web.
 
 import type { Loadout } from '../cards/types';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_RESERVES, type Troop, type TroopPlacement } from '../data/armies';

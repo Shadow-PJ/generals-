@@ -111,9 +111,10 @@ export function remember(setup: MatchSetup): Promise<void> {
   return write(PROFILE_FILE, writeProfile(profile));
 }
 
-/** The campaign as saved: your run, your banked artifacts and the bosses you have beaten. */
+/** The campaign as saved: your run, banked artifacts, the bosses you have beaten, your company, Insight, Tech Web, Ironman and Mastery. */
 export function currentCampaign(): Campaign {
-  return structuredClone({ run: profile.run, artifacts: profile.artifacts, bossesBeaten: profile.bossesBeaten });
+  const { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery } = profile;
+  return structuredClone({ run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery });
 }
 
 /** Saves the campaign after a step of a run. Resolves once the file is written. */

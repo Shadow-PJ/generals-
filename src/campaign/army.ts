@@ -5,6 +5,7 @@ import { ARMY_SIZE, RESERVE_COUNT, STARTER_ARMY, STARTER_ARMY_MIRRORED, type Tro
 import type { MapData } from '../data/maps';
 import type { UnitClass } from '../data/units';
 import { placementProblem, type Side } from '../sim';
+import { freshName, NO_RECORD } from './company';
 import type { Fighter, FighterTraits, RunState } from './types';
 
 export type Role = 'field' | 'reserve' | 'rest';
@@ -64,7 +65,10 @@ export function roleOf(run: RunState, id: number): Role {
  * role takes no one more, and the field never goes empty. Returns the run unchanged then.
  */
 export function withRole(run: RunState, id: number, role: Role): RunState {
-  if (!fighterById(run, id) || roleOf(run, id) === role) return run;
+  const fighter = fighterById(run, id);
+  if (!fighter || roleOf(run, id) === role) return run;
+  // A wounded fighter sits this fight out.
+  if (fighter.wounded && role !== 'rest') return run;
   if (role === 'field' && run.field.length >= ARMY_SIZE) return run;
   if (role === 'reserve' && run.reserves.length >= RESERVE_COUNT) return run;
   const field = run.field.filter((f) => f !== id);
@@ -86,12 +90,53 @@ export function nextRole(run: RunState, id: number, step: number): Role {
   return roles[now]!;
 }
 
-/** The run with a new fighter: on the field if there is room, else in reserve, else waiting. */
+/** The run with a new fighter who joins during it, named: on the field if there is room, else in reserve, else waiting. */
 export function addFighter(run: RunState, traits: FighterTraits, hp = 1): RunState {
-  const fighter: Fighter = { id: run.nextFighterId, cls: traits.cls, rarity: traits.rarity, faction: traits.faction, perks: [...traits.perks], hp, spot: null };
-  const field = run.field.length < ARMY_SIZE ? [...run.field, fighter.id] : run.field;
-  const reserves = field === run.field && run.reserves.length < RESERVE_COUNT ? [...run.reserves, fighter.id] : run.reserves;
-  return { ...run, roster: [...run.roster, fighter], nextFighterId: run.nextFighterId + 1, field, reserves };
+  const id = run.nextFighterId;
+  const name = freshName(
+    run.roster.map((f) => f.name),
+    run.seed + id * 37,
+  );
+  const fighter: Fighter = {
+    id,
+    name,
+    cls: traits.cls,
+    rarity: traits.rarity,
+    faction: traits.faction,
+    perks: [...traits.perks],
+    record: { ...NO_RECORD },
+    artifact: null,
+    veteranId: null,
+    hp,
+    wounded: false,
+    spot: null,
+  };
+  return joined(run, fighter);
+}
+
+/** The run with this fighter (its id the run's next) added: on the field if there is room, else in reserve, else waiting. */
+export function joined(run: RunState, fighter: Fighter): RunState {
+  const added = { ...fighter, id: run.nextFighterId };
+  const field = run.field.length < ARMY_SIZE ? [...run.field, added.id] : run.field;
+  const reserves = field === run.field && run.reserves.length < RESERVE_COUNT ? [...run.reserves, added.id] : run.reserves;
+  return { ...run, roster: [...run.roster, added], nextFighterId: run.nextFighterId + 1, field, reserves };
+}
+
+/**
+ * The wounded sit the next fight out: they leave the field and the reserves. Reserves step up to
+ * free places on the field, and fit fighters who were waiting fill the places left, field first.
+ */
+export function benchWounded(run: RunState): RunState {
+  const fit = (id: number) => fighterById(run, id)?.wounded === false;
+  const field = run.field.filter(fit);
+  const reserves = run.reserves.filter(fit);
+  const waiting = run.roster.filter((f) => !f.wounded && !field.includes(f.id) && !reserves.includes(f.id)).map((f) => f.id);
+  while (field.length < ARMY_SIZE && reserves.length > 0) field.push(reserves.shift()!);
+  while (field.length < ARMY_SIZE && waiting.length > 0) field.push(waiting.shift()!);
+  while (reserves.length < RESERVE_COUNT && waiting.length > 0) reserves.push(waiting.shift()!);
+  // The field is never empty: with no one fit, the healthiest steps in anyway.
+  if (field.length === 0 && run.roster.length > 0) field.push([...run.roster].sort((a, b) => b.hp - a.hp || a.id - b.id)[0]!.id);
+  return { ...run, field, reserves: reserves.filter((id) => !field.includes(id)) };
 }
 
 /** The run without a fighter. If that empties the field, the healthiest fighter left steps in. */
@@ -132,7 +177,9 @@ export function reserveTroops(run: RunState): Troop[] {
 
 /** A fighter as a troop for the battle engine. */
 export function troopOf(f: Fighter): Troop {
-  return { cls: f.cls, rarity: f.rarity, hp: f.hp, faction: f.faction, perks: [...f.perks], fighterId: f.id };
+  const troop: Troop = { cls: f.cls, rarity: f.rarity, hp: f.hp, faction: f.faction, perks: [...f.perks], fighterId: f.id };
+  if (f.artifact) troop.artifact = f.artifact;
+  return troop;
 }
 
 /** The run with each fielded fighter's spot remembered from the placement you made. */

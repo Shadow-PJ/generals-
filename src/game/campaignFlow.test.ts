@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { INSIGHT } from '../data/tech';
+import { newCampaign } from '../campaign/company';
 import { withRole } from '../campaign/army';
 import { enterNode, newRun } from '../campaign/run';
 import { emptyLoadout } from '../cards/types';
@@ -27,7 +29,7 @@ const base: MatchSetup = {
 };
 
 const atFight = () => {
-  const campaign = enterNode(newRun({ run: null, artifacts: [], bossesBeaten: [] }, 'deepForest', 21), 0);
+  const campaign = enterNode(newRun(newCampaign(), 'deepForest', 21), 0);
   return withRole({ ...campaign.run!, boons: ['whetstones'] }, 7, 'rest');
 };
 
@@ -35,7 +37,11 @@ describe('a run’s fight on the battle screens', () => {
   it('fields your run’s fighters at your earned rank, on the region’s map, against the node’s enemy', () => {
     const run = atFight();
     const setup = fightSetup(base, run, 2)!;
-    expect(setup).toMatchObject({ rank: 2, practiceRank: null, map: 'deepForest', general: 'warlord', specs: { vanguard: 'bulwark' } });
+    // Campaign fights take their specializations from your Tech Web, not from the Skirmish screen.
+    expect(setup).toMatchObject({ rank: 2, practiceRank: null, map: 'deepForest', general: 'warlord', specs: {} });
+    const webbed = fightSetup(base, run, 2, { ranger: { nodes: ['arms'], spec: 'sniper' } })!;
+    expect(webbed.specs).toEqual({ ranger: 'sniper' });
+    expect(webbed.fight!.tech).toEqual({ ranger: ['arms'] });
     expect(setup.placement.map((t) => t.fighterId)).toEqual(run.field);
     expect(isArmyPlaced(MAPS.deepForest, 'player', setup.placement)).toBe(true);
     expect(yourReserves(setup).map((t) => t.fighterId)).toEqual([6, 8]);
@@ -62,10 +68,15 @@ describe('a run’s fight on the battle screens', () => {
     const outcome = fightOutcome(state, 60);
     expect(outcome.won).toBe(state.result.winner === 'player');
     expect(outcome.xp).toBe(60);
+    expect(outcome.insight).toBe(INSIGHT[state.result.winner === 'player' ? 'win' : state.result.winner === 'draw' ? 'draw' : 'loss']);
     for (const f of outcome.fighters) {
       const unit = state.units.find((u) => u.fighterId === f.id)!;
       expect(f.hp).toBe(unit.alive ? unit.hp / unit.stats.maxHp : null);
+      // Its kills: the enemies whose death the log puts on it.
+      const kills = state.events.filter((e) => e.type === 'death' && e.killerId === unit.id && state.units.find((u) => u.id === e.unitId)!.side === 'enemy');
+      expect(f.kills).toBe(kills.length);
     }
+    expect(outcome.fighters.reduce((sum, f) => sum + (f.kills ?? 0), 0)).toBeGreaterThan(0);
     expect(outcome.fighters.map((f) => f.id)).toEqual(expect.arrayContaining(setup.placement.map((t) => t.fighterId!)));
   });
 });

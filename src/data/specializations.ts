@@ -1,6 +1,7 @@
 // Specializations: each troop class has two, and a troop takes one or neither (docs/DESIGN.md,
-// The 5 troop classes). The Tech Web will sell them in phase 5; until then a debug menu picks
-// them, one per class for your whole army. All numbers are starting values to tune.
+// The 5 troop classes). In the campaign the Tech Web sells them (session 5E), one per class for
+// your whole army; in a skirmish the Skirmish screen picks them freely. All numbers are starting
+// values to tune.
 
 import type { TroopClass } from './units';
 

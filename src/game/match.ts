@@ -1,5 +1,6 @@
 // What carries from screen to screen: your troops and where they stand, your cards, your rank and General.
 
+import type { TechChoice } from '../data/tech';
 import type { Encounter } from '../campaign/types';
 import type { Loadout } from '../cards/types';
 import type { EnemyArmy, Troop, TroopPlacement } from '../data/armies';
@@ -17,7 +18,7 @@ export interface MatchSetup {
   rank: RankNumber;
   /** Skirmish practice at any rank, earning no Command XP; null to fight at your own rank. */
   practiceRank: RankNumber | null;
-  /** Boss Generals you have beaten: each teaches a Legendary action. Set on the Skirmish screen until the bosses arrive (5D). */
+  /** Boss Generals you have beaten: each teaches a Legendary action and joins you. */
   bossesBeaten: GeneralId[];
   /** Tactical mode: the battle pauses every 10 s so you can choose cards calmly; no Perfect timing. */
   tactical: boolean;
@@ -25,7 +26,7 @@ export interface MatchSetup {
   general: GeneralId;
   /** Your 3 reserve troops. The classes of your army, reserves and specializations are set on the debug Troops screen for now. */
   reserves: UnitClass[];
-  /** Your specialization for each class, until the Tech Web sells them (phase 5). */
+  /** Your specialization for each class: in a skirmish your pick; in a campaign fight, your Tech Web's. */
   specs: SpecChoice;
   /** Skirmish: the map, the enemy's army and General, and its commander's rank (null: no commander, no enemy cards). */
   map: MapId;
@@ -38,9 +39,10 @@ export interface MatchSetup {
   returnTo?: 'Capital';
 }
 
-/** A fight on a run: the enemy at your node, and your run's reserve fighters and boons. */
+/** A fight on a run: the enemy at your node, your run's reserve fighters and boons, and your Tech Web's nodes. */
 export interface CampaignFight {
   encounter: Encounter;
   reserves: Troop[];
   boons: BoonId[];
+  tech: TechChoice;
 }

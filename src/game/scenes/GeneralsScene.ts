@@ -4,13 +4,15 @@
 // but only those you have can lead. Up and Down pick one, Enter leads with them, Esc goes back.
 
 import Phaser from 'phaser';
+import { hasLook, masteryId, titleOf } from '../../campaign/mastery';
 import { recruitedGenerals } from '../../data/bosses';
 import { GENERAL_IDS, GENERALS, type GeneralId } from '../../data/generals';
+import { MASTERY } from '../../data/mastery';
 import { REGIONS, regionOf } from '../../data/regions';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
-import { remember } from '../session';
+import { currentCampaign, remember } from '../session';
 import { COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { addButton, textStyle } from '../ui';
 
@@ -27,6 +29,8 @@ export class GeneralsScene extends Phaser.Scene {
   private panel!: Phaser.GameObjects.Container;
   private recruited: GeneralId[] = [];
   private lead!: Phaser.GameObjects.Text;
+  /** Where the Lead button sits; the Mastery challenges go under it. */
+  private readonly buttonY = TOP_BAR_HEIGHT + 12 + GENERAL_IDS.length * ROW_H - 22;
 
   constructor() {
     super('Generals');
@@ -61,7 +65,7 @@ export class GeneralsScene extends Phaser.Scene {
     });
 
     this.panel = this.add.container(0, 0);
-    const buttonY = TOP_BAR_HEIGHT + 12 + GENERAL_IDS.length * ROW_H - 22;
+    const buttonY = this.buttonY;
     addButton(this, PANEL_X + 110, buttonY, 'Lead with them  ⏎', () => this.choose(), 220, 34);
     this.lead = this.add.text(PANEL_X + 236, buttonY, '', textStyle(13, TEXT.muted)).setOrigin(0, 0.5);
 
@@ -88,6 +92,24 @@ export class GeneralsScene extends Phaser.Scene {
     this.lead.setText(this.recruited.includes(id) ? '' : lockedText(id));
   }
 
+  /** The General's three Mastery challenges, under the Lead button: met ones ticked, with their titles. */
+  private showMastery(id: GeneralId, y: number): void {
+    const campaign = currentCampaign();
+    const head = hasLook(campaign, id) ? 'MASTERY · all three met: your troops wear a gold trim when you lead with them' : 'MASTERY · win campaign battles leading with them; all three earn a gold trim';
+    const title = this.add.text(PANEL_X, y, head, { ...textStyle(12, TEXT.muted, true), wordWrap: { width: PANEL_W } });
+    this.panel.add(title);
+    y += title.height + 6;
+    MASTERY[id].forEach((challenge, i) => {
+      const met = campaign.mastery.includes(masteryId(id, i));
+      const line = this.add.text(PANEL_X, y, `${met ? '✓' : '○'}  ${challenge.text}  ·  ${met ? titleOf(masteryId(id, i)) : `title: ${challenge.title}`}`, {
+        ...textStyle(13, met ? TEXT.victory : TEXT.body, met),
+        wordWrap: { width: PANEL_W },
+      });
+      this.panel.add(line);
+      y += line.height + 4;
+    });
+  }
+
   /** The chosen General's parts, top to bottom in the panel on the right. */
   private showGeneral(id: GeneralId): void {
     const general = GENERALS[id];
@@ -111,6 +133,7 @@ export class GeneralsScene extends Phaser.Scene {
       add(title, 12, TEXT.muted, true, 2);
       add(text, 14, TEXT.body, false, 14);
     }
+    this.showMastery(id, this.buttonY + 30);
   }
 
   private choose(): void {

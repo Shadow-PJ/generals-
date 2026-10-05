@@ -8,21 +8,55 @@ import type { EventId } from '../data/events';
 import type { FactionId } from '../data/factions';
 import type { GeneralId } from '../data/generals';
 import type { LegendaryAction } from '../cards/types';
+import type { MasteryId } from '../data/mastery';
 import type { MapId } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { Rarity } from '../data/rarity';
 import type { RegionId } from '../data/regions';
 import type { NodeKind } from '../data/runs';
 import type { PerkId } from '../data/perks';
+import type { SpecializationId } from '../data/specializations';
+import type { TechNodeId } from '../data/tech';
 import type { TroopClass } from '../data/units';
 import type { RngState } from '../sim';
 
-/** What the campaign keeps: the run you are on, your banked artifacts and the bosses you have beaten. */
+/**
+ * What the campaign keeps: the run you are on, your banked artifacts, the bosses you have beaten,
+ * and (session 5E) your company, Insight, Tech Web, Ironman mode and the Mastery challenges met.
+ */
 export interface Campaign {
   run: RunState | null;
-  /** Artifacts banked for good, at a camp or by winning a run. */
+  /** Artifacts banked for good, at a camp or by winning a run. Equipping one on a company troop doesn't take it out. */
   artifacts: ArtifactId[];
   bossesBeaten: GeneralId[];
+  /** The troops you set out with on every run, up to 8: the field first, then the reserves. */
+  company: Veteran[];
+  /** Insight to spend on the Tech Web. */
+  insight: number;
+  tech: TechWeb;
+  /** Ironman mode, for the next run: a troop that falls dies for good. */
+  ironman: boolean;
+  /** General Mastery challenges met. */
+  mastery: MasteryId[];
+}
+
+/** What each class has bought of its Tech Web: nodes, and the specialization taken (one at most). */
+export type TechWeb = Partial<Record<TroopClass, { nodes: TechNodeId[]; spec: SpecializationId | null }>>;
+
+/** A fighter's record: battles fought (on the field, or called in from reserve), enemies killed, and kills in boss fights. */
+export interface FighterRecord {
+  battles: number;
+  kills: number;
+  bossKills: number;
+}
+
+/** A troop of your company, between runs. */
+export interface Veteran extends FighterTraits {
+  id: number;
+  name: string;
+  record: FighterRecord;
+  /** The artifact it carries: one of your banked artifacts, on one troop at most. */
+  artifact: ArtifactId | null;
 }
 
 /** What makes a fighter who they are: class, rarity, faction (or none) and perks (session 5C). */
@@ -36,8 +70,15 @@ export interface FighterTraits {
 /** One of your troops in a run. */
 export interface Fighter extends FighterTraits {
   id: number;
+  name: string;
+  record: FighterRecord;
+  artifact: ArtifactId | null;
+  /** The company troop this fighter is, or null for one who joined during the run. */
+  veteranId: number | null;
   /** Share of max HP left, above 0: a fighter who falls in a won fight gets back up hurt. */
   hp: number;
+  /** It fell in the last fight, so it sits this one out. */
+  wounded: boolean;
   /** Where it stood last time, on your side of the map; null to let the game pick a spot. */
   spot: { x: number; y: number } | null;
 }
@@ -89,6 +130,10 @@ export type Stop =
       learned: LegendaryAction | null;
       opened: RegionId[];
       unlocked: TroopClass | null;
+      /** A won run: the fighters who will stay in your company (up to 8). You change it before going back. */
+      keep: number[];
+      /** A run lost in Ironman: the fighters who fell in the last fight, gone for good. */
+      died: number[];
     };
 
 export interface RunState {
@@ -116,4 +161,8 @@ export interface RunState {
   fightsWon: number;
   /** Command XP earned in this run's battles. */
   xp: number;
+  /** Insight earned in this run's battles. */
+  insight: number;
+  /** Ironman mode, set when the run began: a fighter who falls dies. */
+  ironman: boolean;
 }
