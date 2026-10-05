@@ -109,8 +109,8 @@ function healFromHit(state: BattleState, sourceId: number, target: Unit, amount:
 
 /**
  * Strategist's Phase Shift: once per battle, a troop about to fall dodges the blow. It takes no
- * more damage this tick, and when the tick ends it teleports behind its attacker and stuns it.
- * True if it dodged.
+ * more damage this tick, and when the tick ends it teleports behind its attacker, stuns it and
+ * heals a little. True if it dodged.
  */
 function phaseShift(state: BattleState, unit: Unit, sourceId: number): boolean {
   if (unit.phaseShiftUsed || state.generals[unit.side] !== 'strategist') return false;
@@ -133,6 +133,7 @@ export function resolvePhaseShifts(state: BattleState): void {
     });
   for (const { unit, attacker, spot } of shifts) {
     unit.phasingFrom = null;
+    unit.hp = Math.min(unit.stats.maxHp, unit.hp + Math.round(unit.stats.maxHp * TROOP_SKILLS.phaseShift.healShare));
     if (spot) {
       unit.x = spot.x;
       unit.y = spot.y;

@@ -3,6 +3,7 @@
 // Deep Forest and Void Ruins are open from the start, and each ruler you beat opens the next
 // region, so the Glass Plains come last.
 
+import type { BossId } from './bosses';
 import type { GeneralId } from './generals';
 import type { MapId } from './maps';
 import type { TroopClass, UnitClass } from './units';
@@ -15,7 +16,7 @@ export interface RegionData {
   /** The battle map every fight in the region is fought on. */
   map: MapId;
   /** The General who rules it: the boss at the end of its runs, and the enemy General of its fights. */
-  ruler: GeneralId;
+  ruler: BossId;
   /** What beating the ruler brings, for the world map. */
   reward: string;
   /** A troop class that beating the ruler unlocks, so runs can offer it. */
@@ -51,7 +52,7 @@ export const REGIONS: Readonly<Record<RegionId, RegionData>> = {
     reward: 'The Strategist, the Invoker class and Swap',
     unlocksClass: 'invoker',
     enemyClasses: { vanguard: 2, ranger: 2, guardian: 1, invoker: 3, assassin: 1 },
-    bossArmy: ['vanguard', 'invoker', 'invoker', 'ranger', 'guardian', 'invoker', 'vanguard', 'assassin'],
+    bossArmy: ['vanguard', 'vanguard', 'invoker', 'ranger', 'guardian', 'invoker', 'ranger', 'assassin'],
   },
   redCanyon: {
     name: 'Red Canyon',

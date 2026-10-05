@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BOSS_RULES } from '../data/bosses';
 import { MAPS } from '../data/maps';
 import { REGION_IDS, REGIONS } from '../data/regions';
-import { FIGHT_TIERS } from '../data/runs';
+import { BOSS_FIGHTS, FIGHT_TIERS } from '../data/runs';
 import { createBattle, createRng, isArmyPlaced, runBattle } from '../sim';
 import { enemyScript } from '../data/enemyScripts';
 import { fightTier, makeEncounter } from './encounters';
@@ -12,8 +12,8 @@ describe('enemies along a run', () => {
   const run = runOf(runThrough(['battle', 'boss']));
 
   it('start small, with no commander, and grow into full armies with commanders of rising rank', () => {
-    expect(fightTier('battle', 0, 0)).toMatchObject({ troops: 3, reserves: 0, commander: null, epic: 0, rare: 0 });
-    const tiers = FIGHT_TIERS.map((_, floor) => fightTier('battle', floor, 0));
+    expect(fightTier('battle', 0, 0, 'hiveMother')).toMatchObject({ troops: 3, reserves: 0, commander: null, epic: 0, rare: 0 });
+    const tiers = FIGHT_TIERS.map((_, floor) => fightTier('battle', floor, 0, 'hiveMother'));
     for (let f = 1; f < tiers.length; f++) {
       expect(tiers[f]!.troops + tiers[f]!.reserves).toBeGreaterThanOrEqual(tiers[f - 1]!.troops + tiers[f - 1]!.reserves);
       expect(tiers[f]!.commander ?? 0).toBeGreaterThanOrEqual(tiers[f - 1]!.commander ?? 0);
@@ -21,25 +21,34 @@ describe('enemies along a run', () => {
     expect(tiers.at(-1)!.commander).not.toBeNull();
   });
 
+  it('each ruler brings their own boss army, tuned on its own (session 6A)', () => {
+    for (const region of REGION_IDS) {
+      const ruler = REGIONS[region].ruler;
+      expect(fightTier('boss', 7, 0, ruler)).toEqual(BOSS_FIGHTS[ruler]);
+    }
+    // The Engineer's turrets make her fight hard with fewer Epic troops.
+    expect(BOSS_FIGHTS.engineer.epic).toBeLessThan(BOSS_FIGHTS.warlord.epic);
+  });
+
   it('elite fights bring a stronger commander and rarer troops; the boss brings the most', () => {
-    const elite = fightTier('elite', 2, 0);
+    const elite = fightTier('elite', 2, 0, 'hiveMother');
     expect(elite.commander).toBeGreaterThanOrEqual(2);
     expect(elite.epic).toBeGreaterThanOrEqual(1);
-    expect(fightTier('boss', 7, 0)).toMatchObject({ troops: 5, reserves: 3 });
+    expect(fightTier('boss', 7, 0, 'hiveMother')).toMatchObject({ troops: 5, reserves: 3 });
   });
 
   it('every boss beaten before the run makes its fights harder', () => {
-    expect(fightTier('battle', 4, 2).commander).toBe(fightTier('battle', 4, 0).commander! + 2);
-    expect(fightTier('battle', 4, 2).rare).toBe(fightTier('battle', 4, 0).rare + 2);
-    expect(fightTier('battle', 0, 3).commander).toBeNull();
-    expect(fightTier('elite', 5, 4).commander).toBe(5);
+    expect(fightTier('battle', 4, 2, 'hiveMother').commander).toBe(fightTier('battle', 4, 0, 'hiveMother').commander! + 2);
+    expect(fightTier('battle', 4, 2, 'hiveMother').rare).toBe(fightTier('battle', 4, 0, 'hiveMother').rare + 2);
+    expect(fightTier('battle', 0, 3, 'hiveMother').commander).toBeNull();
+    expect(fightTier('elite', 5, 4, 'hiveMother').commander).toBe(5);
   });
 
   it('are the region ruler’s troops, on the region’s map, placed validly, with the rarities the tier asks for', () => {
     for (const region of REGION_IDS) {
       for (const [kind, floor] of [['battle', 0], ['battle', 5], ['elite', 3], ['boss', 7]] as const) {
         const encounter = makeEncounter(createRng(9), { ...run, region }, kind, floor);
-        const tier = fightTier(kind, floor, 0);
+        const tier = fightTier(kind, floor, 0, REGIONS[region].ruler);
         expect(encounter).toMatchObject({ kind, map: REGIONS[region].map, general: REGIONS[region].ruler, commander: tier.commander });
         // The Engineer brings her turrets on top of her army.
         const turrets = encounter.troops.filter((t) => t.turret);

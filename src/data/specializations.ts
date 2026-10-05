@@ -40,8 +40,8 @@ export const SPECIALIZATIONS: Readonly<Record<SpecializationId, Specialization>>
     id: 'breaker',
     cls: 'vanguard',
     name: 'Breaker',
-    text: 'Charges 20% faster; Shove pushes 50% further and hits 50% harder',
-    stats: { moveSpeed: 1.2 },
+    text: 'Charges 10% faster; Shove pushes 50% further and hits 50% harder',
+    stats: { moveSpeed: 1.1 },
   },
   bulwark: {
     id: 'bulwark',
@@ -80,13 +80,13 @@ export const SPECIALIZATIONS: Readonly<Record<SpecializationId, Specialization>>
     id: 'pyromancer',
     cls: 'invoker',
     name: 'Pyromancer',
-    text: 'Fire Rifts that burn 40% harder',
+    text: 'Fire Rifts that burn 30% harder',
   },
   frostcaller: {
     id: 'frostcaller',
     cls: 'invoker',
     name: 'Frostcaller',
-    text: 'Frost Rifts slow enemies inside by 40%, but hurt 30% less',
+    text: 'Frost Rifts slow enemies inside by 40%, but hurt 15% less',
   },
   blade: {
     id: 'blade',
@@ -120,8 +120,8 @@ export const SPEC_RULES = {
   volley: { splashRadius: 45, splashShare: 0.5 },
   warden: { barrierMultiplier: 1.5, tauntRadius: 80, tauntSeconds: 2 },
   mender: { barrierMultiplier: 0.6, healPerSecond: 25, healSeconds: 6 },
-  pyromancer: { riftDamageMultiplier: 1.4 },
-  frostcaller: { riftDamageMultiplier: 0.7, slow: 0.4 },
+  pyromancer: { riftDamageMultiplier: 1.3 },
+  frostcaller: { riftDamageMultiplier: 0.85, slow: 0.4 },
   blade: { strikeMultiplier: 2, executeShare: 0.25 },
   saboteur: { silenceSeconds: 4 },
 } as const;

@@ -4,11 +4,11 @@
 // ruler's own army. Every boss you had beaten before the run makes its fights harder still.
 
 import type { Rarity } from '../data/rarity';
-import { BOSS_RULES } from '../data/bosses';
+import { BOSS_RULES, type BossId } from '../data/bosses';
 import type { TroopPlacement } from '../data/armies';
 import type { GeneralId } from '../data/generals';
 import { REGIONS } from '../data/regions';
-import { BOSS_FIGHT, ELITE_FIGHT, FIGHT_TIERS, RUN_LEVEL_STEP, type FightTier } from '../data/runs';
+import { BOSS_FIGHTS, ELITE_FIGHT, FIGHT_TIERS, RUN_LEVEL_STEP, type FightTier } from '../data/runs';
 import { MAPS } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { UnitClass } from '../data/units';
@@ -23,9 +23,9 @@ function rankAtMost(rank: number): RankNumber {
   return Math.max(1, Math.min(MAX_RANK, rank)) as RankNumber;
 }
 
-/** The enemy army for a fight of this kind on this floor, `level` bosses into the campaign. */
-export function fightTier(kind: Encounter['kind'], floor: number, level: number): FightTier {
-  const base = kind === 'boss' ? BOSS_FIGHT : FIGHT_TIERS[Math.min(floor, FIGHT_TIERS.length - 1)]!;
+/** The enemy army for a fight of this kind on this floor of a region ruled by `ruler`, `level` bosses into the campaign. */
+export function fightTier(kind: Encounter['kind'], floor: number, level: number, ruler: BossId): FightTier {
+  const base = kind === 'boss' ? BOSS_FIGHTS[ruler] : FIGHT_TIERS[Math.min(floor, FIGHT_TIERS.length - 1)]!;
   let { commander, epic, rare } = base;
   if (kind === 'elite') {
     commander = rankAtMost(Math.max(ELITE_FIGHT.minCommander, (commander ?? 0) + ELITE_FIGHT.commanderBonus));
@@ -40,7 +40,7 @@ export function fightTier(kind: Encounter['kind'], floor: number, level: number)
 /** The encounter at a fight node, rolled from the run's generator. */
 export function makeEncounter(rng: RngState, run: RunState, kind: Encounter['kind'], floor: number): Encounter {
   const region = REGIONS[run.region];
-  const tier = fightTier(kind, floor, run.level);
+  const tier = fightTier(kind, floor, run.level, region.ruler);
   const count = tier.troops + tier.reserves;
   const classes: UnitClass[] =
     kind === 'boss' ? [...region.bossArmy].slice(0, count) : Array.from({ length: count }, () => weighted(rng, region.enemyClasses));

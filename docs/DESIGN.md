@@ -247,14 +247,14 @@ An army is 5 active troops plus 3 in reserve. You start with Vanguard, Ranger an
 
 | Specialization | What it does |
 | --- | --- |
-| Breaker | Moves 20% faster; Shove pushes 50% further and deals 50% more damage |
+| Breaker | Moves 10% faster; Shove pushes 50% further and deals 50% more damage |
 | Bulwark | An enemy shot that crosses its body on the way to another troop hits it instead; moves 10% slower |
 | Sniper | Ignores 60% of armor, 20% more range and damage, attacks 20% slower |
 | Volley | Each arrow also hits enemies within 45 of the target for half its damage; 15% less damage |
 | Warden | Barriers 50% bigger; enemies within 80 of the shielded ally must attack that ally for 2 s |
 | Mender | Barriers 40% smaller, but the shielded ally also heals 25 HP a second for 6 s |
-| Pyromancer | Fire Rifts: 40% more damage |
-| Frostcaller | Frost Rifts: enemies inside are 40% slower; 30% less damage |
+| Pyromancer | Fire Rifts: 30% more damage |
+| Frostcaller | Frost Rifts: enemies inside are 40% slower; 15% less damage |
 | Blade | Shadowstep strikes for 2 times a normal hit and executes below 25% HP |
 | Saboteur | Shadowstep silences its target for 4 s: no skills, not even from Overcharge, and a Rift cast breaks |
 
@@ -278,8 +278,8 @@ Hold the line. A balanced General for learning the game.
 
 Victory is paid in blood. High risk, high reward: health is a resource.
 
-- **Troop skill, Vampiric Link:** a troop drains its own health to give a nearby ally +200% attack speed for a few seconds.
-- **Doctrine:** Vanguards attack the strongest enemy; Assassins dive at once.
+- **Troop skill, Vampiric Link:** a troop drains its own health to give a nearby ally +250% attack speed for a few seconds.
+- **Doctrine:** Vanguards attack the strongest enemy in reach; Assassins dive at once.
 - **Ultimate, Reaper's Toll:** executes your own troops below 20% HP and turns them into invulnerable shadow wraiths for 10 s.
 - **Mana twist:** Blood Price.
 - **Writes your cards:** aggressively. Turns retreats into charges unless you insist.
@@ -298,9 +298,9 @@ Win before the fight starts. Engine-building and momentum.
 
 Adapt or be eaten. Swarm and mutate.
 
-- **Troop skill, Assimilation:** when a troop kills an enemy, it steals that enemy's trait or grows an armor shell for a while.
+- **Troop skill, Assimilation:** when a troop kills an enemy, it steals that enemy's trait or grows an armor shell for the rest of the battle.
 - **Doctrine:** troops move as a pack and gang up on one enemy at a time.
-- **Ultimate, Forced Evolution:** merges two of your troops into one mutated elite unit.
+- **Ultimate, Forced Evolution:** merges two badly hurt troops into one mutated elite unit at full health.
 - **Mana twist:** Feeding.
 - **Writes your cards:** on instinct. Simplifies targets and may drop the last step of a long order.
 
@@ -308,7 +308,7 @@ Adapt or be eaten. Swarm and mutate.
 
 Position is power. Battlefield control.
 
-- **Troop skill, Phase Shift:** once per battle, a troop about to take fatal damage teleports behind the attacker and stuns them.
+- **Troop skill, Phase Shift:** once per battle, a troop about to take fatal damage teleports behind the attacker, stuns them and heals a little.
 - **Doctrine:** Vanguards guard the nearest ally; Rangers keep max range.
 - **Ultimate, Gravity Well:** a black hole drags every unit, friend and foe, to one point, setting up area attacks.
 - **Mana twist:** Prepared.
@@ -328,11 +328,11 @@ Everything echoes. Combo chaining and stacking.
 
 Your General's troop skill and doctrine work on every troop you field, with or without cards; the ultimate and the mana twist work through your Command bar. The enemy army fights with its own General's troop skill and doctrine, and only an enemy commander (session 4D) fires its ultimate and pays for cards under its mana twist. You choose your General on the General screen (G on the troop screen) or on the Skirmish screen, among the Captain and the rulers you have recruited (session 5D); any General can lead the enemy in a skirmish.
 
-- **Warlord.** Vampiric Link: a troop with at least half its HP, every 14 s (first after 6 s), pays 10% of its max HP to make the nearest ally within 140 that has an enemy in reach attack three times as fast for 1.5 s. Doctrine: Vanguards attack the strongest enemy in reach (most HP left), else go for the strongest enemy; Assassins start with Shadowstep ready and use it on their prey at any distance. Reaper's Toll: your troops below 20% HP become wraiths for 10 s: they take no damage and hit 50% harder, then fall. It waits until a troop is that low. Blood Price: a card you lack pips for still fires if your healthiest troop (by share of HP) can pay the missing pips with 10% of its max HP each and keep at least 1 HP; pips go first.
-- **Engineer.** Venting: every 5th attack a troop vents, dealing 30 burn damage to every enemy within 55 and losing 2% of its max HP. Its attacks since the last vent are its heat. Doctrine, for the first 40 s of a battle only (so two Engineers can't wait each other out): Vanguards stay at their spot (where they started, or where a Move or Fall Back left them) unless an enemy comes within 260 of it; Rangers stand 45 behind the nearest Vanguard until an enemy is within their range plus 80. Thermal Detonation: every troop heals 8% of its max HP plus 3% per point of heat, then all the heat fires as a beam from the middle of your army through the middle of the enemy's, hitting every enemy within 30 of the line for 60 damage plus 12 per point of heat. Build-Up: max pips +1 at 30, 60 and 90 s.
-- **Hive Mother.** Assimilation: a troop that kills grows a shell (+0.2 armor) from a Vanguard or Guardian, or claws (+25% damage) from any other class, for 10 s. Doctrine: the pack picks the enemy nearest to its middle and keeps it until it falls; Vanguards and Assassins go for it, Rangers and Invokers shoot it whenever it is in range, Guardians keep to their allies. Forced Evolution: your two most hurt troops (by share of HP) merge; the one with more HP left stays as an elite with both max HPs and both HPs added, 50% more damage and +0.1 armor, and the other is gone (it doesn't fall, so no kill is counted). It waits until you have 2 troops. Feeding: pips refill at half speed, and every enemy that falls gives you a pip.
-- **Strategist.** Phase Shift: once per battle, a blow that would make a troop fall misses; the troop takes no more damage that tick, and at the end of the tick it teleports behind its attacker and stuns it for 1.5 s. Doctrine: Vanguards stand between the nearest non-Vanguard ally and the enemy closest to it; Rangers back away from enemies within 85% of their range while they reload. Gravity Well: every unit within 240 of the middle of the enemy army, yours too, is pulled up to 150 toward that point over 0.6 s and can't act meanwhile (Iron Wall Vanguards stand fast). Prepared: you start with full pips; they refill at 75% speed.
-- **Conductor.** Echo Strike: every attack that lands adds a Vibration stack (up to 3, fading 4 s after the last hit); the 3rd shatters the enemy: 0.1 less armor for 4 s. Doctrine: a troop about to hit an enemy with 3 stacks hits the nearest enemy in reach with fewer instead (Assassins keep to their prey). Shatterstorm: every enemy with stacks takes 45 damage per stack, and the enemies within 60 of it half that; the stacks are used up. It waits until an enemy has stacks. Rhythm: a Perfect timing gives 2 pips back, and cards glow 2.5 s after their condition ends instead of 1.5 s.
+- **Warlord.** Vampiric Link: a troop with at least half its HP, every 14 s (first after 6 s), pays 8% of its max HP to make the nearest ally within 140 that has an enemy in reach attack three and a half times as fast for 1.5 s. Doctrine: Vanguards attack the strongest enemy in reach (most HP left), else fight as usual (until session 6A they crossed the field for the strongest enemy, and kiting Rangers shot them on the way); Assassins start with Shadowstep ready and use it on their prey at any distance. Reaper's Toll: your troops below 20% HP become wraiths for 10 s: they take no damage and hit 50% harder, then fall. It waits until a troop is that low. Blood Price: a card you lack pips for still fires if your healthiest troop (by share of HP) can pay the missing pips with 10% of its max HP each and keep at least 1 HP; pips go first.
+- **Engineer.** Venting: every 5th attack a troop vents, dealing 33 burn damage to every enemy within 55 and losing 1.5% of its max HP. Its attacks since the last vent are its heat. Doctrine, for the first 40 s of a battle only (so two Engineers can't wait each other out): Vanguards stay at their spot (where they started, or where a Move or Fall Back left them) unless an enemy comes within 260 of it; Rangers stand 45 behind the nearest Vanguard until an enemy is within their range plus 80. Thermal Detonation: every troop heals 8% of its max HP plus 3% per point of heat, then all the heat fires as a beam from the middle of your army through the middle of the enemy's, hitting every enemy within 30 of the line for 60 damage plus 12 per point of heat. Build-Up: max pips +1 at 30, 60 and 90 s.
+- **Hive Mother.** Assimilation: a troop that kills grows a shell (+0.2 armor) from a Vanguard or Guardian, or claws (+25% damage) from any other class, for the rest of the battle (10 s until session 6A); a later kill can trade one for the other. Doctrine: the pack picks the enemy nearest to its middle and keeps it until it falls; Vanguards and Assassins go for it, Rangers and Invokers shoot it whenever it is in range, Guardians keep to their allies. Forced Evolution: your two most hurt troops (by share of HP) merge; the one with more HP left stays as an elite with both max HPs added, at full HP, 50% more damage and +0.1 armor, and the other is gone (it doesn't fall, so no kill is counted). It waits until 2 of your troops are below 50% HP. (Until session 6A it fired as soon as you had 2 troops and added their HPs: merging two healthy troops cost the Hive Mother more than it gave.) Feeding: pips refill at half speed, and every enemy that falls gives you a pip.
+- **Strategist.** Phase Shift: once per battle, a blow that would make a troop fall misses; the troop takes no more damage that tick, and at the end of the tick it teleports behind its attacker, stuns it for 2.5 s and heals 7% of its max HP. Doctrine: Vanguards stand between the nearest non-Vanguard ally and the enemy closest to it; Rangers back away from enemies within 75% of their range while they reload. Gravity Well: every unit within 240 of the middle of the enemy army, yours too, is pulled up to 150 toward that point over 0.6 s and can't act meanwhile (Iron Wall Vanguards stand fast). Prepared: you start with full pips; they refill at 75% speed.
+- **Conductor.** Echo Strike: every attack that lands adds a Vibration stack (up to 3, fading 4 s after the last hit); the 3rd shatters the enemy: 0.04 less armor for 4 s. Doctrine: a troop about to hit an enemy with 3 stacks hits the nearest enemy in reach with fewer instead (Assassins keep to their prey). Shatterstorm: every enemy with stacks takes 35 damage per stack, and the enemies within 60 of it half that; the stacks are used up. It waits until an enemy has stacks. Rhythm: a Perfect timing gives 2 pips back, and cards glow 2.5 s after their condition ends instead of 1.5 s.
 - **Ultimates as Finishers** are 50% stronger: Rally heals and speeds more, wraiths last 50% longer, Thermal Detonation heals and burns more, the elite gets more damage, Gravity Well pulls further, Shatterstorm hurts more.
 
 ## Maps, enemy commanders and skirmish (session 4D)
@@ -403,9 +403,9 @@ Forest and Ruins open first because they unlock your last two troop classes. Eac
   | 4 | 5 | 1 | Rank I | 0 | 1 |
   | 5 | 5 | 2 | Rank II | 0 | 2 |
   | 6 | 5 | 3 | Rank II | 1 | 2 |
-  | Boss | 5 | 3 | Rank II | 2 | 3 |
+  | Boss | 5 | 3 | Rank II | by ruler | 3 |
 
-  An elite fight is its floor's army with a commander one rank higher (at least Rank II), one more Epic and one more Rare troop. The boss brings the ruler's own army of 8. Each ruler you had beaten when the run began makes its commanders one rank higher (up to V) and adds one Rare troop; fights with no commander keep none. Without a commander the enemy fires no cards or ultimate, so the first fights are gentle. Played with the bare starter squad and no cards, the first floor is won every time, the second about 95% of the time and floors 3 to 6 about 70 to 90%.
+  An elite fight is its floor's army with a commander one rank higher (at least Rank II), one more Epic and one more Rare troop. The boss brings the ruler's own army of 8, with Epic troops by ruler since session 6A, so each boss fight is tuned on its own: the Hive Mother 3 (her region comes first), the Strategist 1 (her army holds the line with two Vanguards), the Warlord 5, the Engineer 1 (her turrets do the rest) and the Conductor 3. Each ruler you had beaten when the run began makes its commanders one rank higher (up to V) and adds one Rare troop; fights with no commander keep none. Without a commander the enemy fires no cards or ultimate, so the first fights are gentle. Played with the bare starter squad and no cards, the first floor is won every time, the second about 95% of the time and floors 3 to 6 about 70 to 90%.
 - **Rarity:** Common 60%, Rare 28%, Epic 10%, Legendary 2%. A Rare troop has 10% more HP and damage, an Epic 20%, a Legendary 35%; enemy troops too. A ring in the rarity's color marks it (blue, purple, gold). Since session 5C rarer fighters also have perks, and the chances shift toward the rare ones deeper in a run and after elite fights (see below).
 - **Your army in a run** starts as your company (session 5E; at first the starter squad: the 5 starter troops and 3 reserves, all Common), and no gold. Before each fight the Army screen sets who takes the field (up to 5), who waits in reserve (up to 3) and who sits it out; a new fighter takes the field if there is room, else the reserve, else waits. Wounds carry over: after a won fight each fighter keeps the share of HP they ended with, and one who fell gets back up at 25% and sits the next fight out (session 5E; in Ironman mode it dies). Your fighters remember where you placed them. Your cards, General, rank and Tech Web are your own and carry over between runs.
 - **A lost fight ends the run** (a draw counts as lost); beating the ruler wins it.
@@ -442,12 +442,12 @@ Forest and Ruins open first because they unlock your last two troop classes. Eac
   | Faction (General) | Bonus | 2 | 4 | 6 |
   | --- | --- | --- | --- | --- |
   | Bloodbound (Warlord) | Heal this share of the damage their attacks deal | 20% | 35% | 60% |
-  | Forgeborn (Engineer) | Harden as they heat up: each attack adds 1% armor, up to | 4% | 7% | 11% |
-  | Hive (Hive Mother) | Hit harder for each other Hive troop still standing | 2.5% | 3.5% | 5% |
-  | Voidweavers (Strategist) | Phase out of every Nth hit from an attack, taking nothing | 12th | 9th | 6th |
-  | Resonance (Conductor) | Every 3rd attack resonates for this much more damage | 25% | 30% | 50% |
+  | Forgeborn (Engineer) | Harden as they heat up: each attack adds 1% armor, up to | 2.5% | 4.5% | 6% |
+  | Hive (Hive Mother) | Hit harder for each other Hive troop still standing | 3% | 3% | 3.5% |
+  | Voidweavers (Strategist) | Phase out of every Nth hit from an attack, taking nothing | 16th | 12th | 10th |
+  | Resonance (Conductor) | Every 3rd attack resonates for this much more damage | 25% | 25% | 30% |
 
-  Area damage (Rifts, Shoves, splash) is not an attack: Voidweavers can't phase out of it, and lifesteal doesn't heal from it. A troop that phases out shows "Phased!". In a mirror fight of starter armies the faction side wins about 60 to 75% of the time with 2 fighters, 75 to 85% with 4 and 85 to 97% with 6. The Army screen shows each faction's count and what it switches on. Enemy fighters have no faction yet.
+  Area damage (Rifts, Shoves, splash) is not an attack: Voidweavers can't phase out of it, and lifesteal doesn't heal from it. A troop that phases out shows "Phased!". In a mirror fight of starter armies the faction side wins about 57 to 72% of the time with 2 fighters, 78 to 81% with 4 and 85 to 90% with 6 (session 6A's balance script). The Army screen shows each faction's count and what it switches on. Enemy fighters have no faction yet.
 - **Offer chances** move with the run, in percentage points, for each floor past the first: Common −4, Rare +2.5, Epic +1.2, Legendary +0.3; the spoils of an elite fight move them once more: Common −15, Rare +8, Epic +5, Legendary +2. On the sixth floor that is 40/40.5/16/3.5, and after an elite there 25/48.5/21/5.5. The merchant uses its floor's chances; events give the rarity they name.
 - **The 30 boons:**
   - Common: Whetstones (Vanguards +15% damage), Fine Fletching (Rangers +15% damage), Thick Plating (Guardians +20% HP), Focus Crystals (Invokers +15% damage), Poisoned Blades (Assassins +15% damage), Field Rations (every troop +8% HP), Quick March (every troop moves 10% faster), Shove Drills, Marking Chalk, Barrier Runes, Rift Lenses and Shadow Cloaks (one class's skill comes back 25% sooner: Shove, Mark, Barrier, Rift, Shadowstep), Plunder (10 more gold from every won fight).
@@ -472,8 +472,8 @@ Beat a General and they join you, and you learn their Legendary action: you can 
 - **Hive Mother:** each of your troops her army kills gives every troop of hers still standing that class's trait, for the rest of the battle: +0.04 armor from a Vanguard, 8% more damage from a Ranger, 12% more max HP (and as much HP) from a Guardian, 8% faster attacks from an Invoker, 12% faster moves from an Assassin. A troop of yours that falls to anything else gives nothing.
 - **Strategist:** each of her troops phases out of its first 2 big hits and takes nothing from them; a hit is big when, after armor, it would take 20% of the troop's max HP or more. Smaller hits always land.
 - **Warlord:** every troop of his that falls sends the rest into a rage for 8 s: 20% more damage and 15% faster attacks per stack, up to 4 stacks. Each death adds a stack and restarts the 8 s.
-- **Engineer:** two turrets stand at the back corners inside her walls, on top of her army of 8: Rangers that never move, with 30% more HP, +0.1 armor and 15% more reach, that take twice the area damage. With her commander's Fall Back and Hold, her army retreats to them.
-- **Conductor:** every Vibration stack her troops land also goes to each of your troops within 45 of the one hit, and every stack she lands, spread ones included, gives her commander 0.5 Momentum toward Shatterstorm.
+- **Engineer:** two turrets stand at the back corners inside her walls, on top of her army of 8: Rangers that never move, with 10% more HP, +0.05 armor and 5% more reach, that take twice the area damage (30%, +0.1 and 15% until session 6A, when the turrets alone won her fight). With her commander's Fall Back and Hold, her army retreats to them.
+- **Conductor:** every Vibration stack her troops land also goes to each of your troops within 45 of the one hit, and every stack she lands, spread ones included, gives her commander 0.8 Momentum toward Shatterstorm.
 
 **Recruiting.** You start with the Captain. Beating a ruler's boss fight for the first time recruits them: from then on you can lead with them, chosen on the General screen, where Generals you don't have yet are locked and say where to beat them. A save that names a General you haven't recruited leads with the Captain.
 
@@ -531,7 +531,7 @@ The texts are in `src/data/tutorial.ts`.
 - **Factions:** 2, 4 and 6 fighters of a faction against the same army with none. Fair: 52–72%, 58–82% and 62–90%.
 - **Bosses:** a strong run army (one Epic and four Rare troops, three reserves, a Rank III commander) against each ruler's boss fight, with and without the boss rule. Fair: 30% to 85% with it.
 
-In the first three, every troop starts up to 30 px off its spot, by the seed: without that, the same two armies fight nearly the same battle on every seed, and a tiny edge wins almost all of them. Mirror matchups swap sides on every other seed. A matchup is flagged only when it is outside its fair range by more than its margin. Number changes the script suggests are proposed in the session's pull request with their measured effect, and applied only once the owner agrees. The first report, with its proposals, is `docs/balance-6a.md`.
+In the first three, every troop starts up to 30 px off its spot, by the seed: without that, the same two armies fight nearly the same battle on every seed, and a tiny edge wins almost all of them. Mirror matchups swap sides on every other seed. A matchup is flagged only when it is outside its fair range by more than its margin. Number changes the script suggests are proposed in the session's pull request with their measured effect, and applied only once the owner agrees. The first report is `docs/balance-6a.md`: it found 26 matchups out of range, and with the owner's go-ahead its changes (numbers, and new rules for Forced Evolution, Assimilation, Phase Shift, the Warlord's doctrine and each ruler's own boss army) leave none.
 
 ## Platforms and release
 

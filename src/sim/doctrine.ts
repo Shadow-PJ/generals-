@@ -45,11 +45,13 @@ function goingForEnemy(state: BattleState, unit: Unit, base: Intent): boolean {
   return findUnit(state, action.targetId)?.side !== unit.side;
 }
 
-/** Warlord: Vanguards go for the strongest enemy; Assassins Shadowstep to their prey at any distance. */
+/**
+ * Warlord: Vanguards go for the strongest enemy in reach (since session 6A; across the field, they
+ * chased the toughest troop while Rangers shot them); Assassins Shadowstep to their prey at any distance.
+ */
 function warlord(state: BattleState, unit: Unit, base: Intent): Intent {
   if (unit.cls === 'vanguard' && goingForEnemy(state, unit, base)) {
-    const enemies = visibleEnemies(state, unit);
-    const target = strongest(enemies.filter((e) => edgeDistance(unit, e) <= unit.stats.range)) ?? strongest(enemies);
+    const target = strongest(visibleEnemies(state, unit).filter((e) => edgeDistance(unit, e) <= unit.stats.range));
     return target ? { action: attackOrApproach(unit, target), cast: base.cast } : base;
   }
   if (unit.cls === 'assassin' && !base.cast && unit.skillCooldown <= 0) {

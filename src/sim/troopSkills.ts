@@ -48,13 +48,14 @@ export function afterAttack(state: BattleState, unit: Unit): void {
 
 /**
  * Hive Mother's Assimilation, when a troop falls: the enemy that killed it grows a shell (from a
- * Vanguard or Guardian) or claws (from anyone else) for a while.
+ * Vanguard or Guardian) or claws (from anyone else) for the rest of the battle; its next kill
+ * may change one for the other.
  */
 export function assimilate(state: BattleState, fallen: Unit): void {
   const killer = findUnit(state, fallen.lastHitBy);
   if (!killer?.alive || killer.side === fallen.side || state.generals[killer.side] !== 'hiveMother') return;
   const assimilation = TROOP_SKILLS.assimilation;
   const kind = assimilation.shellFrom.includes(fallen.cls) ? 'shell' : 'claws';
-  killer.adaptation = { kind, ticksLeft: secondsToTicks(assimilation.durationSeconds) };
+  killer.adaptation = { kind };
   state.events.push({ tick: state.tick, type: 'skill', unitId: killer.id, skill: 'assimilation', targetIds: [fallen.id] });
 }

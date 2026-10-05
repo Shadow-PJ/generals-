@@ -122,7 +122,6 @@ export interface Haste {
 /** Hive Mother's Assimilation: a kill grows a shell (armor) or claws (damage) for a while. */
 export interface Adaptation {
   kind: 'shell' | 'claws';
-  ticksLeft: number;
 }
 
 /** Conductor's Echo Strike: Vibration stacks on an enemy, which fade if no new hit lands for a while. */

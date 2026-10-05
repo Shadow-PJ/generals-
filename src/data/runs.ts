@@ -3,6 +3,7 @@
 // grows with every fight: the first fights are small, later ones bring full armies and enemy
 // commanders of rising rank. All numbers are starting values to tune in playtests.
 
+import type { BossId } from './bosses';
 import type { RankNumber } from './ranks';
 import type { Rarity } from './rarity';
 
@@ -78,8 +79,18 @@ export const ELITE_FIGHT = {
   rare: 1,
 } as const;
 
-/** The ruler's army at the end of the run (session 5D gives each boss their own fight). */
-export const BOSS_FIGHT: FightTier = { troops: 5, reserves: 3, commander: 2, epic: 2, rare: 3 };
+/**
+ * Each ruler's army at the end of the run (session 5D). Since session 6A each ruler has their own,
+ * so each boss fight is tuned on its own (docs/balance-6a.md): the Engineer's turrets and the
+ * Strategist's Vanguards make their fights hard with fewer Epic troops.
+ */
+export const BOSS_FIGHTS: Readonly<Record<BossId, FightTier>> = {
+  hiveMother: { troops: 5, reserves: 3, commander: 2, epic: 3, rare: 3 },
+  strategist: { troops: 5, reserves: 3, commander: 2, epic: 1, rare: 3 },
+  warlord: { troops: 5, reserves: 3, commander: 2, epic: 5, rare: 3 },
+  engineer: { troops: 5, reserves: 3, commander: 2, epic: 1, rare: 3 },
+  conductor: { troops: 5, reserves: 3, commander: 2, epic: 3, rare: 3 },
+};
 
 /** Each boss you had beaten before a run makes its fights harder: a commander one rank higher, one more Rare troop. */
 export const RUN_LEVEL_STEP = { commander: 1, rare: 1 } as const;

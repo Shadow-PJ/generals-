@@ -2,9 +2,11 @@
 
 `npm run balance` played 1,000 battles for each of 61 matchups (61,000 battles, about 7 minutes on
 3 cores): every General against every other, each specialization, each faction tier and each boss
-fight. How it works, and the fair range of each suite, is in `docs/DESIGN.md` (Balance). This page
-says what it found and which numbers I propose to change. **None of the changes below is applied:**
-the data files are as they were, until the owner agrees.
+fight. How it works, and the fair range of each suite, is in `docs/DESIGN.md` (Balance).
+
+The first run found **26 matchups outside their fair range**. I proposed number changes in the
+pull request; the owner asked for the rest to be fixed too, with buffs or new things. Everything
+below is applied, and in the last run **no matchup is outside its range**.
 
 ## How to read the numbers
 
@@ -12,76 +14,105 @@ the data files are as they were, until the owner agrees.
   flagged only when it is outside its fair range by more than that.
 - *HP edge* is the share of its HP the side keeps at the end, minus the other side's, on average.
   It shows how big the wins are.
-- The first run gave wild numbers (Frostcaller 0% against no specialization, Pyromancer 99%) because
-  the same two armies fought nearly the same battle on every seed, so a tiny edge won all 1,000.
-  The script now starts every troop up to 30 px off its spot, by the seed. With that, the
-  specializations land between 46% and 63%, and every number below is from runs with it.
+- The very first run gave wild numbers (Frostcaller 0% against no specialization, Pyromancer 99%)
+  because the same two armies fought nearly the same battle on every seed, so a tiny edge won all
+  1,000. The script now starts every troop up to 30 px off its spot, by the seed. Every number
+  below is from runs with that.
+- To find causes, I switched single parts off (a troop skill, an ultimate, a doctrine, a card) in a
+  scratch copy of the game and measured again. Those switches never reached the game.
 
 ## What it found
 
-1. **The Conductor beat every General** (76% to 93%). Its troop skill does it: Echo Strike's shatter
-   takes 10% armor off a troop hit three times, and the Vanguard (0.4 armor) and Guardian (0.15)
-   lean on armor. With no shatter at all, the others win 30% to 58% against it instead of 7% to 24%;
-   its Shatterstorm and its Rhythm twist barely change anything.
-2. **The Captain beat the other four** (64% to 75%). Not because of Rally (halving its heal changed
-   little) but because the others pay for their skills: the Warlord's troops spend 10% of their HP
-   on each Vampiric Link, and the Engineer's lose 2% of theirs every time they vent. Those two costs
-   decide their fights (Vampiric Link at 5% swings Captain vs Warlord from 72% to 29%).
-3. **Specializations are close to fair.** Only the Frostcaller is a little weak (46%), and the
-   Pyromancer beats it 63%: Crossfire makes arrows shot through a plain or fire Rift hit 50% harder,
-   but through a frost Rift they only slow, and the frost Rift itself hurts 30% less.
-4. **Factions:** Bloodbound is well tuned. Forgeborn and Voidweavers are too strong at every tier
-   (77% with only 2 fighters), and Hive and Resonance at 6 (95%).
-5. **Boss fights:** a strong run army (one Epic, four Rare, Rank III) beats the Hive Mother, the
-   Warlord and the Strategist 92% to 100%, and their boss rules matter little (with the rule or
-   without it is 3 to 5 points apart): their armies are what is too weak. The Engineer is the
-   opposite: her turrets are the whole fight (8.5% with them, 98.6% without). The Conductor's fight
-   is about right (43%).
+1. **The Conductor beat every General** (76% to 93%). Echo Strike's shatter did it: once a troop
+   had 3 Vibration stacks, each new hit kept them topped up and shattered it again the moment the
+   last shatter ended, so anything in a fight stayed shattered (10% less armor) almost all the
+   time. With Vibration off, the others won 40% to 73% against it.
+2. **The Captain beat the other four** (64% to 75%), not because of Rally (halving its heal
+   changed little) but because their skills cost them: Vampiric Link's 10% HP decided the
+   Warlord's games (at 5% Captain vs Warlord swung from 72% to 29%), and Venting's self-damage
+   the Engineer's.
+3. **The Hive Mother's Forced Evolution was worth nothing**: with it switched off she did exactly as
+   well. She fired it the moment she could, merging two healthy troops into one, which lost a
+   troop's worth of attacks for a 50% damage bonus.
+4. **The Strategist beat the Warlord 70%** because of how they meet: her Rangers back away between
+   shots, and his Vanguards walked across the field for her toughest troop while they did. Without
+   her kiting the Warlord won 66%; no Warlord buff (faster links, a charge, longer wraiths) moved it.
+5. **Specializations are close to fair.** Only the Frostcaller was a little weak (46%): Crossfire
+   makes arrows through a plain or fire Rift hit 50% harder, through a frost Rift only slow.
+6. **Factions:** Bloodbound was well tuned. Forgeborn and Voidweavers were too strong at every tier
+   (77% with only 2 fighters), Hive and Resonance at 6 (95%).
+7. **Boss fights:** a strong run army (one Epic, four Rare, Rank III) beat the Hive Mother, the
+   Warlord and the Strategist 92% to 100%, and their rules mattered little: their armies were the
+   gap. The Strategist's army was fragile (two Invokers among her five on the field): more Epic
+   troops barely moved it (91% to 94%). The Engineer was the opposite: her turrets were the whole fight (8.5% with them, 98.6%
+   without). One boss-army setting for all five rulers could not fit both.
 
-## Proposed changes
+## What changed
 
-| What | Where | Now | Proposed | Why |
-| --- | --- | --- | --- | --- |
-| Echo Strike shatter (Conductor) | `src/data/generals.ts` `TROOP_SKILLS.echoStrike.shatterArmorLoss` | 0.1 | 0.05 | The Conductor's edge over every General |
-| Vampiric Link cost (Warlord) | `TROOP_SKILLS.vampiricLink.hpCostShare` | 0.1 | 0.08 | The Warlord's troops bleed out against the Captain |
-| Venting self-damage (Engineer) | `TROOP_SKILLS.venting.selfDamageShare` | 0.02 | 0.015 | The same for the Engineer |
-| Phase Shift stun (Strategist) | `TROOP_SKILLS.phaseShift.stunSeconds` | 1.5 | 2.5 | A small lift for the Strategist |
-| Pyromancer Rift | `src/data/specializations.ts` `SPEC_RULES.pyromancer.riftDamageMultiplier` | 1.4 | 1.3 | Closer to the Frostcaller |
-| Frostcaller Rift | `SPEC_RULES.frostcaller.riftDamageMultiplier` | 0.7 | 0.85 | Its arrows get no Crossfire burn |
-| Breaker speed | `SPECIALIZATIONS.breaker.stats.moveSpeed` | 1.2 | 1.1 | It charged ahead of its army; Breaker beat Bulwark 63% |
-| Forgeborn armor cap | `src/data/factions.ts` `FACTIONS.forgeborn.values` | 4%, 7%, 11% | 2.5%, 4.5%, 6% | Too strong at every tier |
-| Voidweavers phase-out | `FACTIONS.voidweavers.values` | every 12th, 9th, 6th hit | every 16th, 12th, 10th | Too strong at every tier |
-| Hive damage per Hive troop | `FACTIONS.hive.values` | 2.5%, 3.5%, 5% | 3%, 3%, 3.5% | Too strong at 6; the bonus already grows with the Hive troops standing |
-| Resonance bonus | `FACTIONS.resonance.values` | 25%, 30%, 50% | 25%, 25%, 30% | Too strong at 4 and 6 |
-| Engineer boss turrets | `src/data/bosses.ts` `BOSS_RULES.engineer.turret` | HP +30%, armor +0.1, reach +15% | HP +10%, armor +0.05, reach +5% | The turrets were the whole fight |
-| Boss armies | `src/data/runs.ts` `BOSS_FIGHT.epic` | 2 | 3 | Three of the five rulers fell too easily |
+**Numbers** (all in `src/data`):
 
-The texts that show these numbers (the Frostcaller's "hurt 30% less", the Breaker's "20% faster")
-would change with them.
+| What | Before | After |
+| --- | --- | --- |
+| Echo Strike shatter (Conductor) | 10% armor | 4% |
+| Shatterstorm (Conductor) | 45 a stack | 35 |
+| Vampiric Link (Warlord) | costs 10% HP; 3× attack speed | costs 8%; 3.5× |
+| Venting (Engineer) | 30 damage; 2% self-damage | 33; 1.5% |
+| Phase Shift stun (Strategist) | 1.5 s | 2.5 s |
+| Strategist Rangers back away from enemies within | 85% of their range | 75% |
+| Pyromancer / Frostcaller Rift damage | ×1.4 / ×0.7 | ×1.3 / ×0.85 |
+| Breaker speed | ×1.2 | ×1.1 |
+| Forgeborn armor cap at 2/4/6 | 4/7/11% | 2.5/4.5/6% |
+| Voidweavers phase-out at 2/4/6 | every 12th/9th/6th hit | 16th/12th/10th |
+| Hive damage per Hive troop at 2/4/6 | 2.5/3.5/5% | 3/3/3.5% |
+| Resonance bonus at 2/4/6 | 25/30/50% | 25/25/30% |
+| Engineer boss turrets | HP +30%, armor +0.1, reach +15% | +10%, +0.05, +5% |
+| Conductor boss: Momentum per Vibration stack | 0.5 | 0.8 |
+| Boss armies' Epic troops | 2 for every ruler | by ruler: Hive Mother 3, Strategist 1, Warlord 5, Engineer 1, Conductor 3 |
+
+**New rules:**
+
+- **Forced Evolution** waits until two of the Hive Mother's troops are below 50% HP, and the elite
+  comes out at full HP (their max HPs together). It now saves two dying troops instead of costing
+  two healthy ones. Alone, this moved Captain vs Hive Mother from 74% to 61%.
+- **Assimilation** lasts the rest of the battle instead of 10 s: the Hive grows as it kills.
+- **Phase Shift** also heals the troop 7% of its max HP, so the dodge can save it. It is strong: at
+  25% the Strategist won 64% to 78% against everyone.
+- **Warlord doctrine:** Vanguards go for the strongest enemy *in reach*; with none in reach they
+  fight as usual instead of crossing the field for the toughest troop.
+- **Each ruler has their own boss army** (`BOSS_FIGHTS` in `src/data/runs.ts`), so each boss fight
+  is tuned on its own. The Strategist's boss army now has a second Vanguard in place of her first
+  Invoker.
+- The Hive Mother rules the first region, so her fight stays the easiest. The new-save playthrough
+  test now also plays Void Ruins, the other region open from the start: a new company with no
+  cards can still win both.
+
+Tried and dropped: Vibration that can't build again while a troop is shattered (a rhythm for Echo
+Strike) changed nothing; a faster-moving Warlord didn't reach the Strategist's Rangers.
 
 ## Before and after
 
-Both runs: 1,000 battles per matchup, the same seeds. *After* is with every change above, in a
-scratch copy of the game. Rows that moved by less than 3 points and were never flagged are left
-out; ⚠ marks a flagged row, and the HP edge is in brackets. **Flagged: 26 before, 8 after.**
+Both runs: 1,000 battles per matchup, the same seeds. *Before* is the game as it was; *after* has
+every change above. Rows that moved by less than 3 points and were never flagged are left out; ⚠
+marks a flagged row, and the HP edge is in brackets. **Flagged: 26 before, none after.**
 
 **Generals**
 
 | Matchup | Before | After | |
 | --- | ---: | ---: | --- |
-| captain vs warlord | 72.2% (+16) ⚠ | 52.5% (+6) | fixed |
-| captain vs engineer | 72.5% (+14) ⚠ | 58.5% (+5) | fixed |
-| captain vs hiveMother | 75.1% (+24) ⚠ | 75.1% (+24) ⚠ | still too often |
-| captain vs strategist | 64.0% (+17) ⚠ | 61.2% (+16) | fixed |
-| captain vs conductor | 21.4% (−17) ⚠ | 40.3% (−5) | fixed |
-| warlord vs engineer | 44.6% (−5) | 48.7% (−4) |  |
-| warlord vs hiveMother | 45.8% (−5) | 59.4% (+2) |  |
-| warlord vs strategist | 29.7% (−13) ⚠ | 31.5% (−10) ⚠ | still too rarely |
-| warlord vs conductor | 9.7% (−25) ⚠ | 35.6% (−10) ⚠ | still too rarely |
-| engineer vs hiveMother | 47.8% (+2) | 58.0% (+9) |  |
-| engineer vs conductor | 7.5% (−25) ⚠ | 28.0% (−11) ⚠ | still too rarely |
-| hiveMother vs conductor | 15.7% (−27) ⚠ | 27.9% (−19) ⚠ | still too rarely |
-| strategist vs conductor | 23.8% (−19) ⚠ | 36.3% (−13) ⚠ | still too rarely |
+| captain vs warlord | 72.2% (+16) ⚠ | 41.9% (−0) | fixed |
+| captain vs engineer | 72.5% (+14) ⚠ | 52.6% (+2) | fixed |
+| captain vs hiveMother | 75.1% (+24) ⚠ | 58.5% (+7) | fixed |
+| captain vs strategist | 64.0% (+17) ⚠ | 59.2% (+15) | fixed |
+| captain vs conductor | 21.4% (−17) ⚠ | 48.3% (−1) | fixed |
+| warlord vs engineer | 44.6% (−5) | 56.7% (−0) |  |
+| warlord vs strategist | 29.7% (−13) ⚠ | 42.9% (−4) | fixed |
+| warlord vs conductor | 9.7% (−25) ⚠ | 44.9% (−5) | fixed |
+| engineer vs hiveMother | 47.8% (+2) | 52.4% (+2) |  |
+| engineer vs strategist | 58.3% (+5) | 45.6% (−1) |  |
+| engineer vs conductor | 7.5% (−25) ⚠ | 39.2% (−5) | fixed |
+| hiveMother vs strategist | 49.1% (+0) | 62.6% (+20) |  |
+| hiveMother vs conductor | 15.7% (−27) ⚠ | 42.5% (−2) | fixed |
+| strategist vs conductor | 23.8% (−19) ⚠ | 45.8% (−8) | fixed |
 
 **Specializations**
 
@@ -111,42 +142,33 @@ out; ⚠ marks a flagged row, and the HP edge is in brackets. **Flagged: 26 befo
 
 | Matchup | Before | After | |
 | --- | ---: | ---: | --- |
-| vs hiveMother | 92.9% (+40) ⚠ | 87.0% (+33) | fixed |
-| vs hiveMother (no boss rule) | 95.9% (+41) | 92.7% (+37) |  |
-| vs strategist | 100.0% (+48) ⚠ | 99.5% (+46) ⚠ | still too often |
-| vs warlord | 92.2% (+26) ⚠ | 85.3% (+21) | fixed |
-| vs warlord (no boss rule) | 97.1% (+37) | 92.5% (+31) |  |
-| vs engineer | 8.5% (−27) ⚠ | 22.9% (−19) ⚠ | still too rarely |
-| vs engineer (no boss rule) | 98.6% (+39) | 95.4% (+33) |  |
-| vs conductor | 43.4% (−3) | 79.0% (+18) |  |
-| vs conductor (no boss rule) | 96.2% (+29) | 82.0% (+18) |  |
+| vs hiveMother | 92.9% (+40) ⚠ | 81.1% (+27) | fixed |
+| vs hiveMother (no boss rule) | 95.9% (+41) | 87.5% (+33) |  |
+| vs strategist | 100.0% (+48) ⚠ | 55.7% (+15) | fixed |
+| vs strategist (no boss rule) | 100.0% (+48) | 55.7% (+15) |  |
+| vs warlord | 92.2% (+26) ⚠ | 64.2% (+10) | fixed |
+| vs warlord (no boss rule) | 97.1% (+37) | 86.5% (+20) |  |
+| vs engineer | 8.5% (−27) ⚠ | 64.9% (+6) | fixed |
+| vs conductor | 43.4% (−3) | 59.5% (+7) |  |
+| vs conductor (no boss rule) | 96.2% (+29) | 86.6% (+22) |  |
 
-## Still open
+## Worth knowing
 
-- **The Conductor** still beats the Warlord, Engineer, Hive Mother and Strategist 64% to 72%.
-  Shatter at 0.04 for 3 s instead of 4 s measured inside the noise of 0.05; the next step may be a
-  design change rather than a number (for example, shatter only Vanguards and Guardians).
-- **The Captain against the Hive Mother** stays at 75%. Nothing I tried moved it much: Feeding's
-  pip refill, Assimilation's length and bonus, Forced Evolution's bonus. It may be her commander's
-  script or Forced Evolution merging troops too early, worth a look later.
-- **The Warlord against the Strategist** stays at 31%.
-- **The Strategist's boss fight** stays near 100%: neither her rule (4 phases, from 10% hits) nor a
-  stronger army or commander moved it much. Something about her army on the Void Ruins map needs a closer look.
-- **The Engineer's boss fight:** weaker turrets alone bring it to about 36%, but the stronger boss
-  armies push it back to 23%. One boss-army setting for all five rulers can't fit both; a strength
-  setting per ruler would.
-- **The Conductor's boss fight** gets much easier with the shatter change (43% to 79%), as her
-  troops shatter less too. It stays inside its range, but with the other changes four of the five
-  boss fights are now won 79% to 99% by this army.
-- **The Bulwark** does nothing measurable: 50% against no specialization. Before the start-spot fix
-  it won 79%, and all of that came from walking 10% slower; its shield wall rarely matters here.
+- **The Strategist's boss rule** (phasing out of big hits) never changes her fight: with it or
+  without, the strong army wins 55.7%. Hits of 20% of a troop's HP are rare here. Her fight is now
+  hard because of her army, not her rule; the rule may want a design look.
+- **The Bulwark** does nothing measurable (50% against no specialization). Before the start-spot
+  fix it won 79%, all from walking 10% slower; its shield wall rarely matters in these fights.
+- **Close to the edge:** Hive Mother vs Strategist 62.6% and Engineer vs Conductor 39.2% are inside
+  their range by less than the margin.
 - **Fair ranges** are my guesses: 40–60% between Generals, a specialization 50–72% against none, a
-  faction 52–72%, 58–82% and 62–90% at 2, 4 and 6, a boss 30–85% for a strong army. They live in
+  faction 52–72%, 58–82% and 62–90% at 2, 4 and 6, a boss 30–85% for a strong army. The boss
+  suite's army is also a guess at a strong army near a run's end. They live in
   `tools/balance/matchups.ts`.
 
 ## Full reports
 
-### Before (the game as it is)
+### Before (the game as it was)
 
 A wins: draws count half; ± is the 95% margin. HP edge: on average, the share of its HP A has left at the end minus B's, in points: it says how big the wins are, since a small edge can still win almost every battle.
 
@@ -260,46 +282,38 @@ A wins: draws count half; ± is the 95% margin. HP edge: on average, the share o
 | vs conductor | 43.4% | 3.1% | 0 | −3 | 70 s | 30.0%–85.0% |  |
 | vs conductor (no boss rule) | 96.2% | 1.2% | 0 | +29 | 65 s | 0.0%–100.0% |  |
 
-### After (with the proposed changes)
+### After (with every change above)
 
 A wins: draws count half; ± is the 95% margin. HP edge: on average, the share of its HP A has left at the end minus B's, in points: it says how big the wins are, since a small edge can still win almost every battle.
 
-#### Flagged (8)
+Nothing wins or loses too often.
 
-- **captain vs hiveMother** (generals): A wins 75.1%, too often (fair: 40.0% to 60.0%)
-- **warlord vs strategist** (generals): A wins 31.5%, too rarely (fair: 40.0% to 60.0%)
-- **warlord vs conductor** (generals): A wins 35.6%, too rarely (fair: 40.0% to 60.0%)
-- **engineer vs conductor** (generals): A wins 28.0%, too rarely (fair: 40.0% to 60.0%)
-- **hiveMother vs conductor** (generals): A wins 27.9%, too rarely (fair: 40.0% to 60.0%)
-- **strategist vs conductor** (generals): A wins 36.3%, too rarely (fair: 40.0% to 60.0%)
-- **vs strategist** (bosses): A wins 99.5%, too often (fair: 30.0% to 85.0%)
-- **vs engineer** (bosses): A wins 22.9%, too rarely (fair: 30.0% to 85.0%)
 
 #### Generals (A vs B, both with a commander firing its script and ultimate)
 
 | Matchup | A wins | ± | Draws | HP edge | Avg length | Fair | |
 | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
 | captain vs captain | 51.0% | 3.1% | 2 | +1 | 91 s | 40.0%–60.0% |  |
-| captain vs warlord | 52.5% | 3.1% | 0 | +6 | 77 s | 40.0%–60.0% |  |
-| captain vs engineer | 58.5% | 3.1% | 1 | +5 | 82 s | 40.0%–60.0% |  |
-| captain vs hiveMother | 75.1% | 2.7% | 2 | +24 | 86 s | 40.0%–60.0% | too often |
-| captain vs strategist | 61.2% | 3.0% | 0 | +16 | 99 s | 40.0%–60.0% |  |
-| captain vs conductor | 40.3% | 3.0% | 0 | −5 | 81 s | 40.0%–60.0% |  |
-| warlord vs warlord | 47.6% | 3.1% | 6 | −1 | 75 s | 40.0%–60.0% |  |
-| warlord vs engineer | 48.7% | 3.1% | 0 | −4 | 72 s | 40.0%–60.0% |  |
-| warlord vs hiveMother | 59.4% | 3.0% | 1 | +2 | 74 s | 40.0%–60.0% |  |
-| warlord vs strategist | 31.5% | 2.9% | 0 | −10 | 80 s | 40.0%–60.0% | too rarely |
-| warlord vs conductor | 35.6% | 3.0% | 0 | −10 | 71 s | 40.0%–60.0% | too rarely |
-| engineer vs engineer | 50.4% | 3.1% | 3 | +0 | 117 s | 40.0%–60.0% |  |
-| engineer vs hiveMother | 58.0% | 3.1% | 1 | +9 | 79 s | 40.0%–60.0% |  |
-| engineer vs strategist | 60.2% | 3.0% | 0 | +7 | 120 s | 40.0%–60.0% |  |
-| engineer vs conductor | 28.0% | 2.8% | 2 | −11 | 74 s | 40.0%–60.0% | too rarely |
-| hiveMother vs hiveMother | 51.0% | 3.1% | 1 | +1 | 90 s | 40.0%–60.0% |  |
-| hiveMother vs strategist | 46.6% | 3.1% | 0 | −1 | 99 s | 40.0%–60.0% |  |
-| hiveMother vs conductor | 27.9% | 2.8% | 0 | −19 | 77 s | 40.0%–60.0% | too rarely |
-| strategist vs strategist | 50.5% | 3.1% | 0 | −0 | 155 s | 40.0%–60.0% |  |
-| strategist vs conductor | 36.3% | 3.0% | 0 | −13 | 89 s | 40.0%–60.0% | too rarely |
-| conductor vs conductor | 50.5% | 3.1% | 1 | +1 | 75 s | 40.0%–60.0% |  |
+| captain vs warlord | 41.9% | 3.1% | 1 | −0 | 75 s | 40.0%–60.0% |  |
+| captain vs engineer | 52.6% | 3.1% | 0 | +2 | 82 s | 40.0%–60.0% |  |
+| captain vs hiveMother | 58.5% | 3.1% | 1 | +7 | 93 s | 40.0%–60.0% |  |
+| captain vs strategist | 59.2% | 3.0% | 0 | +15 | 103 s | 40.0%–60.0% |  |
+| captain vs conductor | 48.3% | 3.1% | 0 | −1 | 82 s | 40.0%–60.0% |  |
+| warlord vs warlord | 49.6% | 3.1% | 3 | −0 | 73 s | 40.0%–60.0% |  |
+| warlord vs engineer | 56.7% | 3.1% | 0 | −0 | 69 s | 40.0%–60.0% |  |
+| warlord vs hiveMother | 43.6% | 3.1% | 1 | −10 | 75 s | 40.0%–60.0% |  |
+| warlord vs strategist | 42.9% | 3.1% | 0 | −4 | 85 s | 40.0%–60.0% |  |
+| warlord vs conductor | 44.9% | 3.1% | 0 | −5 | 70 s | 40.0%–60.0% |  |
+| engineer vs engineer | 49.9% | 3.1% | 0 | −0 | 116 s | 40.0%–60.0% |  |
+| engineer vs hiveMother | 52.4% | 3.1% | 0 | +2 | 83 s | 40.0%–60.0% |  |
+| engineer vs strategist | 45.6% | 3.1% | 0 | −1 | 125 s | 40.0%–60.0% |  |
+| engineer vs conductor | 39.2% | 3.0% | 0 | −5 | 75 s | 40.0%–60.0% |  |
+| hiveMother vs hiveMother | 52.3% | 3.1% | 0 | +2 | 100 s | 40.0%–60.0% |  |
+| hiveMother vs strategist | 62.6% | 3.0% | 0 | +20 | 123 s | 40.0%–60.0% |  |
+| hiveMother vs conductor | 42.5% | 3.1% | 0 | −2 | 84 s | 40.0%–60.0% |  |
+| strategist vs strategist | 50.2% | 3.1% | 0 | −0 | 159 s | 40.0%–60.0% |  |
+| strategist vs conductor | 45.8% | 3.1% | 0 | −8 | 95 s | 40.0%–60.0% |  |
+| conductor vs conductor | 51.7% | 3.1% | 1 | +1 | 77 s | 40.0%–60.0% |  |
 
 #### Specializations (every class on the field; no commanders)
 
@@ -345,13 +359,13 @@ A wins: draws count half; ± is the 95% margin. HP edge: on average, the share o
 
 | Matchup | A wins | ± | Draws | HP edge | Avg length | Fair | |
 | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| vs hiveMother | 87.0% | 2.1% | 0 | +33 | 79 s | 30.0%–85.0% |  |
-| vs hiveMother (no boss rule) | 92.7% | 1.6% | 0 | +37 | 77 s | 0.0%–100.0% |  |
-| vs strategist | 99.5% | 0.4% | 0 | +46 | 66 s | 30.0%–85.0% | too often |
-| vs strategist (no boss rule) | 99.5% | 0.4% | 0 | +46 | 66 s | 0.0%–100.0% |  |
-| vs warlord | 85.3% | 2.2% | 0 | +21 | 92 s | 30.0%–85.0% |  |
-| vs warlord (no boss rule) | 92.5% | 1.6% | 1 | +31 | 92 s | 0.0%–100.0% |  |
-| vs engineer | 22.9% | 2.6% | 0 | −19 | 76 s | 30.0%–85.0% | too rarely |
-| vs engineer (no boss rule) | 95.4% | 1.3% | 0 | +33 | 62 s | 0.0%–100.0% |  |
-| vs conductor | 79.0% | 2.5% | 0 | +18 | 69 s | 30.0%–85.0% |  |
-| vs conductor (no boss rule) | 82.0% | 2.4% | 0 | +18 | 78 s | 0.0%–100.0% |  |
+| vs hiveMother | 81.1% | 2.4% | 0 | +27 | 86 s | 30.0%–85.0% |  |
+| vs hiveMother (no boss rule) | 87.5% | 2.0% | 0 | +33 | 84 s | 0.0%–100.0% |  |
+| vs strategist | 55.7% | 3.1% | 0 | +15 | 123 s | 30.0%–85.0% |  |
+| vs strategist (no boss rule) | 55.7% | 3.1% | 0 | +15 | 123 s | 0.0%–100.0% |  |
+| vs warlord | 64.2% | 3.0% | 0 | +10 | 91 s | 30.0%–85.0% |  |
+| vs warlord (no boss rule) | 86.5% | 2.1% | 0 | +20 | 92 s | 0.0%–100.0% |  |
+| vs engineer | 64.9% | 3.0% | 0 | +6 | 75 s | 30.0%–85.0% |  |
+| vs engineer (no boss rule) | 96.9% | 1.1% | 0 | +38 | 62 s | 0.0%–100.0% |  |
+| vs conductor | 59.5% | 3.0% | 0 | +7 | 73 s | 30.0%–85.0% |  |
+| vs conductor (no boss rule) | 86.6% | 2.1% | 0 | +22 | 75 s | 0.0%–100.0% |  |

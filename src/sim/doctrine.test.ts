@@ -18,6 +18,17 @@ const mine = (state: BattleState, i = 0) => sideUnits(state, 'player')[i]!;
 const theirs = (state: BattleState, i = 0) => sideUnits(state, 'enemy')[i]!;
 
 describe("the Generals' doctrines", () => {
+  it('Warlord: Vanguards go for the strongest enemy in reach; with none in reach, they fight as usual', () => {
+    // Session 6A: they no longer cross the field for the toughest troop while Rangers shoot them.
+    const far: TroopPlacement[] = [
+      { cls: 'ranger', x: 420, y: 300 },
+      { cls: 'vanguard', x: 800, y: 300 },
+    ];
+    const warlord = battle([{ cls: 'vanguard', x: 300, y: 300 }], far, 'warlord');
+    const captain = battle([{ cls: 'vanguard', x: 300, y: 300 }], far, 'captain');
+    expect(think(warlord, mine(warlord)).action).toEqual(think(captain, mine(captain)).action);
+  });
+
   it('Warlord: Vanguards go for the strongest enemy', () => {
     const enemies: TroopPlacement[] = [
       { cls: 'ranger', x: 322, y: 290 },

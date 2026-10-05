@@ -199,7 +199,6 @@ function tickTimers(state: BattleState): void {
     if (unit.rallyTicks > 0) unit.rallyTicks -= 1;
     if (unit.troopSkillCooldown > 0) unit.troopSkillCooldown -= 1;
     if (unit.haste && --unit.haste.ticksLeft <= 0) unit.haste = null;
-    if (unit.adaptation && --unit.adaptation.ticksLeft <= 0) unit.adaptation = null;
     if (unit.vibration && --unit.vibration.ticksLeft <= 0) unit.vibration = null;
     if (unit.shatterTicks > 0) unit.shatterTicks -= 1;
     if (unit.rage && --unit.rage.ticksLeft <= 0) unit.rage = null;

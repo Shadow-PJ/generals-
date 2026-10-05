@@ -53,13 +53,13 @@ export const BOSS_RULES = {
       { cls: 'ranger', x: 780, y: 430 },
     ] as readonly TroopPlacement[],
     /** A turret's stats against a plain Ranger's: more HP, armor and reach, but area damage hurts it twice as much. */
-    turret: { maxHp: 0.3, armor: 0.1, range: 0.15, areaDamageTaken: 2 },
+    turret: { maxHp: 0.1, armor: 0.05, range: 0.05, areaDamageTaken: 2 },
   },
   conductor: {
     /** A Vibration stack her troops land also goes to each of your troops this close to the one hit... */
     spreadRadius: 45,
     /** ...and every stack she lands brings her Shatterstorm closer: this much Momentum. */
-    momentumPerStack: 0.5,
+    momentumPerStack: 0.8,
   },
 } as const;
 

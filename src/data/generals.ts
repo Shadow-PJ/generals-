@@ -86,27 +86,26 @@ export const TROOP_SKILLS = {
     initialCooldownSeconds: 6,
     /** The ally must be this close, center to center. */
     range: 140,
-    hpCostShare: 0.1,
+    hpCostShare: 0.08,
     /** Only troops with at least this share of their HP left pay. */
     minHpShare: 0.5,
-    /** +200% attack speed: three times as fast. */
-    attackSpeedBonus: 2,
+    /** +250% attack speed: three and a half times as fast. */
+    attackSpeedBonus: 2.5,
     durationSeconds: 1.5,
   },
   /** Engineer: every few attacks a troop vents its heat. */
-  venting: { everyAttacks: 5, radius: 55, damage: 30, selfDamageShare: 0.02 },
-  /** Hive Mother: a troop that kills adapts for a while. */
+  venting: { everyAttacks: 5, radius: 55, damage: 33, selfDamageShare: 0.015 },
+  /** Hive Mother: a troop that kills adapts, for the rest of the battle (session 6A; it lasted 10 s). */
   assimilation: {
-    durationSeconds: 10,
     /** Killing a Vanguard or Guardian grows a shell; killing anything else, claws. */
     shellFrom: ['vanguard', 'guardian'] as readonly TroopClass[],
     shellArmor: 0.2,
     clawsDamageBonus: 0.25,
   },
-  /** Strategist: once per battle, a troop dodges a blow that would kill it. */
-  phaseShift: { stunSeconds: 1.5 },
+  /** Strategist: once per battle, a troop dodges a blow that would kill it, and heals a little (session 6A). */
+  phaseShift: { stunSeconds: 2.5, healShare: 0.07 },
   /** Conductor: hits stack Vibration; a full stack shatters the enemy's armor. */
-  echoStrike: { maxStacks: 3, stackSeconds: 4, shatterArmorLoss: 0.1, shatterSeconds: 4 },
+  echoStrike: { maxStacks: 3, stackSeconds: 4, shatterArmorLoss: 0.04, shatterSeconds: 4 },
 } as const;
 
 /** How each General's doctrine changes troop behavior. */
@@ -125,7 +124,7 @@ export const DOCTRINES = {
   },
   strategist: {
     /** Rangers back away between shots from enemies closer than this share of their range. */
-    keepRangeShare: 0.85,
+    keepRangeShare: 0.75,
   },
 } as const;
 
@@ -141,14 +140,15 @@ export const ULTIMATE_RULES = {
     /** Enemies this close to the beam's line are hit. */
     beamWidth: 30,
   },
-  forcedEvolution: { damageBonus: 0.5, armorBonus: 0.1 },
+  /** It waits for two troops below this share of their HP, and the elite comes out at full HP (session 6A). */
+  forcedEvolution: { damageBonus: 0.5, armorBonus: 0.1, hurtShareBelow: 0.5 },
   gravityWell: {
     /** Units this close to the enemy army's middle are pulled. */
     radius: 240,
     pullDistance: 150,
     pullSeconds: 0.6,
   },
-  shatterstorm: { damagePerStack: 45, blastRadius: 60, blastShare: 0.5 },
+  shatterstorm: { damagePerStack: 35, blastRadius: 60, blastShare: 0.5 },
 } as const;
 
 /** Each General's mana twist. */
@@ -186,7 +186,7 @@ export const GENERALS: Readonly<Record<GeneralId, GeneralInfo>> = {
       name: 'Vampiric Link',
       text: `A healthy troop pays ${percent(TROOP_SKILLS.vampiricLink.hpCostShare)} of its HP to make a fighting ally attack ${1 + TROOP_SKILLS.vampiricLink.attackSpeedBonus}x as fast for ${TROOP_SKILLS.vampiricLink.durationSeconds} s`,
     },
-    doctrine: 'Vanguards attack the strongest enemy; Assassins dive at once, from any distance',
+    doctrine: 'Vanguards attack the strongest enemy in reach; Assassins dive at once, from any distance',
     ultimate: { id: 'reapersToll', name: "Reaper's Toll", text: `Your troops below ${percent(ULTIMATE_RULES.reapersToll.hpShareBelow)} HP become invulnerable wraiths for ${ULTIMATE_RULES.reapersToll.wraithSeconds} s, hitting ${percent(ULTIMATE_RULES.reapersToll.wraithDamageBonus)} harder, then fall`,
       needs: `a troop below ${percent(ULTIMATE_RULES.reapersToll.hpShareBelow)} HP`,
     },
@@ -209,11 +209,11 @@ export const GENERALS: Readonly<Record<GeneralId, GeneralInfo>> = {
     writes: 'On instinct: 2 steps at most, simple targets',
     troopSkill: {
       name: 'Assimilation',
-      text: `A troop that kills grows a shell (from a Vanguard or Guardian) or claws (from the rest) for ${TROOP_SKILLS.assimilation.durationSeconds} s`,
+      text: 'A troop that kills grows a shell (from a Vanguard or Guardian) or claws (from the rest) for the rest of the battle',
     },
     doctrine: 'Troops hunt as a pack: everyone goes for the same enemy until it falls',
-    ultimate: { id: 'forcedEvolution', name: 'Forced Evolution', text: `Your two most hurt troops merge into one elite: their HP together, ${percent(ULTIMATE_RULES.forcedEvolution.damageBonus)} more damage`,
-      needs: '2 troops',
+    ultimate: { id: 'forcedEvolution', name: 'Forced Evolution', text: `Your two most hurt troops merge into one elite at full HP: their HP together, ${percent(ULTIMATE_RULES.forcedEvolution.damageBonus)} more damage`,
+      needs: `2 troops below ${percent(ULTIMATE_RULES.forcedEvolution.hurtShareBelow)} HP`,
     },
     twist: { name: 'Feeding', text: `Pips refill at ${percent(MANA_TWISTS.feeding.refillRate)} speed, but every enemy killed gives ${MANA_TWISTS.feeding.pipsPerKill} pip` },
   },
@@ -222,7 +222,7 @@ export const GENERALS: Readonly<Record<GeneralId, GeneralInfo>> = {
     faction: 'Voidweavers',
     motto: 'Position is power. Control the battlefield.',
     writes: 'Precisely: suggests a condition you can accept',
-    troopSkill: { name: 'Phase Shift', text: 'Once per battle, a troop about to fall teleports behind its attacker and stuns it' },
+    troopSkill: { name: 'Phase Shift', text: `Once per battle, a troop about to fall teleports behind its attacker, stuns it and heals ${percent(TROOP_SKILLS.phaseShift.healShare)}` },
     doctrine: 'Vanguards guard the nearest ally; Rangers keep their distance between shots',
     ultimate: { id: 'gravityWell', name: 'Gravity Well', text: 'Drags every troop near the enemy army, friend and foe, to one point', needs: null },
     twist: { name: 'Prepared', text: `Starts with full pips, but they refill ${percent(1 - MANA_TWISTS.prepared.refillRate)} slower` },
