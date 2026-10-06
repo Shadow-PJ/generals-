@@ -10,6 +10,7 @@ import { UNIT_CLASSES, type UnitClass } from '../../data/units';
 import type { Side } from '../../sim';
 import { backdropPixels, FRAME_STYLES, framePixels, UI_PIXEL, type FrameStyleId, type PixelImage } from './frames';
 import { groundImage } from './ground';
+import { titlePixels } from './title';
 import { wallPixels, type WallKind } from './walls';
 import { CASTLE_ART, CASTLE_PALETTE, CLEARED_ICON, cloudPixels, LOCK_ICON, MARKER_ARROW, medallionPixels, RUN_BANNER, regionLandPixels, worldMapPixels, type WorldMapPlan } from './worldMap';
 import { CAPITAL_ICON, REGION_ICONS } from './icons';
@@ -28,7 +29,14 @@ export const portraitKey = (general: GeneralId) => `portrait-${general}`;
 export const regionKey = (region: RegionId) => `region-${region}`;
 export const CAPITAL_KEY = 'capital';
 /** The world map's pieces: the castle, the arrow over the region in focus, your run's banner, a lock and a tick. */
-export const MAP_ART = { castle: 'map-castle', arrow: 'map-arrow', banner: 'map-banner', lock: 'map-lock', cleared: 'map-cleared' } as const;
+export const MAP_ART = {
+  castle: 'map-castle',
+  arrow: 'map-arrow',
+  banner: 'map-banner',
+  enemyBanner: 'map-banner-enemy',
+  lock: 'map-lock',
+  cleared: 'map-cleared',
+} as const;
 const groundKey = (map: MapData) => `ground-${map.id}`;
 /** White particles, tinted when they burst. */
 export const FX = { spark: 'fx-spark', dot: 'fx-dot', puff: 'fx-puff', chunk: 'fx-chunk' } as const;
@@ -70,6 +78,7 @@ export function makeArtTextures(scene: Phaser.Scene): void {
   addSprite(textures, MAP_ART.castle, CASTLE_ART, CASTLE_PALETTE);
   addSprite(textures, MAP_ART.arrow, MARKER_ARROW, BASE);
   addSprite(textures, MAP_ART.banner, RUN_BANNER, sidePalette('player'));
+  addSprite(textures, MAP_ART.enemyBanner, RUN_BANNER, sidePalette('enemy'));
   addSprite(textures, MAP_ART.lock, LOCK_ICON, BASE);
   addSprite(textures, MAP_ART.cleared, CLEARED_ICON, { ...BASE, x: 0x86efac });
 }
@@ -172,4 +181,11 @@ export function addWallImage(scene: Phaser.Scene, wall: { x: number; y: number; 
     .image(wall.x, wall.y, wallTexture(scene, kind, wall.w, wall.h))
     .setOrigin(0)
     .setDisplaySize(wall.w, wall.h);
+}
+
+/** The title screen's picture, `w × h` world units. */
+export function titleTexture(scene: Phaser.Scene, w: number, h: number): string {
+  const aw = artPixels(w);
+  const ah = artPixels(h);
+  return pixelTexture(scene.textures, `title-${aw}x${ah}`, titlePixels(aw, ah));
 }

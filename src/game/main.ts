@@ -27,6 +27,7 @@ import { ResultScene } from './scenes/ResultScene';
 import { RunScene } from './scenes/RunScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { StopScene } from './scenes/StopScene';
+import { TitleScene } from './scenes/TitleScene';
 import { TroopsScene } from './scenes/TroopsScene';
 import { watchScenes } from './sceneHooks';
 import { applyWindowSettings, currentPlatform, currentSettings, startSession, toggleFullscreen } from './session';
@@ -60,9 +61,10 @@ async function boot(): Promise<void> {
     dom: { createContainer: true },
     // Sound is the game's own synthesizer (src/game/audio), not Phaser's.
     audio: { noAudio: true },
-    // Boot makes the textures, then opens the Capital, the world map hub.
+    // Boot makes the textures, then opens the title screen, then the Capital, the world map hub.
     scene: [
       BootScene,
+      TitleScene,
       CapitalScene,
       RunScene,
       ArmyScene,

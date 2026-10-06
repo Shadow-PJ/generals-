@@ -12,6 +12,7 @@ import { addHint, textStyle } from './ui';
 
 /** The music each screen asks for; screens left out keep whatever is playing. */
 const SCENE_MUSIC: Readonly<Record<string, TrackId | null>> = {
+  Title: 'capital',
   Capital: 'capital',
   Run: 'capital',
   Army: 'capital',
@@ -27,8 +28,10 @@ const SCENE_MUSIC: Readonly<Record<string, TrackId | null>> = {
 
 /** Screens drawn over another (the result over the battle) don't fade in; the Boot screen is gone at once. */
 const NO_FADE = new Set(['Boot', 'Result']);
-/** Screens that draw their own ground: the battle, and the result laid over it. */
-const NO_BACKDROP = new Set(['Boot', 'Battle', 'Result']);
+/** Screens that draw their own ground: the title, the battle, and the result laid over it. */
+const NO_BACKDROP = new Set(['Boot', 'Title', 'Battle', 'Result']);
+/** Screens with no buttons for View to reach. */
+const NO_VIEW_HINT = new Set(['Boot', 'Title']);
 const FADE_MS = 180;
 
 /** Hooks every scene of the game: call once, before the first screen opens. */
@@ -43,7 +46,7 @@ function entered(scene: Phaser.Scene): void {
   const music = SCENE_MUSIC[key];
   if (music !== undefined) playMusic(music);
   if (!NO_BACKDROP.has(key)) addBackdrop(scene);
-  if (key !== 'Boot') addHint(scene, GAME_WIDTH - 8, GAME_HEIGHT - 4, '', 'View: buttons', textStyle(11, TEXT.muted)).setOrigin(1, 1).setDepth(950);
+  if (!NO_VIEW_HINT.has(key)) addHint(scene, GAME_WIDTH - 8, GAME_HEIGHT - 4, '', 'View: buttons', textStyle(11, TEXT.muted)).setOrigin(1, 1).setDepth(950);
   if (!NO_FADE.has(key)) {
     const c = COLORS.background;
     scene.cameras.main.fadeIn(FADE_MS, (c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff);

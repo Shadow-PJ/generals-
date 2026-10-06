@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { REGION_IDS } from '../../data/regions';
 import { backdropPixels, FRAME_STYLES, framePixels, type FrameStyleId } from './frames';
 import { bayer, ramp } from './noise';
+import { titleLayout, titlePixels } from './title';
 import { WALL_FRONT, wallPixels, type WallKind } from './walls';
 import { cloudPixels, landAt, medallionPixels, regionLandPixels, roadPixels, worldMapPixels, type WorldMapPlan } from './worldMap';
 
@@ -72,6 +73,20 @@ describe('walls', () => {
       expect(row(1), kind).toBeGreaterThan(row(h - 3));
       expect(row(h / 2), kind).toBeGreaterThan(row(h - 1 - Math.floor(WALL_FRONT / 2)));
     }
+  });
+});
+
+describe('the title screen', () => {
+  it('paints the same dusk every time, with no holes, the sun above the castle hill', () => {
+    const a = titlePixels(120, 88);
+    expect(a.pixels).toEqual(titlePixels(120, 88).pixels);
+    expect(a.pixels.every((p) => alpha(p) === 0xff)).toBe(true);
+    const layout = titleLayout(120, 88);
+    expect(layout.sun.y).toBeLessThan(layout.hill.y);
+    expect(layout.sun.x).toBe(layout.hill.x);
+    // The top of the sky is darker than the sky by the sun.
+    const brightness = (p: number) => ((p >>> 16) & 0xff) + ((p >>> 8) & 0xff) + (p & 0xff);
+    expect(brightness(a.pixels[1 * 120 + 2]!)).toBeLessThan(brightness(a.pixels[(layout.sun.y - layout.sun.r - 2) * 120 + layout.sun.x]!));
   });
 });
 
