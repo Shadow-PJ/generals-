@@ -32,6 +32,8 @@ Five troop classes fight: Vanguards hold the front and Shove, Rangers shoot from
 
 Your General leads the battle: press G in the Capital or on the troop screen to choose one. Each gives every troop a skill and a way of fighting (the Warlord's troops trade HP for speed, the Engineer's vent heat and dig in early, the Hive Mother's hunt as a pack, the Strategist's dodge a killing blow once, the Conductor's stack Vibration until enemies shatter), brings its own ultimate on U, bends one rule about pips, and reads every card in their own way: the Warlord turns retreats into counter-attacks, the Engineer adds a Hold before every Move, the Hive Mother keeps orders short and simple, the Strategist suggests a better moment, and the Conductor reorders steps into combos. You start with the Captain; each ruler you beat in the campaign joins you, and in a skirmish any General can lead the enemy.
 
+To battle a friend over the internet, press M in the Capital for Versus. One of you hosts and gets a four-letter code; the other joins with it. The host picks the map and the rank you both fight at; then each of you places troops and writes orders in secret, and presses B when ready. Each game checks the other's army against the rules, and the battle starts. The guest's view is turned around, so you both see your own army on the left. Both games need the same relay server: the published builds use the project's (once it is hosted; see `server/README.md`), and the Versus screen's Server line can point at another, such as one on your own computer (`npm run relay`, then `ws://localhost:8787`).
+
 The game is drawn in pixel art and scored with its own synthesized sound and music: a calm theme in the Capital, a driving one in battle and a darker one against the rulers. Sound starts with your first key press or click (browsers allow no sooner).
 
 You can also speak an order: on the orders screen, hold V (or the Talk button), say it, and let go. This uses your browser's speech recognition, so it works in Chrome, Edge and Safari but not Firefox, nor yet in the desktop app; typing always works. Orders are read by a rule parser, and what it can't read by the order reader, a small model trained for this game that runs on your computer, at once and offline (`docs/model-eval-3c.md`). It reads slang, typos and long orders, Legendary ones too ("take control of their archer", "do that again"), and says so when it isn't sure rather than guess. In the Capital, Esc opens Settings: fullscreen or windowed, window size, resolution, volume, music and sound effects, screen shake, the Captain's tips, and order reading, where you can also switch on an experimental language model for what the other two can't read (it downloads once, about 400 MB, and is slow). F11 switches fullscreen on any screen.
@@ -57,9 +59,12 @@ npm run balance             # thousands of headless battles per matchup; reports
 npm run train:reader        # train the order reader from generated orders into models/order-reader.json
 npm run art:preview -- sheet.png   # draw every sprite onto sheet.png and every map's ground onto sheet-maps.png
 npx tsx tools/eval/model/run.ts --model qwen2.5-0.5b --isolated   # the experimental language model, in headless Chromium
+npm run relay               # the multiplayer relay on port 8787, for Versus between two tabs or computers
 npm run desktop             # build and open the desktop app (Electron)
 npm run desktop:installer   # build the Windows installer into release/ (run it on Windows)
 npm run desktop:linux       # build the Linux AppImage (Linux PCs and the Steam Deck) into release/
 ```
 
 The desktop app lives in `desktop/`: `main.ts` opens the window and serves the same game build as the browser version, and `preload.cts` gives the game its few requests (files, fullscreen, window size). Game code reaches them only through `src/platform`.
+
+The multiplayer relay lives in `server/`, a small Node package of its own with a `Dockerfile`; `server/README.md` says how to run and host it. A build points at a hosted relay with `VITE_RELAY_URL` (the workflows take it from the `RELAY_URL` repository variable).

@@ -1,8 +1,9 @@
 // The Capital: your hub and the first screen. The world map shows the five regions around it,
 // each ruled by a General; entering one starts a run that ends at its ruler. From here you also
 // see your company and equip its artifacts, spend Insight on the Tech Web, pick your General,
-// practise in skirmish, read the Codex, take Oaths of Command for your next run (O) and change the
-// settings. ←→ (or Tab) pick a region, Enter sets out or carries on your run, Del abandons it.
+// practise in skirmish, battle a friend in Versus (M), read the Codex, take Oaths of Command for
+// your next run (O) and change the settings. ←→ (or Tab) pick a region, Enter sets out or
+// carries on your run, Del abandons it.
 
 import Phaser from 'phaser';
 import { titles } from '../../campaign/mastery';
@@ -100,6 +101,7 @@ export class CapitalScene extends Phaser.Scene {
     fitCamera(this);
     addTitle(this, 'THE CAPITAL');
     addHint(this, 16, 38, '←→ region, Enter: set out.', '←→ region, Ⓐ: set out.', textStyle(13, TEXT.muted));
+    addButton(this, GAME_WIDTH - 790, TOP_BAR_HEIGHT / 2, 'Versus  M', () => this.scene.start('Versus'), 104, 34);
     addButton(this, GAME_WIDTH - 680, TOP_BAR_HEIGHT / 2, 'Company  R', () => this.scene.start('Company'), 104, 34);
     addButton(this, GAME_WIDTH - 570, TOP_BAR_HEIGHT / 2, 'Tech Web  K', () => this.scene.start('Tech'), 104, 34);
     addButton(this, GAME_WIDTH - 460, TOP_BAR_HEIGHT / 2, 'General  G', () => this.open('Generals'), 104, 34);
@@ -126,6 +128,7 @@ export class CapitalScene extends Phaser.Scene {
       .on('company', () => this.scene.start('Company'))
       .on('codex', () => this.open('Codex'))
       .on('oaths', () => this.scene.start('Oaths'))
+      .on('versus', () => this.scene.start('Versus'))
       .on('back', () => this.open('Settings'));
     this.render();
     new CaptainTips(this, { x: PANEL_X, width: PANEL_W, top: 400 }).say(sceneTips('Capital'));

@@ -3,7 +3,8 @@
 // more Momentum), steps in a row can make a signature combo, and the ultimate at the end of a
 // long chain is a Finisher. Your General bends one rule about pips (their mana twist). The
 // enemy may have a commander too, with its own Command bar; it fires its cards by script (all
-// Auto) and its ultimate as soon as it can.
+// Auto) and its ultimate as soon as it can. In a two-player battle (session 6D) that commander is
+// the other player, whose keys reach the battle as inputs for the enemy's side.
 
 import { makesCombo } from '../cards/combos';
 import { cardCost } from '../cards/cost';
@@ -42,6 +43,7 @@ export function createCommand(
   general: GeneralId = 'captain',
   learned: readonly LegendaryAction[] = [],
   boons: readonly BoonId[] = [],
+  human = side === 'player',
 ): CommandState {
   const rules = rankRules(rank);
   const maxPips = rules.maxPips + extraMaxPips(boons);
@@ -82,6 +84,7 @@ export function createCommand(
     maxPipBonus: extraMaxPips(boons),
     ultimateWasReady: false,
     pipsWereFull: false,
+    human,
   };
 }
 
@@ -112,7 +115,7 @@ export function updateCommand(state: BattleState): void {
       updateGlow(state, command, slot);
       if (shouldAutoFire(state, command, slot)) fireSlot(state, command, i, true);
     });
-    if (command !== state.command && ultimateReady(state, command)) fireUltimate(state, command);
+    if (!command.human && ultimateReady(state, command)) fireUltimate(state, command);
     logReadiness(state, command);
   }
 }
@@ -267,16 +270,16 @@ export function chainedCost(state: BattleState, card: Card, command: CommandStat
   return Math.max(Math.min(cost, COMMAND_RULES.chain.minCost), cost - COMMAND_RULES.chain.linkDiscount);
 }
 
-/** The cost of the card in a slot if it were fired now, or null for an empty slot. */
-export function slotCost(state: BattleState, index: number): number | null {
-  const card = state.command.slots[index]?.card;
-  return card ? chainedCost(state, card) : null;
+/** The cost of the card in a slot if it were fired now, or null for an empty slot. Your slots unless another Command bar is given. */
+export function slotCost(state: BattleState, index: number, command: CommandState = state.command): number | null {
+  const card = command.slots[index]?.card;
+  return card ? chainedCost(state, card, command) : null;
 }
 
 /** Ticks left for the next card to join the chain, or 0 when no chain is open. */
-export function chainTicksLeft(state: BattleState): number {
-  if (!chainOpen(state, state.command) || !rankRules(state.command.rank).chains) return 0;
-  return secondsToTicks(COMMAND_RULES.chain.windowSeconds) - (state.tick - state.command.chain.lastTick);
+export function chainTicksLeft(state: BattleState, command: CommandState = state.command): number {
+  if (!chainOpen(state, command) || !rankRules(command.rank).chains) return 0;
+  return secondsToTicks(COMMAND_RULES.chain.windowSeconds) - (state.tick - command.chain.lastTick);
 }
 
 function addMomentum(command: CommandState, amount: number, link: number): void {
@@ -298,14 +301,19 @@ function combosOf(command: CommandState, card: Card, link: number): ComboAt[] {
   return found;
 }
 
-/** Applies a player input. Inputs stamped for another tick are ignored. */
+/**
+ * Applies a player input to its side's Command bar. Inputs stamped for another tick, or for a
+ * side no player commands, are ignored.
+ */
 export function applyInput(state: BattleState, input: BattleInput): void {
   if (input.tick !== state.tick) return;
+  const command = commandOf(state, input.side ?? 'player');
+  if (!command?.human) return;
   state.inputLog.push(input);
   if (input.kind === 'slot') {
-    if (slotReadiness(state, input.slot) === 'ready') fireSlot(state, state.command, input.slot, false);
+    if (slotReadiness(state, input.slot, command) === 'ready') fireSlot(state, command, input.slot, false);
   } else if (input.kind === 'ultimate') {
-    fireUltimate(state, state.command);
+    fireUltimate(state, command);
   }
 }
 

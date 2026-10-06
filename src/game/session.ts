@@ -83,13 +83,13 @@ export function earnedRank(): RankNumber {
 
 /**
  * Saves your cards, Tactical mode and General, and in a skirmish your troops and the skirmish
- * itself. A campaign fight's army belongs to the run, so it never replaces your skirmish army.
- * Resolves once the file is written. Your rank isn't taken from the setup: only Command XP
- * raises it (gainXp), and only the campaign beats bosses.
+ * itself. A campaign fight's army belongs to the run, and a versus match's map and rank to its
+ * host, so neither replaces your skirmish. Resolves once the file is written. Your rank isn't
+ * taken from the setup: only Command XP raises it (gainXp), and only the campaign beats bosses.
  */
 export function remember(setup: MatchSetup): Promise<void> {
   const skirmish: Partial<Profile> =
-    setup.fight === null
+    setup.fight === null && !setup.versus
       ? {
           placement: setup.placement.map(({ cls, x, y }) => ({ cls, x, y })),
           practiceRank: setup.practiceRank,
@@ -105,7 +105,7 @@ export function remember(setup: MatchSetup): Promise<void> {
     ...profile,
     version: PROFILE_VERSION,
     loadout: structuredClone(setup.loadout),
-    tactical: setup.tactical,
+    tactical: setup.versus ? profile.tactical : setup.tactical,
     general: setup.general,
     ...skirmish,
   };

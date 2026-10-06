@@ -35,6 +35,7 @@ function fakePlatform() {
         loads.push({ url, progress: (d, t) => options?.onProgress?.(d, t), finish: () => resolve(model), fail: reject });
       }),
     speech: null,
+    network: { defaultRelay: 'ws://localhost:8787', connect: () => Promise.reject(new Error('offline')) },
   };
   return { platform, loads, unloaded };
 }

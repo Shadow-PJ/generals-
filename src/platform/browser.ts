@@ -3,6 +3,7 @@
 // browser's business.
 
 import { loadLocalModel } from './model';
+import { buildRelay, webSocketNetwork } from './network';
 import { browserRecognition, webSpeech } from './speech';
 import type { Display, FileName, Files, Platform } from './types';
 
@@ -72,5 +73,6 @@ export function createBrowserPlatform(): Platform {
     ready() {},
     loadModel: loadLocalModel,
     speech: webSpeech(browserRecognition()),
+    network: webSocketNetwork(buildRelay(import.meta.env.VITE_RELAY_URL)),
   };
 }

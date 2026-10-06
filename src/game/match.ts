@@ -10,6 +10,7 @@ import type { MapId } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { SpecChoice } from '../data/specializations';
 import type { UnitClass } from '../data/units';
+import type { MatchRules } from '../versus/messages';
 
 export interface MatchSetup {
   placement: TroopPlacement[];
@@ -37,6 +38,8 @@ export interface MatchSetup {
   fight: CampaignFight | null;
   /** Where the General, Codex and Settings screens go back to: the Prep screen, unless the Capital opened them. */
   returnTo?: 'Capital';
+  /** A versus match against a friend (session 6D): the map and rank its host chose. */
+  versus?: MatchRules;
 }
 
 /** A fight on a run: the enemy at your node, your run's reserve fighters and boons, and your Tech Web's nodes. */

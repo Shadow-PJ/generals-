@@ -30,6 +30,9 @@ jobs:
       - run: npm test
       - name: Build the installer
         run: npm run desktop:installer
+        env:
+          # The multiplayer relay (session 6D): set the RELAY_URL repository variable once it is hosted.
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
 
       - name: Install it the way a player would, silently
         shell: pwsh
@@ -96,6 +99,8 @@ jobs:
       - run: npm ci
       - name: Build the AppImage
         run: npm run desktop:linux
+        env:
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
       - name: A virtual screen for the game window
         run: sudo apt-get update && sudo apt-get install -y xvfb
       # The runner's kernel doesn't let Chromium build its sandbox, so the checks run without it;

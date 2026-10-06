@@ -3,15 +3,15 @@
 
 import { THREAT_RULES } from '../data/command';
 import { TROOP_NAMES } from '../data/units';
-import { secondsToTicks, type BattleState } from '../sim';
+import { secondsToTicks, type BattleState, type Side } from '../sim';
 
 export interface Threat {
   unitId: number;
   text: string;
 }
 
-/** Your troops that would fall within a few seconds at the damage rate they are taking now. */
-export function threats(state: BattleState): Threat[] {
+/** Your troops (a side's) that would fall within a few seconds at the damage rate they are taking now. */
+export function threats(state: BattleState, side: Side = 'player'): Threat[] {
   const window = secondsToTicks(THREAT_RULES.windowSeconds);
   const since = state.tick - window;
   const taken = new Map<number, number>();
@@ -22,7 +22,7 @@ export function threats(state: BattleState): Threat[] {
   }
   const result: Threat[] = [];
   for (const unit of state.units) {
-    if (!unit.alive || unit.side !== 'player') continue;
+    if (!unit.alive || unit.side !== side) continue;
     const perSecond = (taken.get(unit.id) ?? 0) / THREAT_RULES.windowSeconds;
     if (perSecond <= 0) continue;
     const seconds = unit.hp / perSecond;

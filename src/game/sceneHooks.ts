@@ -24,6 +24,7 @@ const SCENE_MUSIC: Readonly<Record<string, TrackId | null>> = {
   Troops: 'capital',
   Generals: 'capital',
   Oaths: 'capital',
+  Versus: 'capital',
 };
 
 /** Screens drawn over another (the result over the battle) don't fade in; the Boot screen is gone at once. */

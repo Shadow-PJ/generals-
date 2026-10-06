@@ -37,6 +37,8 @@ export type InputAction =
   | 'company'
   /** Opens the Oaths of Command from the Capital (session 5F). */
   | 'oaths'
+  /** Opens Versus, a match against a friend, from the Capital (session 6D). */
+  | 'versus'
   /** Controller only: moves among the screen's buttons, to press any of them (session 6C). */
   | 'menu';
 
@@ -71,6 +73,7 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   tech: ['KeyK'],
   company: ['KeyR'],
   oaths: ['KeyO'],
+  versus: ['KeyM'],
   menu: [],
 };
 

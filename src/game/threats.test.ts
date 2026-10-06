@@ -30,4 +30,14 @@ describe('Threat Readout', () => {
     enemy.hp = 50;
     expect(threats(state)).toEqual([]);
   });
+
+  it('warns the guest in versus about their own troops, the enemy side’s', () => {
+    const state = battle();
+    const enemy = state.units.find((u) => u.side === 'enemy' && u.cls === 'ranger')!;
+    state.tick = 100;
+    enemy.hp = 120;
+    state.events.push({ tick: 90, type: 'damage', sourceId: 1, targetId: enemy.id, amount: 200, absorbed: 0, cause: 'attack' });
+    expect(threats(state, 'enemy')).toEqual([{ unitId: enemy.id, text: 'Ranger falls in ~2 s' }]);
+    expect(threats(state)).toEqual([]);
+  });
 });
