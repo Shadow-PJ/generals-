@@ -1,5 +1,5 @@
 // The first screen, gone in a moment: it turns the pixel art into textures (session 6B), then
-// opens the Capital.
+// opens the title screen.
 
 import Phaser from 'phaser';
 import { makeArtTextures } from '../art/textures';
@@ -11,6 +11,6 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     makeArtTextures(this);
-    this.scene.start('Capital');
+    this.scene.start('Title');
   }
 }

@@ -21,7 +21,7 @@ import { newSeed } from '../seed';
 import { currentCampaign, currentXp, gainXp, saveCampaign } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addFrame, displayStyle, textStyle, titleCase } from '../ui';
 
 const GRADE_COLORS: Readonly<Record<Grade, string>> = { A: TEXT.victory, B: TEXT.perfect, C: TEXT.body, D: TEXT.defeat };
 
@@ -59,15 +59,17 @@ export class ResultScene extends Phaser.Scene {
     const cx = GAME_WIDTH / 2;
     const cy = GAME_HEIGHT / 2;
     const top = cy - PANEL_H / 2;
-    this.add.rectangle(cx, cy, GAME_WIDTH, GAME_HEIGHT, 0x05070b, 0.6);
-    this.add.rectangle(cx, cy, PANEL_W, PANEL_H, 0x1a2230, 0.97).setStrokeStyle(2, 0x3a4a60);
+    this.add.rectangle(cx, cy, GAME_WIDTH, GAME_HEIGHT, 0x07050a, 0.62);
+    addFrame(this, cx - PANEL_W / 2, top, PANEL_W, PANEL_H, 'panel');
     new CaptainTips(this, { x: cx - PANEL_W / 2 + 20, width: PANEL_W - 40, bottom: top + PANEL_H - 92 }).say(sceneTips('Result'));
 
     // The battle music stops for a fanfare, or a lament.
     playMusic(null);
     playSound(result.winner === 'player' ? 'victory' : 'defeat');
     const color = result.winner === 'player' ? TEXT.victory : result.winner === 'enemy' ? TEXT.defeat : TEXT.title;
-    this.add.text(cx, top + 34, resultTitle(result), textStyle(36, color, true)).setOrigin(0.5);
+    const title = this.add.text(cx, top + 34, titleCase(resultTitle(result)), displayStyle(48, color)).setOrigin(0.5);
+    title.setScale(0.6);
+    this.tweens.add({ targets: title, scale: 1, duration: 420, ease: 'Back.Out' });
     this.add.text(cx, top + 70, resultReason(result), textStyle(15)).setOrigin(0.5);
     this.add
       .text(cx, top + 92, `Battle time ${formatBattleTime(result.durationTicks).slice(0, -3)}   ·   seed ${seed}`, textStyle(13, TEXT.muted))
@@ -118,7 +120,7 @@ export class ResultScene extends Phaser.Scene {
   private renderIq(cx: number, y: number): void {
     const iq = this.setup.iq;
     const left = cx - PANEL_W / 2 + 30;
-    this.add.rectangle(cx, y - 10, PANEL_W - 40, 1, 0x3a4a60).setOrigin(0.5, 0);
+    this.add.rectangle(cx, y - 10, PANEL_W - 48, 2, 0x8a5a2b).setOrigin(0.5, 0);
     const bonus = this.setup.fight && iq.xp > 0 ? `  ·  +${iq.xp} XP` : '';
     this.add.text(left, y, `BATTLE IQ  ·  Grade ${iq.grade}  (${iq.score}/100)${bonus}`, textStyle(16, GRADE_COLORS[iq.grade], true));
     let row = y + 28;

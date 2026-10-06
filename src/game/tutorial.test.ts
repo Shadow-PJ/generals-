@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { useDevice } from './inputDevice';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED } from '../data/armies';
 import { OPEN_FIELD } from '../data/maps';
 import { TIP_IDS, TIPS } from '../data/tutorial';
@@ -39,6 +40,10 @@ describe("the Captain's tutorial", () => {
     for (const scene of ['Capital', 'Run', 'Army', 'Prep', 'Orders', 'Battle', 'Result'] as const) expect(sceneTips(scene).length).toBeGreaterThan(0);
     for (const id of TIP_IDS) expect(TIPS[id].text.length).toBeLessThan(260);
     expect(tipText({ id: 'cardReady', slot: 3 }, 'captain')).toMatch(/^Card 3 is ready: press 3!/);
+    // With a controller, the tip names its button: slot 3 is B.
+    useDevice('gamepad');
+    expect(tipText({ id: 'cardReady', slot: 3 }, 'captain')).toMatch(/^Card 3 is ready: press Ⓑ!/);
+    useDevice('keyboard');
     expect(tipText({ id: 'ultimateReady' }, 'warlord')).toMatch(/press U for Reaper's Toll/);
     expect(tipText({ id: 'capital' }, 'captain')).toMatch(/with ← → and press Enter/);
     for (const id of TIP_IDS) expect(tipText({ id, slot: 1 }, 'captain')).not.toMatch(/[{}]/);

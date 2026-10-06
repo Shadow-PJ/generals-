@@ -32,12 +32,13 @@ import { REGIONS } from '../../data/regions';
 import { RUN_RULES } from '../../data/runs';
 import { TROOP_NAMES } from '../../data/units';
 import { COMPANY_RULES } from '../../data/veterans';
+import { keyLabel } from '../bindings';
 import { drawBoon, drawFighter, runFloor, runNumbers } from '../campaignUi';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
-import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
-import { textStyle } from '../ui';
+import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
+import { addFrame, displayStyle, textStyle, titleCase } from '../ui';
 
 const ROW_X = 110;
 const ROW_W = GAME_WIDTH - 2 * ROW_X;
@@ -337,9 +338,9 @@ export class StopScene extends Phaser.Scene {
     const g = this.add.graphics();
     this.ui.add(g);
     const cx = GAME_WIDTH / 2;
-    let y = 22;
-    this.ui.add(this.add.text(cx, y, view.title, textStyle(28, view.titleColor, true)).setOrigin(0.5, 0));
-    y += 40;
+    let y = 10;
+    this.ui.add(this.add.text(cx, y, titleCase(view.title), displayStyle(36, view.titleColor)).setOrigin(0.5, 0));
+    y += 52;
     this.ui.add(this.add.text(cx, y, `${REGIONS[run.region].name} · ${runFloor(run)}`, textStyle(12, TEXT.muted, true)).setOrigin(0.5, 0));
     y += 26;
     for (const line of view.lines) {
@@ -356,8 +357,7 @@ export class StopScene extends Phaser.Scene {
         // Two to a line: the label on the left, the detail on the right.
         const w = (ROW_W - ROW_GAP) / 2;
         const x = ROW_X + column * (w + ROW_GAP);
-        const box = this.add.rectangle(x, y, w, COMPACT_H, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
-        box.setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : COLORS.rowEdge).setInteractive({ useHandCursor: true });
+        const box = addFrame(this, x, y, w, COMPACT_H, on ? 'rowOn' : 'row').setInteractive({ useHandCursor: true });
         box.on('pointerdown', () => (this.selected === i ? this.take(i) : ((this.selected = i), this.render())));
         const label = this.add.text(x + 10, y + COMPACT_H / 2, option.label, textStyle(12, option.labelColor ?? TEXT.title, true)).setOrigin(0, 0.5);
         const detail = this.add.text(x + w - 10, y + COMPACT_H / 2, option.detail, textStyle(12, option.detailColor ?? TEXT.body, true)).setOrigin(1, 0.5);
@@ -375,8 +375,7 @@ export class StopScene extends Phaser.Scene {
       const label = this.add.text(textX, y + 6, option.label, textStyle(15, option.labelColor ?? TEXT.title, true)).setAlpha(dim);
       const detail = this.add.text(textX, y + 27, option.detail, { ...textStyle(12, TEXT.body), wordWrap: { width: ROW_X + ROW_W - 110 - textX } }).setAlpha(dim);
       const h = Math.max(ROW_H, detail.height + 34);
-      const box = this.add.rectangle(ROW_X, y, ROW_W, h, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
-      box.setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : COLORS.rowEdge).setInteractive({ useHandCursor: !option.problem });
+      const box = addFrame(this, ROW_X, y, ROW_W, h, on ? 'rowOn' : option.problem ? 'rowDim' : 'row').setInteractive({ useHandCursor: !option.problem });
       box.on('pointerdown', () => (this.selected === i ? this.take(i) : ((this.selected = i), this.render())));
       this.ui.add([box, label, detail]);
       if (option.icon?.kind === 'fighter') drawFighter(g, option.icon.cls, option.icon.rarity, ROW_X + 26, y + h / 2, 1, dim, 'player', option.icon.faction);
@@ -389,7 +388,7 @@ export class StopScene extends Phaser.Scene {
     });
     // The icons go over the option rows.
     this.ui.bringToTop(g);
-    const help = view.leave ? '↑↓ pick, Enter: take it, Esc: leave' : '↑↓ pick, Enter: take it';
+    const help = `↑↓ pick, ${keyLabel('confirm')}: take it${view.leave ? `, ${keyLabel('back')}: leave` : ''}`;
     this.ui.add(this.add.text(cx, Math.max(y + 4, GAME_HEIGHT - 58), help, textStyle(12, TEXT.muted)).setOrigin(0.5, 0));
     if (run.stop?.kind !== 'end') {
       this.ui.add(this.add.text(cx, GAME_HEIGHT - 32, runNumbers(run), textStyle(13, TEXT.body, true)).setOrigin(0.5, 0));

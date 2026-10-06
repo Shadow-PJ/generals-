@@ -11,6 +11,8 @@ import type { Palette, Sprite } from './pixels';
 import { PORTRAITS, portraitPalette } from './portraits';
 import { PROP_ART, type PropId } from './props';
 import { TROOP_ART, TURRET_ART } from './troops';
+import { GEM_PALETTES, PIP_GEM, PIP_SOCKET } from './hud';
+import { CASTLE_ART, CASTLE_PALETTE, CLEARED_ICON, LOCK_ICON, MARKER_ARROW, RUN_BANNER } from './worldMap';
 
 export interface SheetEntry {
   name: string;
@@ -31,4 +33,12 @@ export const ART_SHEET: readonly SheetEntry[] = [
   ...NODE_KINDS.map((k) => ({ name: `node ${k}`, sprite: NODE_ICONS[k], palette: BASE })),
   ...REGION_IDS.map((r) => ({ name: `region ${r}`, sprite: REGION_ICONS[r], palette: BASE })),
   { name: 'capital', sprite: CAPITAL_ICON, palette: BASE },
+  { name: 'castle', sprite: CASTLE_ART, palette: CASTLE_PALETTE },
+  { name: 'pip', sprite: PIP_GEM, palette: GEM_PALETTES.pip },
+  { name: 'pip (cheap)', sprite: PIP_GEM, palette: GEM_PALETTES.cheap },
+  { name: 'pip socket', sprite: PIP_SOCKET, palette: BASE },
+  { name: 'map arrow', sprite: MARKER_ARROW, palette: BASE },
+  { name: 'run banner', sprite: RUN_BANNER, palette: sidePalette('player') },
+  { name: 'lock', sprite: LOCK_ICON, palette: BASE },
+  { name: 'cleared', sprite: CLEARED_ICON, palette: BASE },
 ];

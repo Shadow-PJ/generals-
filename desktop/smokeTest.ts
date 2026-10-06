@@ -1,6 +1,6 @@
 // A quick automatic check that the built app really works, run by GitHub Actions on Windows
-// after installing it. `Generals.exe --smoke-test=play` goes from the Capital to a skirmish,
-// writes an order into slot 1 and starts a battle; `--smoke-test=reopen` starts the app again and checks the card is still in slot 1.
+// after installing it. `Generals.exe --smoke-test=play` goes past the title screen, from the
+// Capital to a skirmish, writes an order into slot 1 and starts a battle; `--smoke-test=reopen` starts the app again and checks the card is still in slot 1.
 // This is the owner check from docs/PLAN.md (install, play, close, reopen), done by a script.
 // The play test also has the order reader read a free-form order, which checks its weights load
 // in the installed app. `--smoke-test=model --smoke-model=<id>` switches on the experimental
@@ -111,6 +111,8 @@ export async function runSmokeTest(options: {
     return passed;
   }
 
+  await wait(SCREEN_CHANGE_MS);
+  await press('Enter'); // the title screen -> the Capital
   await wait(SCREEN_CHANGE_MS);
   await press('KeyT'); // the Capital -> a skirmish's troops
   await wait(SCREEN_CHANGE_MS);

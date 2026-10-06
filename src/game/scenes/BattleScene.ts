@@ -48,14 +48,14 @@ import {
   toggleSpeed,
   type BattleClock,
 } from '../battleClock';
-import { SLOT_ACTIONS } from '../bindings';
+import { keyLabel, SLOT_ACTIONS } from '../bindings';
 import { CaptainTips } from '../captain';
 import { codexEntry } from '../codex';
 import { playMusic, playSound } from '../audio/audio';
 import { eventSounds } from '../audio/cues';
 import { LUNGE_DISTANCE, LUNGE_MS, lungeShare, poseAt, RECOIL_DISTANCE } from '../art/animate';
 import { addGround, portraitKey } from '../art/textures';
-import { addFallen, ArrowSprites, Bursts, TroopSprites, type BurstKind } from '../battleFx';
+import { addAmbience, addFallen, ArrowSprites, Bursts, TroopSprites, WallSprites, type BurstKind } from '../battleFx';
 import {
   drawBar,
   drawBarrier,
@@ -88,7 +88,10 @@ import { battleMoments } from '../tutorial';
 import { bossOf, fightOutcome } from '../campaignFlow';
 import { enemyArmyOf, yourReserves } from '../troops';
 import { BOTTOM_BAR_HEIGHT, BOTTOM_BAR_Y, COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle, type Button } from '../ui';
+import { addButton, addFrame, addHint, displayStyle, recolor, restyleFrame, textStyle, titleCase, type Button } from '../ui';
+import type { FrameStyleId } from '../art/frames';
+import { GEM_PALETTES, PIP_GEM, PIP_SOCKET } from '../art/hud';
+import { paintCentered } from '../art/paint';
 
 export interface BattleData extends MatchSetup {
   seed: number;
@@ -150,10 +153,14 @@ type PendingInput = { kind: 'slot'; slot: number } | { kind: 'ultimate' };
 
 interface SlotTexts {
   key: Phaser.GameObjects.Text;
-  cost: Phaser.GameObjects.Text;
   card: Phaser.GameObjects.Text;
   status: Phaser.GameObjects.Text;
 }
+
+/** How fast the pale part of an army's HP bar drains away, in shares of the bar per second. */
+const HP_GHOST_PER_SECOND = 0.35;
+/** At most this many damage numbers on the field at once. */
+const MAX_DAMAGE_NUMBERS = 32;
 
 export class BattleScene extends Phaser.Scene {
   private setup!: BattleData;
@@ -185,6 +192,8 @@ export class BattleScene extends Phaser.Scene {
 
   private world!: Phaser.GameObjects.Container;
   private wallsLayer!: Phaser.GameObjects.Graphics;
+  /** The walls themselves, as pixel-art blocks over their shadows and rubble. */
+  private wallSprites!: WallSprites;
   /** Under the troops: Rifts, shadows, slow rings, taunt lines. */
   private groundLayer!: Phaser.GameObjects.Graphics;
   private troopSprites!: TroopSprites;
@@ -207,6 +216,14 @@ export class BattleScene extends Phaser.Scene {
   private chainText!: Phaser.GameObjects.Text;
   private chainBar!: Phaser.GameObjects.Graphics;
   private threatTexts = new Map<number, Phaser.GameObjects.Text>();
+  /** Each army's HP bar as last drawn, draining toward its true share: the pale part of the bar. */
+  private hpGhost: Partial<Record<Side, number>> = {};
+  /** Damage numbers, kept for reuse, and how many have shown (to spread them out). */
+  private numbers: Phaser.GameObjects.Text[] = [];
+  private numbersShown = 0;
+  /** The slot cards' frames, restyled as they become ready, rest or lock. */
+  private slotFrames: Phaser.GameObjects.Image[] = [];
+  private slotStyles: FrameStyleId[] = [];
   /** The Captain's tips in your first battles. */
   private tips!: CaptainTips;
 
@@ -242,6 +259,11 @@ export class BattleScene extends Phaser.Scene {
     this.slotFlashUntil = new Map();
     this.threatTexts = new Map();
     this.slotTexts = [];
+    this.hpGhost = {};
+    this.numbers = [];
+    this.numbersShown = 0;
+    this.slotFrames = [];
+    this.slotStyles = [];
     this.eventCursor = 0;
     this.ended = false;
     this.goldTrim = hasLook(currentCampaign(), data.general);
@@ -259,33 +281,43 @@ export class BattleScene extends Phaser.Scene {
     const ground = addGround(this, this.state.map);
     this.fallenLayer = this.add.container(0, 0);
     this.wallsLayer = this.add.graphics();
+    this.wallSprites = new WallSprites(this);
     this.groundLayer = this.add.graphics();
     this.troopSprites = new TroopSprites(this);
     this.arrowSprites = new ArrowSprites(this);
     this.unitsLayer = this.add.graphics();
     this.bursts = new Bursts(this);
+    const map = this.state.map;
     this.world.add([
       ground,
       this.fallenLayer,
       this.wallsLayer,
+      this.wallSprites.layer,
       this.groundLayer,
       this.troopSprites.layer,
       this.arrowSprites.layer,
       this.unitsLayer,
       ...this.bursts.emitters,
+      addAmbience(this, map.id, map.width, map.height),
     ]);
 
+    addFrame(this, 0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, 'bar');
+    // Wells for both armies' HP bars and both Generals' portraits.
+    addFrame(this, 12, 20, 304, 20, 'well');
+    addFrame(this, GAME_WIDTH - 16 - 300 - 4, 20, 304, 20, 'well');
+    addFrame(this, 16 + 300 + 4, 2, 40, 40, 'well');
+    addFrame(this, GAME_WIDTH - 16 - 300 - 44, 2, 40, 40, 'well');
     this.topBar = this.add.graphics();
-    this.add.text(16, 8, `YOU · ${GENERALS[this.setup.general].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
-    this.add.text(GAME_WIDTH - 16, 8, `${GENERALS[this.state.generals.enemy].name.toUpperCase()} · ENEMY`, textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
+    this.add.text(16, 4, `YOU · ${GENERALS[this.setup.general].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
+    this.add.text(GAME_WIDTH - 16, 4, `${GENERALS[this.state.generals.enemy].name.toUpperCase()} · ENEMY`, textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     // Both Generals' portraits, beside their armies' HP bars.
     this.add.image(16 + 300 + 8, 6, portraitKey(this.setup.general)).setOrigin(0).setScale(2).setDepth(1);
     this.add.image(GAME_WIDTH - 16 - 300 - 8, 6, portraitKey(this.state.generals.enemy)).setOrigin(1, 0).setScale(2).setFlipX(true).setDepth(1);
     this.enemyCommandText = this.add.text(GAME_WIDTH - 16, 44, '', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
-    this.clockText = this.add.text(GAME_WIDTH / 2, 6, '0:00', textStyle(22, TEXT.title, true)).setOrigin(0.5, 0);
+    this.clockText = this.add.text(GAME_WIDTH / 2, 3, '0:00', textStyle(24, TEXT.title, true)).setOrigin(0.5, 0);
     this.overtimeText = this.add.text(GAME_WIDTH / 2 + 50, 12, '', textStyle(13, TEXT.overtime, true));
-    this.pausedText = this.add.text(GAME_WIDTH / 2 - 50, 12, 'PAUSED · Space to go on', textStyle(13, TEXT.perfect, true)).setOrigin(1, 0);
-    this.add.text(16, 44, '1-5: cards   U: ultimate   Space: pause   F: speed', textStyle(12, TEXT.muted));
+    this.pausedText = this.add.text(GAME_WIDTH / 2 - 50, 12, '', textStyle(13, TEXT.perfect, true)).setOrigin(1, 0);
+    addHint(this, 16, 44, '1-5: cards   U: ultimate   Space: pause   F: speed', 'ⓍⓎⒷⒶ RB: cards   RT: ultimate   Menu: pause   LB: speed', textStyle(12, TEXT.muted));
 
     const y = 48;
     this.speedButtons = {
@@ -357,7 +389,7 @@ export class BattleScene extends Phaser.Scene {
     const every = secondsToTicks(COMMAND_RULES.tacticalPauseSeconds);
     if (!this.setup.tactical || this.state.result || this.state.tick % every !== 0) return;
     this.clock.paused = true;
-    this.banner('TACTICAL PAUSE', TEXT.title, 'Pick your cards, then press Space to go on');
+    this.banner('TACTICAL PAUSE', TEXT.title, `Pick your cards, then press ${keyLabel('pause')} to go on`);
   }
 
   private rememberPositions(): void {
@@ -480,6 +512,7 @@ export class BattleScene extends Phaser.Scene {
     const kind: BurstKind =
       e.cause === 'burn' ? 'fire' : e.cause === 'rift' ? 'magic' : e.cause === 'shove' ? 'heavy' : e.amount === 0 ? 'frost' : 'hit';
     this.bursts.burst(kind, target.x, target.y - 4, e.amount >= 40 ? 1.5 : 1);
+    if (e.amount > 0 && e.cause !== 'burn' && e.cause !== 'rift') this.damageNumber(target.x, target.y - target.stats.radius - 6, e.amount, target.side === 'enemy');
     const source = e.cause === 'attack' ? this.unit(e.sourceId) : undefined;
     if (!source || source.cls === 'ranger' || source.rooted) return;
     const dx = target.x - source.x;
@@ -513,7 +546,8 @@ export class BattleScene extends Phaser.Scene {
 
   private draw(time: number, blend: number): void {
     const walls = this.wallsLayer.clear();
-    for (const wall of this.state.walls) drawWall(walls, wall, this.state.map.id);
+    for (const wall of this.state.walls) drawWall(walls, wall, this.state.map.id, false);
+    this.wallSprites.sync(this.state.walls, this.state.map.id);
 
     const under = this.groundLayer.clear();
     const g = this.unitsLayer.clear();
@@ -554,7 +588,7 @@ export class BattleScene extends Phaser.Scene {
         size: u.elite ? 1.25 : 1,
       });
       if (hidden && u.side === 'enemy') continue; // Only a faint shape: no shadow, HP bar or effects to give it away.
-      under.fillStyle(0x000000, 0.28 * alpha).fillEllipse(at.x, at.y + r * 0.9, r * 1.7, r * 0.55);
+      under.fillStyle(0x0a0610, 0.4 * alpha).fillEllipse(at.x, at.y + r * 0.95, r * 1.9, r * 0.6);
       if (u.slow) drawSlowed(under, at.x, at.y, r);
       const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
       if (taunter?.alive) drawTaunted(under, at.x, at.y, this.smoothed(`u${taunter.id}`, taunter.x, taunter.y, blend));
@@ -579,7 +613,8 @@ export class BattleScene extends Phaser.Scene {
       if (u.vibration || u.shatterTicks > 0) drawVibration(g, at.x, at.y, r, u.vibration?.stacks ?? 0, u.shatterTicks > 0);
       if (u.heat > 0) drawHeat(g, at.x, at.y, r, u.heat);
       if (u.stunTicks > 0 && !u.knockback) drawStun(g, at.x, at.y, r, time);
-      drawBar(g, at.x, at.y - r - 13, 26, u.hp / u.stats.maxHp);
+      // HP only once hurt, so a fresh army isn't a field of bars.
+      if (u.hp < u.stats.maxHp) drawBar(g, at.x, at.y - r - 13, 24, u.hp / u.stats.maxHp);
       // A small white dot: this troop is carrying out a card order.
       const order = u.orders[0];
       if (order?.started) {
@@ -630,7 +665,7 @@ export class BattleScene extends Phaser.Scene {
     this.arrowSprites.end();
 
     this.drawThreats(blend);
-    this.drawTopBar();
+    this.drawTopBar(this.game.loop.delta);
     this.drawBottomBar(time);
     this.drawChain();
   }
@@ -645,7 +680,9 @@ export class BattleScene extends Phaser.Scene {
       return;
     }
     const seconds = COMMAND_RULES.chain.windowSeconds;
-    this.chainText.setText(links >= 2 ? `CHAIN x${links}` : `Chain open: next card within ${seconds} s`).setFontSize(links >= 2 ? 22 : 13);
+    const size = `${links >= 2 ? 22 : 13}px`;
+    this.chainText.setText(links >= 2 ? `CHAIN x${links}` : `Chain open: next card within ${seconds} s`);
+    if (this.chainText.style.fontSize !== size) this.chainText.setFontSize(size);
     const width = 150;
     const share = left / secondsToTicks(COMMAND_RULES.chain.windowSeconds);
     g.fillStyle(COLORS.hpBack, 0.9).fillRect(GAME_WIDTH - 16 - width, BOTTOM_BAR_Y - 6, width, 4);
@@ -677,14 +714,13 @@ export class BattleScene extends Phaser.Scene {
     return { x: at.x + (u.side === 'player' ? 100 : -100), y: at.y };
   }
 
-  private drawTopBar(): void {
+  private drawTopBar(delta: number): void {
     const g = this.topBar.clear();
-    g.fillStyle(COLORS.background, 1).fillRect(0, 0, GAME_WIDTH, TOP_BAR_HEIGHT);
     const share = (side: Side) =>
       this.state.units.filter((u) => u.side === side && u.alive).reduce((sum, u) => sum + u.hp, 0) /
       this.state.startHp[side];
-    this.armyBar(g, 16, share('player'), 'player');
-    this.armyBar(g, GAME_WIDTH - 16 - 300, share('enemy'), 'enemy');
+    this.armyBar(g, 14, share('player'), 'player', delta);
+    this.armyBar(g, GAME_WIDTH - 16 - 300 - 2, share('enemy'), 'enemy', delta);
 
     const seconds = Math.floor(this.state.tick / TICKS_PER_SECOND);
     this.clockText.setText(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
@@ -696,29 +732,53 @@ export class BattleScene extends Phaser.Scene {
       const share = enemy.momentum / COMMAND_RULES.momentum.max;
       const ultimate = GENERALS[this.state.generals.enemy].ultimate.name;
       const charging = share >= CONDITION_RULES.ultimateChargingShare;
-      this.enemyCommandText
-        .setText(`Commander: ${enemy.pips} pips · ${ultimate} ${Math.floor(Math.min(1, share) * 100)}%${charging ? '  CHARGING!' : ''}`)
-        .setColor(charging ? TEXT.threat : TEXT.muted);
+      recolor(
+        this.enemyCommandText.setText(`Commander: ${enemy.pips} pips · ${ultimate} ${Math.floor(Math.min(1, share) * 100)}%${charging ? '  CHARGING!' : ''}`),
+        charging ? TEXT.threat : TEXT.muted,
+      );
     }
 
-    this.pausedText.setVisible(this.clock.paused && !this.state.result);
+    this.pausedText.setText(`PAUSED · ${keyLabel('pause')} to go on`).setVisible(this.clock.paused && !this.state.result);
     this.speedButtons.pause.setHighlighted(this.clock.paused);
     this.speedButtons.normal.setHighlighted(!this.clock.paused && this.clock.speed === 1);
     this.speedButtons.fast.setHighlighted(!this.clock.paused && this.clock.speed === 2);
   }
 
-  /** An army's HP left, as a long bar in its color; the enemy's drains from the right. */
-  private armyBar(g: Phaser.GameObjects.Graphics, x: number, share: number, side: Side): void {
+  /**
+   * An army's HP left, as a long bar in its color with a lit top; the enemy's drains from the
+   * right. What was just lost lingers in pale for a moment before draining away.
+   */
+  private armyBar(g: Phaser.GameObjects.Graphics, x: number, share: number, side: Side, delta: number): void {
     const width = 300;
-    const filled = width * Math.max(0, Math.min(1, share));
-    g.fillStyle(COLORS.hpBack, 1).fillRect(x, 24, width, 12);
-    g.fillStyle(COLORS.side[side], 1).fillRect(side === 'player' ? x : x + width - filled, 24, filled, 12);
-    g.lineStyle(1, COLORS.sideDark[side], 1).strokeRect(x, 24, width, 12);
+    const now = Math.max(0, Math.min(1, share));
+    const ghost = Math.max(now, (this.hpGhost[side] ?? now) - (delta / 1000) * HP_GHOST_PER_SECOND);
+    this.hpGhost[side] = ghost;
+    const top = 24;
+    const bar = (fill: number) => {
+      const w = Math.round(width * fill);
+      return { left: side === 'player' ? x : x + width - w, w };
+    };
+    const lost = bar(ghost);
+    g.fillStyle(0xfff0d0, 0.85).fillRect(lost.left, top, lost.w, 12);
+    const left = bar(now);
+    g.fillStyle(COLORS.sideDark[side], 1).fillRect(left.left, top, left.w, 12);
+    g.fillStyle(COLORS.side[side], 1).fillRect(left.left, top, left.w, 9);
+    g.fillStyle(0xffffff, 0.35).fillRect(left.left, top + 2, left.w, 2);
   }
 
   // The slot bar ------------------------------------------------------------------------------
 
   private createBottomBar(): void {
+    addFrame(this, 0, BOTTOM_BAR_Y, GAME_WIDTH, BOTTOM_BAR_HEIGHT, 'bar');
+    for (let i = 0; i < SLOT_COUNT; i++) {
+      const x = 16 + i * (SLOT_W + SLOT_GAP);
+      this.slotFrames.push(addFrame(this, x, SLOT_Y, SLOT_W, SLOT_H, 'card'));
+      this.slotStyles.push('card');
+      addFrame(this, x + 5, SLOT_Y + 5, 26, 20, 'well');
+    }
+    // Pips and Momentum on the right, in a plain panel; Momentum's bar in a well.
+    addFrame(this, PANEL_X - 6, SLOT_Y, GAME_WIDTH - 10 - PANEL_X, SLOT_H, 'plain');
+    addFrame(this, PANEL_X, SLOT_Y + 52, GAME_WIDTH - 22 - PANEL_X, 12, 'well');
     this.bottomBar = this.add.graphics();
     for (let i = 0; i < SLOT_COUNT; i++) {
       const x = 16 + i * (SLOT_W + SLOT_GAP);
@@ -726,20 +786,19 @@ export class BattleScene extends Phaser.Scene {
       hit.on('pointerdown', () => this.pending.push({ kind: 'slot', slot: i }));
       const card = this.state.command.slots[i]?.card;
       this.slotTexts.push({
-        key: this.add.text(x + 8, SLOT_Y + 5, String(i + 1), textStyle(15, TEXT.title, true)),
-        cost: this.add.text(x + SLOT_W - 8, SLOT_Y + 7, card ? '●'.repeat(cardCost(card)) : '', textStyle(12, '#7dd3fc')).setOrigin(1, 0),
-        card: this.add.text(x + 8, SLOT_Y + 24, card ? shortCard(card) : '', {
+        key: this.add.text(x + 18, SLOT_Y + 15, String(i + 1), textStyle(13, TEXT.title, true)).setOrigin(0.5),
+        card: this.add.text(x + 9, SLOT_Y + 28, card ? shortCard(card) : '', {
           ...textStyle(11),
-          wordWrap: { width: SLOT_W - 16 },
+          wordWrap: { width: SLOT_W - 18 },
           maxLines: 3,
         }),
-        status: this.add.text(x + 8, SLOT_Y + SLOT_H - 17, '', textStyle(10, TEXT.muted)),
+        status: this.add.text(x + 9, SLOT_Y + SLOT_H - 19, '', textStyle(10, TEXT.muted, true)),
       });
     }
-    this.add.text(PANEL_X, SLOT_Y + 2, 'PIPS', textStyle(11, TEXT.muted, true));
-    this.pipsText = this.add.text(GAME_WIDTH - 16, SLOT_Y + 2, '', textStyle(11, TEXT.muted)).setOrigin(1, 0);
-    this.add.text(PANEL_X, SLOT_Y + 40, 'MOMENTUM', textStyle(11, TEXT.muted, true));
-    this.ultimateText = this.add.text(PANEL_X, SLOT_Y + 64, '', textStyle(12, TEXT.muted, true));
+    this.add.text(PANEL_X + 2, SLOT_Y + 4, 'PIPS', textStyle(11, TEXT.muted, true));
+    this.pipsText = this.add.text(GAME_WIDTH - 22, SLOT_Y + 4, '', textStyle(11, TEXT.muted, true)).setOrigin(1, 0);
+    this.add.text(PANEL_X + 2, SLOT_Y + 38, 'MOMENTUM', textStyle(11, TEXT.muted, true));
+    this.ultimateText = this.add.text(PANEL_X + 2, SLOT_Y + 64, '', textStyle(12, TEXT.muted, true));
     this.add
       .rectangle(PANEL_X, SLOT_Y + 38, GAME_WIDTH - 16 - PANEL_X, 44, 0, 0)
       .setOrigin(0)
@@ -749,7 +808,6 @@ export class BattleScene extends Phaser.Scene {
 
   private drawBottomBar(time: number): void {
     const g = this.bottomBar.clear();
-    g.fillStyle(COLORS.background, 1).fillRect(0, BOTTOM_BAR_Y, GAME_WIDTH, BOTTOM_BAR_HEIGHT);
     const command = this.state.command;
     const pulse = 0.55 + 0.45 * Math.sin(time / 120);
 
@@ -759,48 +817,66 @@ export class BattleScene extends Phaser.Scene {
       const readiness = slotReadiness(this.state, i);
       const texts = this.slotTexts[i]!;
       const dim = readiness === 'locked' || readiness === 'empty';
-      g.fillStyle(dim ? 0x141a23 : 0x1d2939, 1).fillRect(x, SLOT_Y, SLOT_W, SLOT_H);
-      let border: [number, number, number] = [1, 0x34465e, 1];
-      if (slot.glowing && readiness !== 'locked') border = [3, COLORS.glow, pulse];
-      if ((this.slotFlashUntil.get(i) ?? 0) > time) border = [3, 0xffffff, 1];
-      g.lineStyle(border[0], border[1], border[2]).strokeRect(x, SLOT_Y, SLOT_W, SLOT_H);
-      if (readiness === 'resting') {
-        const total = secondsToTicks(COMMAND_RULES.slotRestSeconds);
-        g.fillStyle(0x000000, 0.45).fillRect(x, SLOT_Y, SLOT_W, SLOT_H);
-        g.fillStyle(COLORS.pip, 0.8).fillRect(x, SLOT_Y + SLOT_H - 3, SLOT_W * (1 - slot.restTicks / total), 3);
+      // The card's frame: gold when it can be fired, plain while it waits, dark when there is nothing to fire.
+      const style: FrameStyleId = dim ? 'cardDim' : readiness === 'ready' ? 'cardReady' : 'card';
+      if (this.slotStyles[i] !== style) {
+        this.slotStyles[i] = style;
+        restyleFrame(this.slotFrames[i]!, style);
       }
+      // Its perfect moment: a gold glow pulsing around it. Just fired: a white flash.
+      if (slot.glowing && readiness !== 'locked') g.lineStyle(4, COLORS.glow, pulse).strokeRect(x - 3, SLOT_Y - 3, SLOT_W + 6, SLOT_H + 6);
+      if ((this.slotFlashUntil.get(i) ?? 0) > time) g.lineStyle(4, 0xffffff, 1).strokeRect(x - 3, SLOT_Y - 3, SLOT_W + 6, SLOT_H + 6);
+      if (readiness === 'resting') {
+        // Resting: a dark curtain over the card, sinking as it comes back.
+        const total = secondsToTicks(COMMAND_RULES.slotRestSeconds);
+        const left = Math.min(1, slot.restTicks / total);
+        const h = Math.round((SLOT_H - 6) * left);
+        g.fillStyle(0x07050a, 0.55).fillRect(x + 3, SLOT_Y + SLOT_H - 3 - h, SLOT_W - 6, h);
+        g.fillStyle(COLORS.pip, 0.9).fillRect(x + 3, SLOT_Y + SLOT_H - 4 - h, SLOT_W - 6, 2);
+      }
+      // Its cost in pip gems, green when something makes it cheaper.
       const cost = slotCost(this.state, i);
       const discounted = cost !== null && slot.card !== null && cost < cardCost(slot.card);
-      texts.cost.setText(cost === null ? '' : '●'.repeat(cost)).setColor(discounted ? TEXT.victory : '#7dd3fc');
-      texts.key.setAlpha(dim ? 0.4 : 1);
+      for (let p = 0; p < (cost ?? 0); p++) {
+        paintCentered(g, PIP_GEM.frames.still!, GEM_PALETTES[discounted ? 'cheap' : 'pip'], x + SLOT_W - 13 - p * 15, SLOT_Y + 15, { scale: 2, alpha: dim ? 0.4 : 1 });
+      }
+      // The slot's key, or its controller button: X, Y, B, A and RB.
+      texts.key.setText(keyLabel(SLOT_ACTIONS[i]!)).setAlpha(dim ? 0.4 : 1);
       texts.card.setAlpha(readiness === 'ready' ? 1 : 0.6);
-      texts.status.setText(this.slotStatus(i, readiness)).setColor(readiness === 'ready' ? TEXT.victory : TEXT.muted);
+      recolor(texts.status.setText(this.slotStatus(i, readiness)), readiness === 'ready' ? TEXT.victory : TEXT.muted);
     }
 
-    // Pips: one circle per pip you can hold, and a thin bar filling toward the next one.
+    // Pips: a gem for each pip you hold, a socket for each you could, and a thin bar filling toward the next one.
     const interval = secondsToTicks(COMMAND_RULES.pipRefillSeconds);
     for (let p = 0; p < command.maxPips; p++) {
-      const cx = PANEL_X + 10 + p * 22;
-      const cy = SLOT_Y + 26;
-      if (p < command.pips) g.fillStyle(COLORS.pip, 1).fillCircle(cx, cy, 8);
-      g.lineStyle(2, COLORS.pip, 0.8).strokeCircle(cx, cy, 8);
+      const sprite = p < command.pips ? PIP_GEM : PIP_SOCKET;
+      paintCentered(g, sprite.frames.still!, GEM_PALETTES.pip, PANEL_X + 12 + p * 24, SLOT_Y + 24, { scale: 3 });
     }
-    const width = GAME_WIDTH - 16 - PANEL_X;
-    g.fillStyle(COLORS.pip, 0.5).fillRect(PANEL_X, SLOT_Y + 36, width * Math.min(1, command.pipProgress / interval), 2);
+    const width = GAME_WIDTH - 26 - PANEL_X;
+    g.fillStyle(COLORS.pip, 0.6).fillRect(PANEL_X + 2, SLOT_Y + 36, width * Math.min(1, command.pipProgress / interval), 2);
     this.pipsText.setText(`${command.pips}/${command.maxPips}`);
 
-    // Momentum and the ultimate.
+    // Momentum and the ultimate: an ember bar in its well, with a glint running along it when full.
     const share = command.momentum / COMMAND_RULES.momentum.max;
-    g.fillStyle(COLORS.hpBack, 1).fillRect(PANEL_X, SLOT_Y + 55, width, 6);
-    g.fillStyle(COLORS.momentum, share >= 1 ? pulse : 1).fillRect(PANEL_X, SLOT_Y + 55, width * Math.min(1, share), 6);
+    const filled = Math.round(width * Math.min(1, share));
+    g.fillStyle(0x9a4a10, 1).fillRect(PANEL_X + 2, SLOT_Y + 54, filled, 8);
+    g.fillStyle(COLORS.momentum, share >= 1 ? pulse : 1).fillRect(PANEL_X + 2, SLOT_Y + 54, filled, 6);
+    g.fillStyle(0xfff0b8, 0.5).fillRect(PANEL_X + 2, SLOT_Y + 55, filled, 1);
+    if (share >= 1) {
+      const glint = ((time / 6) % (width + 40)) - 20;
+      const from = Math.max(0, glint);
+      const to = Math.min(width, glint + 10);
+      if (to > from) g.fillStyle(0xffffff, 0.55).fillRect(PANEL_X + 2 + from, SLOT_Y + 54, to - from, 8);
+    }
     const ready = ultimateReady(this.state);
     const finisher = ready && rankRules(command.rank).finishers && nextLink(this.state) >= COMMAND_RULES.finisher.minLinks;
     const ultimate = GENERALS[this.setup.general].ultimate;
-    let label = `U: ${ultimate.name}  ${Math.floor(share * 100)}%`;
-    if (finisher) label = 'U: FINISHER now!';
-    else if (ready) label = `U: ${ultimate.name.toUpperCase()} ready!`;
-    else if (momentumFull(this.state)) label = `U: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
-    this.ultimateText.setText(label).setColor(finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
+    const u = keyLabel('ultimate');
+    let label = `${u}: ${ultimate.name}  ${Math.floor(share * 100)}%`;
+    if (finisher) label = `${u}: FINISHER now!`;
+    else if (ready) label = `${u}: ${ultimate.name.toUpperCase()} ready!`;
+    else if (momentumFull(this.state)) label = `${u}: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
+    recolor(this.ultimateText.setText(label), finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
   }
 
   private slotStatus(index: number, readiness: ReturnType<typeof slotReadiness>): string {
@@ -833,17 +909,46 @@ export class BattleScene extends Phaser.Scene {
 
   // Effects -----------------------------------------------------------------------------------
 
-  /** Floating text over the battlefield that rises and fades. */
+  /** Floating text over the battlefield: it pops in, rises and fades. */
   private popup(x: number, y: number, text: string, color: string): void {
-    const label = this.add.text(x, y, text, textStyle(13, color, true)).setOrigin(0.5);
+    const label = this.add.text(x, y, text, textStyle(13, color, true)).setOrigin(0.5).setScale(0.4);
     this.world.add(label);
-    this.tweens.add({ targets: label, y: y - 18, alpha: 0, duration: 900, onComplete: () => label.destroy() });
+    this.tweens.add({ targets: label, scale: 1, duration: 180, ease: 'Back.Out' });
+    this.tweens.add({ targets: label, y: y - 20, alpha: 0, delay: 250, duration: 750, onComplete: () => label.destroy() });
+  }
+
+  /**
+   * A hit's damage as a number jumping off the troop: pale on the enemy, red on yours, bigger
+   * and orange for a heavy blow. The numbers are kept and reused, as there are many.
+   */
+  private damageNumber(x: number, y: number, amount: number, onEnemy: boolean): void {
+    let label = this.numbers.find((n) => !n.visible);
+    if (!label) {
+      if (this.numbers.length >= MAX_DAMAGE_NUMBERS) return;
+      label = this.add.text(0, 0, '', textStyle(12, TEXT.body, true)).setOrigin(0.5);
+      this.world.add(label);
+      this.numbers.push(label);
+    }
+    const heavy = amount >= 40;
+    const jitter = ((this.numbersShown++ % 5) - 2) * 5;
+    label
+      .setText(String(Math.round(amount)))
+      .setStyle(textStyle(heavy ? 16 : 12, heavy ? '#ffb347' : onEnemy ? '#fff3c4' : '#ff9a8a', true))
+      .setPosition(x + jitter, y)
+      .setAlpha(1)
+      .setScale(heavy ? 0.5 : 0.7)
+      .setVisible(true);
+    this.world.bringToTop(label);
+    this.tweens.killTweensOf(label);
+    this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.Out' });
+    this.tweens.add({ targets: label, y: y - 18, alpha: 0, delay: 220, duration: 480, onComplete: () => label.setVisible(false) });
   }
 
   /** Floating text in screen space, for the slot bar. */
   private screenPopup(x: number, y: number, text: string, color: string, size: number): void {
-    const label = this.add.text(x, y, text, textStyle(size, color, true)).setOrigin(0.5, 1);
-    this.tweens.add({ targets: label, y: y - 22, alpha: 0, duration: 1000, onComplete: () => label.destroy() });
+    const label = this.add.text(x, y, text, textStyle(size, color, true)).setOrigin(0.5, 1).setScale(0.5);
+    this.tweens.add({ targets: label, scale: 1, duration: 160, ease: 'Back.Out' });
+    this.tweens.add({ targets: label, y: y - 22, alpha: 0, delay: 200, duration: 800, onComplete: () => label.destroy() });
   }
 
   /** Adds a combo to your Codex; true if it is new there. A failed save just leaves it for next time. */
@@ -865,24 +970,44 @@ export class BattleScene extends Phaser.Scene {
   private showComboBanner(title: string, subtitle: string, isNew: boolean): void {
     const cx = OPEN_FIELD.width / 2;
     const y = OPEN_FIELD.height - 120;
-    const items = [
-      this.add.text(cx, y, title, textStyle(30, TEXT.combo, true)).setOrigin(0.5),
-      this.add.text(cx, y + 28, subtitle, textStyle(13, TEXT.body)).setOrigin(0.5),
-    ];
-    if (isNew) items.push(this.add.text(cx, y + 48, 'New in your Combo Codex!', textStyle(13, TEXT.perfect, true)).setOrigin(0.5));
+    const items: Phaser.GameObjects.GameObject[] = [this.ribbon(y + 16, isNew ? 100 : 84)];
+    const name = this.add.text(cx, y, titleCase(title), displayStyle(36, TEXT.combo)).setOrigin(0.5);
+    items.push(name, this.add.text(cx, y + 30, subtitle, textStyle(13, TEXT.body)).setOrigin(0.5));
+    if (isNew) items.push(this.add.text(cx, y + 50, 'New in your Combo Codex!', textStyle(13, TEXT.perfect, true)).setOrigin(0.5));
     this.world.add(items);
+    this.popIn(name);
     this.tweens.add({ targets: items, alpha: 0, delay: 1400, duration: 700, onComplete: () => items.forEach((t) => t.destroy()) });
   }
 
-  /** Big text across the middle of the battlefield, gone after `holdMs`. */
+  /** Big words across the middle of the battlefield on a dark ribbon, gone after `holdMs`. */
   private banner(title: string, color: string, subtitle?: string, holdMs = 1200): void {
     const cx = OPEN_FIELD.width / 2;
     const cy = OPEN_FIELD.height / 2;
-    const items = [this.add.text(cx, cy - 12, title, textStyle(44, color, true)).setOrigin(0.5)];
+    const items: Phaser.GameObjects.GameObject[] = [this.ribbon(cy + (subtitle ? 6 : -8), subtitle ? 112 : 84)];
+    const words = this.add.text(cx, cy - 10, titleCase(title), displayStyle(60, color)).setOrigin(0.5);
+    items.push(words);
     const wrap = { width: OPEN_FIELD.width - 160 };
-    if (subtitle) items.push(this.add.text(cx, cy + 16, subtitle, { ...textStyle(16, TEXT.body), wordWrap: wrap, align: 'center' }).setOrigin(0.5, 0));
+    if (subtitle) items.push(this.add.text(cx, cy + 26, subtitle, { ...textStyle(16, TEXT.body), wordWrap: wrap, align: 'center' }).setOrigin(0.5, 0));
     this.world.add(items);
+    this.popIn(words);
     this.tweens.add({ targets: items, alpha: 0, delay: holdMs, duration: 800, onComplete: () => items.forEach((t) => t.destroy()) });
   }
-}
 
+  /** A dark band across the field with gold edges, opening from its middle line. */
+  private ribbon(y: number, height: number): Phaser.GameObjects.Graphics {
+    const w = OPEN_FIELD.width;
+    const g = this.add.graphics({ x: 0, y });
+    g.fillStyle(0x07050a, 0.62).fillRect(0, -height / 2, w, height);
+    g.fillStyle(0xd9a74a, 0.9).fillRect(0, -height / 2, w, 2).fillRect(0, height / 2 - 2, w, 2);
+    g.fillStyle(0x07050a, 0.8).fillRect(0, -height / 2 + 2, w, 2).fillRect(0, height / 2 - 4, w, 2);
+    g.setScale(1, 0);
+    this.tweens.add({ targets: g, scaleY: 1, duration: 160, ease: 'Quad.Out' });
+    return g;
+  }
+
+  /** Words landing: from big and faint to their size. */
+  private popIn(text: Phaser.GameObjects.Text): void {
+    text.setScale(1.6).setAlpha(0);
+    this.tweens.add({ targets: text, scale: 1, alpha: 1, duration: 260, ease: 'Back.Out' });
+  }
+}

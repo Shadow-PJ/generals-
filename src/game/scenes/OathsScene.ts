@@ -12,7 +12,7 @@ import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, saveCampaign } from '../session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
 
 const ROWS_X = 40;
 const ROWS_Y = TOP_BAR_HEIGHT + 24;
@@ -34,8 +34,8 @@ export class OathsScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'OATHS OF COMMAND', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Vows for your next run: each makes it harder and adds Fear. ↑↓ pick, ←→ or Enter change, Esc back.', textStyle(12, TEXT.muted));
+    addTitle(this, 'OATHS OF COMMAND');
+    addHint(this, 16, 38, 'Vows for your next run: each makes it harder and adds Fear. ↑↓ pick, ←→ or Enter change, Esc back.', 'Vows for your next run: each makes it harder and adds Fear. ↑↓ pick, ←→ or Ⓐ change, Ⓑ back.', textStyle(12, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.goBack(), 150, 34);
     this.ui = this.add.container(0, 0);
     new InputLayer(this)
@@ -80,7 +80,7 @@ export class OathsScene extends Phaser.Scene {
       const oath = OATHS[id];
       const rank = rankOf(campaign.oaths, id);
       const selected = i === this.row;
-      if (selected) this.ui.add(this.add.rectangle(ROWS_X - 12, y - 8, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 6, 0x2b3a50).setOrigin(0));
+      this.ui.add(addFrame(this, ROWS_X - 12, y - 8, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 6, selected ? 'rowOn' : 'row'));
       const zone = this.add.zone(ROWS_X - 12, y - 8, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 6).setOrigin(0).setInteractive({ useHandCursor: true });
       zone.on('pointerdown', () => (this.row === i ? this.change(1, true) : ((this.row = i), this.render())));
       this.ui.add(zone);

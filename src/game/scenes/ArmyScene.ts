@@ -24,9 +24,9 @@ import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, earnedRank, saveCampaign, savedSetup } from '../session';
-import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
 
 const LIST_X = 16;
 const LIST_W = 580;
@@ -58,8 +58,10 @@ export class ArmyScene extends Phaser.Scene {
       this.scene.start(campaign.run ? 'Run' : 'Capital');
       return;
     }
-    this.add.text(16, 10, 'CHOOSE YOUR ARMY', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Up to 5 on the field and 3 in reserve. ↑↓ pick, ←→ change, Enter: place your troops.', textStyle(13, TEXT.muted));
+    addTitle(this, 'CHOOSE YOUR ARMY');
+    // The details of what is picked, in a panel down the right.
+    addFrame(this, PANEL_X - 12, TOP_BAR_HEIGHT + 8, GAME_WIDTH - PANEL_X + 6, GAME_HEIGHT - 12 - (TOP_BAR_HEIGHT + 8), 'panel');
+    addHint(this, 16, 38, 'Up to 5 on the field and 3 in reserve. ↑↓ pick, ←→ change, Enter: place your troops.', 'Up to 5 on the field and 3 in reserve. ↑↓ pick, ←→ change, Ⓐ: place your troops.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Map  Esc', () => this.scene.start('Run'), 140, 34);
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Place troops  ⏎', () => this.toPrep(), 150, 34);
     this.ui = this.add.container(0, 0);
@@ -117,8 +119,7 @@ export class ArmyScene extends Phaser.Scene {
       const y = LIST_Y + k * ROW_H;
       const on = i === this.selected;
       const role = roleOf(run, f.id);
-      const box = this.add.rectangle(LIST_X, y, LIST_W, ROW_H - 4, on ? COLORS.rowSelected : COLORS.row).setOrigin(0);
-      box.setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : COLORS.rowEdge).setInteractive({ useHandCursor: true });
+      const box = addFrame(this, LIST_X, y, LIST_W, ROW_H - 4, on ? 'rowOn' : 'row').setInteractive({ useHandCursor: true });
       box.on('pointerdown', () => {
         this.selected = i;
         this.change(1);

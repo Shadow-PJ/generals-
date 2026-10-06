@@ -7,9 +7,9 @@ import type { GeneralId } from '../data/generals';
 import { TUTORIAL_RULES } from '../data/tutorial';
 import { portraitKey } from './art/textures';
 import { currentTutorial, saveTutorial } from './session';
-import { COLORS, TEXT } from './theme';
+import { TEXT } from './theme';
 import { nextTip, seeTip, tipText, type TipCall } from './tutorial';
-import { textStyle } from './ui';
+import { addFrame, textStyle } from './ui';
 
 /** Where the panel goes: its left edge and width, and its top (or its bottom, growing upward). */
 export interface TipPlace {
@@ -19,7 +19,7 @@ export interface TipPlace {
   bottom?: number;
 }
 
-const PAD = 10;
+const PAD = 12;
 /** The Captain's portrait: 16 art pixels at 2 each. */
 const BADGE = 32;
 
@@ -62,8 +62,8 @@ export class CaptainTips {
     const scene = this.scene;
     const words = scene.add.text(PAD + BADGE + 10, PAD + 18, text, { ...textStyle(13, TEXT.body), wordWrap: { width: width - PAD * 2 - BADGE - 10 } });
     const height = Math.max(words.y + words.height, PAD + BADGE) + PAD + 14;
-    const box = scene.add.rectangle(0, 0, width, height, COLORS.background, 0.95).setOrigin(0).setStrokeStyle(1, COLORS.glow);
-    const badge = scene.add.rectangle(PAD - 2, PAD - 2, BADGE + 4, BADGE + 4, COLORS.panel).setOrigin(0).setStrokeStyle(1, COLORS.glow);
+    const box = addFrame(scene, 0, 0, width, height, 'panel');
+    const badge = addFrame(scene, PAD - 4, PAD - 4, BADGE + 8, BADGE + 8, 'well');
     const portrait = scene.add.image(PAD, PAD, portraitKey('captain')).setOrigin(0).setScale(BADGE / 16);
     const name = scene.add.text(PAD + BADGE + 10, PAD, 'THE CAPTAIN', textStyle(12, TEXT.gold, true));
     const hint = scene.add.text(width - PAD, height - PAD + 2, 'click to close · tips can be turned off in Settings', textStyle(10, TEXT.muted)).setOrigin(1, 1);

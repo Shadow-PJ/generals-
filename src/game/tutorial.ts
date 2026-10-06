@@ -5,7 +5,7 @@ import { GENERALS, type GeneralId } from '../data/generals';
 import { TIPS, TIP_IDS, type TipId, type TipScene } from '../data/tutorial';
 import { newTutorial, type Tutorial } from '../save/profile';
 import { SLOT_COUNT, slotReadiness, ultimateReady, type BattleState } from '../sim';
-import { keyLabel, type InputAction } from './bindings';
+import { keyLabel, SLOT_ACTIONS, type InputAction } from './bindings';
 
 /** A tip to say, with the slot it is about when it is about one. */
 export interface TipCall {
@@ -43,6 +43,7 @@ export function battleMoments(state: BattleState): TipCall[] {
 export function tipText(call: TipCall, general: GeneralId): string {
   return TIPS[call.id].text
     .replace(/\{key:(\w+)\}/g, (_, action: string) => keyName(action as InputAction))
+    .replace(/\{slotKey\}/g, keyLabel(SLOT_ACTIONS[(call.slot ?? 1) - 1] ?? 'slot1'))
     .replace(/\{slot\}/g, String(call.slot ?? 1))
     .replace(/\{ultimate\}/g, GENERALS[general].ultimate.name);
 }

@@ -35,9 +35,13 @@ const SHOW_ANYWAY_MS = 10_000;
 protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
 
 // Keep Chromium's caches out of the roaming folder, so %APPDATA%\Generals holds only the
-// game's own files: saves\ (for Steam Cloud) and settings.json.
+// game's own files: saves\ (for Steam Cloud) and settings.json. On Linux and the Steam Deck the
+// same goes for ~/.config/Generals: the caches go to ~/.cache/Generals.
 if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
   app.setPath('sessionData', path.join(process.env.LOCALAPPDATA, 'Generals', 'session'));
+} else if (process.platform === 'linux') {
+  const cache = process.env.XDG_CACHE_HOME || path.join(app.getPath('home'), '.cache');
+  app.setPath('sessionData', path.join(cache, 'Generals', 'session'));
 }
 
 let win: BrowserWindow | null = null;
@@ -141,6 +145,9 @@ function createWindow(query = ''): BrowserWindow {
       sandbox: true,
       nodeIntegration: false,
       spellcheck: false,
+      // A player with only a controller (a Steam Deck) never presses a key or clicks, which is
+      // what browsers wait for before playing sound; the app needs no such wait.
+      autoplayPolicy: 'no-user-gesture-required',
     },
   });
   window.on('enter-full-screen', () => window.webContents.send('fullscreen-changed', true));

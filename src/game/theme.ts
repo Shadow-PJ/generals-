@@ -1,4 +1,5 @@
-// Screen layout, colors and fonts. Simple shapes and colors until real art arrives in 6B.
+// Screen layout, colors and fonts. The look (visual overhaul after 6C): warm dark plum and gold
+// around pixel-art frames, with pixel fonts: Pixelify Sans for reading and Jacquard 12 for titles.
 
 import { OPEN_FIELD } from '../data/maps';
 
@@ -11,19 +12,41 @@ export const GAME_HEIGHT = OPEN_FIELD.height + TOP_BAR_HEIGHT + BOTTOM_BAR_HEIGH
 /** Where the bottom bar starts. */
 export const BOTTOM_BAR_Y = TOP_BAR_HEIGHT + OPEN_FIELD.height;
 
-export const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+/** The reading font: a pixel font, with the system's for any sign it lacks (the controller's Ⓐ). */
+export const FONT = '"Pixelify Sans", system-ui, -apple-system, "Segoe UI", sans-serif';
+/** Screen titles and banners: a pixel blackletter, crisp at multiples of 12 pixels. */
+export const DISPLAY_FONT = '"Jacquard 12", "Pixelify Sans", serif';
+/** The color under every text: a dark drop shadow, so words read on art. */
+export const TEXT_SHADOW = '#0c0910';
+
+/** "THE CAPITAL" → "The Capital": the display font reads best in mixed case. */
+export function titleCase(text: string): string {
+  return text.toLowerCase().replace(/(^|[\s·:(\-–—"“])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toUpperCase());
+}
+
+/**
+ * The smallest text the game draws, in world pixels. On a Steam Deck (1280×800) the world is
+ * drawn about 1.14 times bigger, so this is about 12.5 screen pixels, above the 9 pixels Valve
+ * asks for (session 6C).
+ */
+export const MIN_TEXT_SIZE = 11;
+
+/** A text size raised to the smallest readable one. */
+export function readableSize(size: number): number {
+  return Math.max(MIN_TEXT_SIZE, size);
+}
 
 export const COLORS = {
-  background: 0x141a24,
-  field: 0x1f2a38,
-  fieldLine: 0x26344a,
+  background: 0x15111a,
+  field: 0x221b28,
+  fieldLine: 0x4a3c50,
   side: { player: 0x4da3ff, enemy: 0xff6b5b },
   sideDark: { player: 0x1b4a78, enemy: 0x80281f },
   projectile: { player: 0xcfe7ff, enemy: 0xffd0c8 },
   wall: 0x8c96a8,
   wallEdge: 0x5a6476,
   crack: 0x2a313d,
-  hpBack: 0x0b0f16,
+  hpBack: 0x0e0b12,
   hpGood: 0x4ade80,
   hpMid: 0xfacc15,
   hpLow: 0xf87171,
@@ -31,7 +54,7 @@ export const COLORS = {
   mark: 0xfde047,
   selected: 0xffffff,
   invalid: 0xf87171,
-  glow: 0xfacc15,
+  glow: 0xf2c14e,
   pip: 0x7dd3fc,
   momentum: 0xf59e0b,
   chased: 0xc4b5fd,
@@ -68,17 +91,17 @@ export const COLORS = {
   capital: 0xd4a94e,
   /** Nodes on a run's map, by kind. */
   node: { battle: 0xf87171, elite: 0xfb923c, event: 0x60a5fa, merchant: 0xfacc15, camp: 0x4ade80, boss: 0xc084fc },
-  panel: 0x1a2230,
-  panelEdge: 0x3a4a60,
-  row: 0x1d2939,
-  rowEdge: 0x34465e,
-  rowSelected: 0x2b3a50,
+  panel: 0x2a2130,
+  panelEdge: 0x4d3d57,
+  row: 0x2a2231,
+  rowEdge: 0x45384f,
+  rowSelected: 0x4b3a2e,
 } as const;
 
 export const TEXT = {
-  title: '#f2e6c9',
-  body: '#d6dde8',
-  muted: '#8b97a8',
+  title: '#f6e7c1',
+  body: '#e8ded0',
+  muted: '#a3949f',
   victory: '#86efac',
   defeat: '#fca5a5',
   overtime: '#fb923c',
@@ -86,6 +109,6 @@ export const TEXT = {
   threat: '#fca5a5',
   combo: '#c4b5fd',
   gold: '#fcd34d',
-  rarity: { common: '#d6dde8', rare: '#93c5fd', epic: '#d8b4fe', legendary: '#fcd34d' },
+  rarity: { common: '#e8ded0', rare: '#93c5fd', epic: '#d8b4fe', legendary: '#fcd34d' },
   faction: { bloodbound: '#f87171', forgeborn: '#fb923c', hive: '#a3e635', voidweavers: '#a78bfa', resonance: '#67e8f9' },
 } as const;

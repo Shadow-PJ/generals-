@@ -4,6 +4,7 @@
 // always looks the same, and drawn at art size: one art pixel covers TROOP_ART_SCALE world units.
 
 import type { MapData, Rect } from '../../data/maps';
+import { bayer, hash, smooth } from './noise';
 import { BASE } from './palette';
 import { CLEAR, type Palette, type Rows } from './pixels';
 import { PROP_ART, type PropId } from './props';
@@ -18,7 +19,11 @@ export interface GroundStyle {
   scenery: readonly { prop: PropId; per1000: number }[];
   /** Laid stones (ruins, fortress): the size of a tile in art pixels, and the color of the joints. */
   tiles?: { size: number; joint: number };
+  /** Ground worn bare down the middle, where the armies meet: its shades and width in art pixels. */
+  worn?: { shades: readonly number[]; width: number };
 }
+
+const DIRT = [0x5e4a2f, 0x6b5536, 0x79613e, 0x866c46];
 
 const GRASS = [0x3d6a33, 0x447538, 0x4b7f3c, 0x548a42];
 const FOREST_FLOOR = [0x23401f, 0x2a4a24, 0x30532a];
@@ -28,19 +33,21 @@ export const GROUND_STYLES: Readonly<Record<string, GroundStyle>> = {
     soil: GRASS,
     forestFloor: FOREST_FLOOR,
     scenery: [
-      { prop: 'tuft', per1000: 0.9 },
-      { prop: 'flower', per1000: 0.2 },
+      { prop: 'tuft', per1000: 1.6 },
+      { prop: 'flower', per1000: 0.45 },
       { prop: 'rock', per1000: 0.06 },
     ],
+    worn: { shades: DIRT, width: 26 },
   },
   deepForest: {
     soil: [0x335c2c, 0x3a6631, 0x417035, 0x497a3a],
     forestFloor: FOREST_FLOOR,
     scenery: [
-      { prop: 'tuft', per1000: 1.1 },
+      { prop: 'tuft', per1000: 1.6 },
       { prop: 'bush', per1000: 0.12 },
-      { prop: 'flower', per1000: 0.2 },
+      { prop: 'flower', per1000: 0.35 },
     ],
+    worn: { shades: DIRT, width: 20 },
   },
   voidRuins: {
     soil: [0x3a3547, 0x413b50, 0x48425a, 0x504a63],
@@ -59,6 +66,7 @@ export const GROUND_STYLES: Readonly<Record<string, GroundStyle>> = {
       { prop: 'canyonRock', per1000: 0.16 },
       { prop: 'rock', per1000: 0.05 },
     ],
+    worn: { shades: [0x9c5b35, 0xab683f, 0xb8774b, 0xc48657], width: 30 },
   },
   ironFortress: {
     soil: [0x4b505c, 0x535965, 0x5b616e, 0x636a77],
@@ -81,31 +89,6 @@ export interface GroundImage {
   w: number;
   h: number;
   pixels: Uint32Array;
-}
-
-/** A whole number from a spot and a salt, the same every time. */
-export function hash(x: number, y: number, salt: number): number {
-  let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263) ^ Math.imul(salt + 1, 2246822519);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
-}
-
-/** 0 to 1 from a spot and a salt. */
-function unit(x: number, y: number, salt: number): number {
-  return hash(x, y, salt) / 0x100000000;
-}
-
-/** Smooth noise, 0 to 1: values on a grid of `cell` pixels, blended between. */
-function smooth(x: number, y: number, cell: number, salt: number): number {
-  const gx = Math.floor(x / cell);
-  const gy = Math.floor(y / cell);
-  const fx = (x % cell) / cell;
-  const fy = (y % cell) / cell;
-  const sx = fx * fx * (3 - 2 * fx);
-  const sy = fy * fy * (3 - 2 * fy);
-  const top = unit(gx, gy, salt) * (1 - sx) + unit(gx + 1, gy, salt) * sx;
-  const bottom = unit(gx, gy + 1, salt) * (1 - sx) + unit(gx + 1, gy + 1, salt) * sx;
-  return top * (1 - sy) + bottom * sy;
 }
 
 /** A rectangle of world units in art pixels. */
@@ -205,6 +188,15 @@ export function groundImage(map: MapData): GroundImage {
       if (fleck === 0) shade = Math.min(shades.length - 1, shade + 1);
       else if (fleck === 1) shade = Math.max(0, shade - 1);
       let color = shades[shade]!;
+      // Worn bare down the middle: dirt with ragged edges, blending into the grass in specks.
+      if (style.worn && !inForest) {
+        const reach = style.worn.width / 2 + (smooth(x, y, 10, 4) - 0.5) * 14 + (smooth(x, y, 3, 5) - 0.5) * 4;
+        const into = reach - Math.abs(x + 0.5 - w / 2);
+        if (into > 2 || (into > 0 && hash(x, y, 6) % 3 !== 0)) {
+          const dirt = style.worn.shades;
+          color = dirt[Math.min(dirt.length - 1, Math.floor((smooth(x, y, 6, 7) * 0.7 + smooth(x, y, 2, 8) * 0.3) * dirt.length))]!;
+        }
+      }
       // Laid stones: joints along a grid, every other row of tiles shifted by half.
       if (style.tiles && !inForest) {
         const size = style.tiles.size;
@@ -218,5 +210,49 @@ export function groundImage(map: MapData): GroundImage {
     }
   }
   for (const p of [...scatteredScenery(map, style), ...forestTrees(map)]) stamp(image, PROP_ART[p.prop].frames.still!, BASE, p.x, p.y);
+  light(image, map.walls.map(toArt));
   return image;
+}
+
+/** How much the light changes the ground: warm sun from the top left, shade toward the edges and at the foot of walls. */
+export const GROUND_LIGHT = { sun: 0.16, edge: 0.4, wall: 0.1, step: 0.05 } as const;
+
+/**
+ * Lights the ground (visual overhaul after 6C): brighter and warmer near the top left, darker
+ * toward the edges, and darker in a ring at each wall's foot. Light comes in small steps blended
+ * with a dither, so the picture keeps its pixel-art look; troops stay unlit, so they read.
+ */
+function light(image: GroundImage, walls: readonly Rect[]): void {
+  const { w, h } = image;
+  const sunX = w * 0.3;
+  const sunY = -h * 0.25;
+  const sunReach = w * 0.95;
+  const half = Math.sqrt(w * w + h * h) / 2;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const sx = x - sunX;
+      const sy = y - sunY;
+      const sun = Math.max(0, 1 - Math.sqrt(sx * sx + sy * sy) / sunReach) * GROUND_LIGHT.sun;
+      const ex = x - w / 2;
+      const ey = y - h * 0.45;
+      const away = Math.min(1, Math.max(0, (Math.sqrt(ex * ex + ey * ey) / half - 0.45) / 0.6));
+      let amount = sun - away * away * GROUND_LIGHT.edge;
+      if (walls.some((r) => inside(x, y, r, 2) && !inside(x, y, r))) amount -= GROUND_LIGHT.wall;
+      // Light in steps, dithered between them.
+      const steps = amount / GROUND_LIGHT.step;
+      const stepped = (Math.floor(steps) + (steps - Math.floor(steps) > bayer(x, y) ? 1 : 0)) * GROUND_LIGHT.step;
+      if (stepped === 0) continue;
+      const i = y * w + x;
+      image.pixels[i] = tint(image.pixels[i]!, stepped);
+    }
+  }
+}
+
+/** A color brighter (and a little warmer) or darker by `amount`. */
+function tint(rgb: number, amount: number): number {
+  const warm = amount > 0 ? amount * 0.4 : 0;
+  const r = Math.min(255, Math.max(0, Math.round(((rgb >> 16) & 0xff) * (1 + amount + warm))));
+  const g = Math.min(255, Math.max(0, Math.round(((rgb >> 8) & 0xff) * (1 + amount + warm * 0.5))));
+  const b = Math.min(255, Math.max(0, Math.round((rgb & 0xff) * (1 + amount))));
+  return (r << 16) | (g << 8) | b || 0x010101;
 }

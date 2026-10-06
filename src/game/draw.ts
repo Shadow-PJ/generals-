@@ -10,6 +10,7 @@ import type { Side, Zone } from '../sim';
 import { paintCentered } from './art/paint';
 import { BASE, FLASH, sidePalette } from './art/palette';
 import { TROOP_ART, TROOP_ART_SCALE } from './art/troops';
+import type { WallKind } from './art/walls';
 import { COLORS } from './theme';
 
 type Graphics = Phaser.GameObjects.Graphics;
@@ -41,7 +42,29 @@ const WALL = {
 };
 
 /** A wall, cracked as it loses HP; a broken wall is left as rubble. Unbreakable walls never crack. */
-export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number; unbreakable?: boolean; ticksLeft?: number | null }, mapId = ''): void {
+/** What a wall is made of on a map: rock in the canyon, iron in the fortress, stakes when Fortify raised it, else brick. */
+export function wallKind(wall: { unbreakable?: boolean; ticksLeft?: number | null }, mapId: string): WallKind {
+  if (wall.ticksLeft !== undefined && wall.ticksLeft !== null) return 'palisade';
+  if (wall.unbreakable) return mapId === 'ironFortress' ? 'iron' : 'rock';
+  return 'brick';
+}
+
+/** True while a wall stands (it may be cracked). */
+export function wallStands(wall: { hp?: number; maxHp?: number }): boolean {
+  return !(wall.hp !== undefined && wall.maxHp && wall.hp <= 0);
+}
+
+/**
+ * A wall: its shadow, its cracks and HP bar as it wears down, and rubble once it falls. With
+ * `body` (the default) the wall itself too, in plain shapes; the battle and the prep screen show
+ * it as a pixel-art block instead (src/game/art/walls.ts) and pass false.
+ */
+export function drawWall(
+  g: Graphics,
+  wall: Rect & { hp?: number; maxHp?: number; unbreakable?: boolean; ticksLeft?: number | null },
+  mapId = '',
+  body = true,
+): void {
   // A Fortify wall: gone without rubble when it falls, and a palisade while it stands.
   const raised = wall.ticksLeft !== undefined && wall.ticksLeft !== null;
   if (raised && (wall.hp ?? 1) <= 0) return;
@@ -60,12 +83,14 @@ export function drawWall(g: Graphics, wall: Rect & { hp?: number; maxHp?: number
     return;
   }
   // A shadow on the ground, then the wall, its lit top edge and its face in shade.
-  g.fillStyle(WALL.shadow, 0.28).fillRect(wall.x + 4, wall.y + 5, wall.w, wall.h);
-  if (wall.unbreakable && mapId === 'ironFortress') drawIron(g, wall);
-  else if (wall.unbreakable) drawRock(g, wall);
-  else if (raised) drawPalisade(g, wall);
-  else drawBricks(g, wall);
-  g.lineStyle(2, WALL.outline, 1).strokeRect(wall.x, wall.y, wall.w, wall.h);
+  g.fillStyle(WALL.shadow, 0.34).fillRect(wall.x + 6, wall.y + 6, wall.w, wall.h);
+  if (body) {
+    if (wall.unbreakable && mapId === 'ironFortress') drawIron(g, wall);
+    else if (wall.unbreakable) drawRock(g, wall);
+    else if (raised) drawPalisade(g, wall);
+    else drawBricks(g, wall);
+    g.lineStyle(2, WALL.outline, 1).strokeRect(wall.x, wall.y, wall.w, wall.h);
+  }
   if (wall.unbreakable || share >= 1) return;
   // More cracks as the wall wears down.
   g.lineStyle(2, WALL.outline, 0.85);
@@ -165,11 +190,15 @@ export function drawRarity(g: Graphics, x: number, y: number, r: number, rarity:
   g.lineStyle(rarity === 'legendary' ? 3 : 2, COLORS.rarity[rarity], 0.9 * alpha).strokeCircle(x, y, r + 5);
 }
 
-/** A small bar centered on x, filled to `share` (0 to 1), green to red. */
+/** A small bar centered on x, filled to `share` (0 to 1), green to red, in a dark pixel frame. */
 export function drawBar(g: Graphics, x: number, y: number, width: number, share: number): void {
   const color = share > 0.6 ? COLORS.hpGood : share > 0.3 ? COLORS.hpMid : COLORS.hpLow;
-  g.fillStyle(COLORS.hpBack, 0.9).fillRect(x - width / 2 - 1, y - 1, width + 2, 5);
-  g.fillStyle(color, 1).fillRect(x - width / 2, y, width * Math.max(0, Math.min(1, share)), 3);
+  const left = Math.round(x - width / 2);
+  const filled = Math.round(width * Math.max(0, Math.min(1, share)));
+  g.fillStyle(COLORS.hpBack, 0.92).fillRect(left - 2, y - 2, width + 4, 8);
+  g.fillStyle(0x3a2f43, 1).fillRect(left, y, width, 4);
+  g.fillStyle(color, 1).fillRect(left, y, filled, 4);
+  g.fillStyle(0xffffff, 0.35).fillRect(left, y, filled, 1);
 }
 
 /** A Barrier: a glowing ring, thicker while it has more left. */

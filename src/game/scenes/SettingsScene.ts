@@ -7,6 +7,7 @@ import { TIP_IDS } from '../../data/tutorial';
 import { ORDER_MODELS } from '../../platform';
 import { clampVolume, RESOLUTIONS, type Resolution, type Volume } from '../../save/settings';
 import { playSound, setVolume } from '../audio/audio';
+import { keyLabel } from '../bindings';
 import { currentRenderScale, fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { orderModelState, syncOrderModel, type ModelState } from '../orderModel';
@@ -22,8 +23,8 @@ import {
   toggleFullscreen,
 } from '../session';
 import { replayTips } from '../tutorial';
-import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
 
 const ROWS_X = 60;
 const ROWS_Y = TOP_BAR_HEIGHT + 24;
@@ -61,8 +62,8 @@ export class SettingsScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'SETTINGS', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, '↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. F11 switches fullscreen anywhere.', textStyle(12, TEXT.muted));
+    addTitle(this, 'SETTINGS');
+    addHint(this, 16, 38, '↑↓ pick a line, ←→ change it, Enter uses it, Esc goes back. F11 switches fullscreen anywhere.', '↑↓ pick a line, ←→ change it, Ⓐ uses it, Ⓑ goes back.', textStyle(12, TEXT.muted));
     addButton(this, 16 + 70, GAME_HEIGHT - 34, '◀ Back  Esc', () => this.goBack(), 140, 32);
     this.ui = this.add.container(0, 0);
 
@@ -170,7 +171,7 @@ export class SettingsScene extends Phaser.Scene {
     rows.push({
       label: 'Captain’s tips',
       value: tutorial.on ? `On · ${tutorial.seen.length} of ${TIP_IDS.length} said` : 'Off',
-      note: 'In your first battles the Captain says a short tip the first time each moment comes. ←→ turns them on or off; Enter plays them all again.',
+      note: `In your first battles the Captain says a short tip the first time each moment comes. ←→ turns them on or off; ${keyLabel('confirm')} plays them all again.`,
       change: () => this.act(saveTutorial({ ...tutorial, on: !tutorial.on })),
       use: () => this.act(saveTutorial(replayTips())),
     });
@@ -180,7 +181,7 @@ export class SettingsScene extends Phaser.Scene {
       label: 'Saves',
       value: platform.saveFolder ?? 'Kept in this browser',
       note: openFolder
-        ? 'Your cards and troops are saved here as you change them. Enter opens the folder.'
+        ? `Your cards and troops are saved here as you change them. ${keyLabel('confirm')} opens the folder.`
         : 'Your cards and troops are saved as you change them. Clearing this site’s data deletes them.',
       ...(openFolder && { use: openFolder }),
     });
@@ -232,7 +233,7 @@ export class SettingsScene extends Phaser.Scene {
     rows.forEach((r, i) => {
       const y = ROWS_Y + i * ROW_H;
       const selected = i === this.row;
-      if (selected) this.ui.add(this.add.rectangle(ROWS_X - 12, y - 9, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 4, 0x2b3a50).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge));
+      this.ui.add(addFrame(this, ROWS_X - 12, y - 9, GAME_WIDTH - 2 * ROWS_X + 24, ROW_H - 4, selected ? 'rowOn' : 'row'));
       this.ui.add(this.add.text(ROWS_X, y, r.label, textStyle(15, selected ? TEXT.title : TEXT.body, true)));
       const valueStyle = { ...textStyle(14, r.change || r.use ? TEXT.body : TEXT.muted), wordWrap: { width: VALUE_W - 40 } };
       const value = this.add.text(VALUE_X + VALUE_W / 2, y + 1, r.value, valueStyle).setOrigin(0.5, 0);
@@ -262,7 +263,7 @@ export class SettingsScene extends Phaser.Scene {
     // What the chosen line does, under the list.
     const note = rows[this.row]?.note ?? '';
     const noteY = ROWS_Y + rows.length * ROW_H + 6;
-    this.ui.add(this.add.rectangle(ROWS_X - 12, noteY - 8, GAME_WIDTH - 2 * ROWS_X + 24, 64, COLORS.panel).setOrigin(0).setStrokeStyle(1, COLORS.panelEdge));
+    this.ui.add(addFrame(this, ROWS_X - 12, noteY - 8, GAME_WIDTH - 2 * ROWS_X + 24, 64, 'panel'));
     this.ui.add(this.add.text(ROWS_X, noteY, note, { ...textStyle(13, TEXT.muted), wordWrap: { width: GAME_WIDTH - 2 * ROWS_X } }));
   }
 }

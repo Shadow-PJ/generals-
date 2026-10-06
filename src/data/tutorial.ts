@@ -3,8 +3,8 @@
 // a card is ready, the ultimate is ready, the pips are full or a troop falls. Each tip shows once;
 // the Settings screen turns them off or plays them again.
 //
-// In the texts, {key:<action>} is the key for that input action, {slot} the card's slot number
-// and {ultimate} your General's ultimate.
+// In the texts, {key:<action>} is the key (or controller button) for that input action, {slot}
+// the card's slot number, {slotKey} its key or button, and {ultimate} your General's ultimate.
 
 export const TIP_IDS = [
   'capital',
@@ -48,7 +48,7 @@ export const TIPS: Readonly<Record<TipId, Tip>> = {
   },
   orders: {
     scene: 'Orders',
-    text: "Tell me what you want, in plain words: \"when a Ranger drops below 40%, Guardians protect it\". I turn each order into a card for keys 1 to 5. Press {key:start} to start the battle.",
+    text: "Tell me what you want, in plain words: \"when a Ranger drops below 40%, Guardians protect it\". I turn each order into a card for one of your slots. Press {key:start} to start the battle.",
   },
   battleStart: {
     scene: 'Battle',
@@ -56,7 +56,7 @@ export const TIPS: Readonly<Record<TipId, Tip>> = {
   },
   cardReady: {
     scene: 'Battle',
-    text: 'Card {slot} is ready: press {slot}! A card with a condition glows NOW! when its moment comes; fire it then for a Perfect.',
+    text: 'Card {slot} is ready: press {slotKey}! A card with a condition glows NOW! when its moment comes; fire it then for a Perfect.',
   },
   ultimateReady: {
     scene: 'Battle',

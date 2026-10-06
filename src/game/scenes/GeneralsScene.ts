@@ -14,8 +14,8 @@ import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import type { MatchSetup } from '../match';
 import { currentCampaign, remember } from '../session';
-import { COLORS, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
-import { addButton, textStyle } from '../ui';
+import { GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
+import { addButton, addFrame, addHint, addTitle, restyleFrame, textStyle } from '../ui';
 
 const LIST_X = 16;
 const LIST_W = 270;
@@ -26,7 +26,7 @@ const PANEL_W = GAME_WIDTH - PANEL_X - 16;
 export class GeneralsScene extends Phaser.Scene {
   private setup!: MatchSetup;
   private selected = 0;
-  private boxes: Phaser.GameObjects.Rectangle[] = [];
+  private boxes: Phaser.GameObjects.Image[] = [];
   private panel!: Phaser.GameObjects.Container;
   private recruited: GeneralId[] = [];
   private lead!: Phaser.GameObjects.Text;
@@ -46,13 +46,15 @@ export class GeneralsScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
-    this.add.text(16, 10, 'CHOOSE YOUR GENERAL', textStyle(18, TEXT.title, true));
-    this.add.text(16, 38, 'Beat a region’s ruler to recruit them. ↑↓ pick, Enter: lead with them, Esc: back.', textStyle(13, TEXT.muted));
+    addTitle(this, 'CHOOSE YOUR GENERAL');
+    // The details of what is picked, in a panel down the right.
+    addFrame(this, PANEL_X - 12, TOP_BAR_HEIGHT + 8, GAME_WIDTH - PANEL_X + 6, GAME_HEIGHT - 12 - (TOP_BAR_HEIGHT + 8), 'panel');
+    addHint(this, 16, 38, 'Beat a region’s ruler to recruit them. ↑↓ pick, Enter: lead with them, Esc: back.', 'Beat a region’s ruler to recruit them. ↑↓ pick, Ⓐ: lead with them, Ⓑ: back.', textStyle(13, TEXT.muted));
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Back  Esc', () => this.goBack(), 150, 34);
 
     GENERAL_IDS.forEach((id, i) => {
       const y = TOP_BAR_HEIGHT + 12 + i * ROW_H;
-      const box = this.add.rectangle(LIST_X, y, LIST_W, ROW_H - 8, 0x1d2939).setOrigin(0).setStrokeStyle(1, 0x34465e);
+      const box = addFrame(this, LIST_X, y, LIST_W, ROW_H - 8, 'row');
       box.setInteractive({ useHandCursor: true }).on('pointerdown', () => {
         if (this.selected === i) this.choose();
         else this.select(i);
@@ -88,7 +90,7 @@ export class GeneralsScene extends Phaser.Scene {
     this.selected = (index + n) % n;
     this.boxes.forEach((box, i) => {
       const on = i === this.selected;
-      box.setFillStyle(on ? 0x2b3a50 : 0x1d2939).setStrokeStyle(on ? 2 : 1, on ? COLORS.selected : 0x34465e);
+      restyleFrame(box, on ? 'rowOn' : 'row');
     });
     const id = GENERAL_IDS[this.selected]!;
     this.showGeneral(id);

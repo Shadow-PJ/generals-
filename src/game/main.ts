@@ -7,7 +7,9 @@ import { translateOrder, type Translator } from '../cards/translator';
 import { createPlatform } from '../platform';
 import { audioStatus, setVolume, unlockAudio } from './audio/audio';
 import { actionForKey } from './bindings';
+import { onDeviceChange } from './inputDevice';
 import { currentRenderScale, renderScale, setInitialRenderScale, setRenderScale } from './display';
+import { loadFonts } from './fonts';
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
 import { loadOrderReader, orderReaderTranslator } from './orderReader';
 import { ArmyScene } from './scenes/ArmyScene';
@@ -25,6 +27,7 @@ import { ResultScene } from './scenes/ResultScene';
 import { RunScene } from './scenes/RunScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { StopScene } from './scenes/StopScene';
+import { TitleScene } from './scenes/TitleScene';
 import { TroopsScene } from './scenes/TroopsScene';
 import { watchScenes } from './sceneHooks';
 import { applyWindowSettings, currentPlatform, currentSettings, startSession, toggleFullscreen } from './session';
@@ -40,7 +43,7 @@ function wantedRenderScale(): number {
 }
 
 async function boot(): Promise<void> {
-  await startSession(await createPlatform());
+  await Promise.all([startSession(await createPlatform()), loadFonts()]);
   await applyWindowSettings();
   // The order reader loads in the background; so does the experimental model, if it is on.
   void loadOrderReader().catch(() => undefined);
@@ -58,9 +61,10 @@ async function boot(): Promise<void> {
     dom: { createContainer: true },
     // Sound is the game's own synthesizer (src/game/audio), not Phaser's.
     audio: { noAudio: true },
-    // Boot makes the textures, then opens the Capital, the world map hub.
+    // Boot makes the textures, then opens the title screen, then the Capital, the world map hub.
     scene: [
       BootScene,
+      TitleScene,
       CapitalScene,
       RunScene,
       ArmyScene,
@@ -84,6 +88,9 @@ async function boot(): Promise<void> {
   setVolume(currentSettings().volume);
   window.addEventListener('pointerdown', unlockAudio, { capture: true });
   window.addEventListener('keydown', unlockAudio, { capture: true });
+  // A controller's first press too; the desktop app starts sound right away, the browser when it allows.
+  onDeviceChange((device) => device === 'gamepad' && unlockAudio());
+  if (currentPlatform().kind === 'desktop') unlockAudio();
   game.events.on('settings-changed', () => setVolume(currentSettings().volume));
   // The desktop app keeps its window hidden until the first screen is drawn.
   game.events.once(Phaser.Core.Events.POST_RENDER, () => currentPlatform().ready());

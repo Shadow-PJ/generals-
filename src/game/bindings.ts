@@ -1,5 +1,8 @@
-// What each key does, as named actions. Screens listen for actions, never for keys, so a
-// controller layout can map onto the same actions in session 6C.
+// What each key and each controller button does, as named actions. Screens listen for actions,
+// never for keys or buttons, so the keyboard and a controller (session 6C) drive them the same way.
+
+import type { PadButton } from './gamepad';
+import { inputDevice, type InputDevice } from './inputDevice';
 
 export type InputAction =
   | 'confirm'
@@ -33,7 +36,9 @@ export type InputAction =
   /** Opens your company from the Capital. */
   | 'company'
   /** Opens the Oaths of Command from the Capital (session 5F). */
-  | 'oaths';
+  | 'oaths'
+  /** Controller only: moves among the screen's buttons, to press any of them (session 6C). */
+  | 'menu';
 
 /** The card slot actions, in slot order. */
 export const SLOT_ACTIONS = ['slot1', 'slot2', 'slot3', 'slot4', 'slot5'] as const;
@@ -66,15 +71,85 @@ export const KEYBOARD_BINDINGS: Readonly<Record<InputAction, readonly string[]>>
   tech: ['KeyK'],
   company: ['KeyR'],
   oaths: ['KeyO'],
+  menu: [],
 };
+
+/**
+ * Controller buttons for each action, in the standard layout (Xbox names; the Steam Deck's are
+ * the same). A button can mean several actions: the first one the screen listens to wins. In
+ * menus A chooses, B goes back, X clears and the bumpers switch tabs or slots; in battle the
+ * face buttons and RB fire the five card slots, a trigger fires the ultimate, Menu pauses and LB
+ * switches speed. View moves among the screen's buttons, reaching what keys like G or C open.
+ */
+export const GAMEPAD_BINDINGS: Readonly<Record<PadButton, readonly InputAction[]>> = {
+  A: ['confirm', 'slot4'],
+  B: ['back', 'slot3'],
+  X: ['clear', 'slot1'],
+  Y: ['slot2'],
+  LB: ['prev', 'speed'],
+  RB: ['next', 'slot5'],
+  RT: ['ultimate'],
+  LT: ['ultimate'],
+  View: ['menu'],
+  Menu: ['start', 'pause'],
+  L3: [],
+  R3: [],
+  Up: ['up'],
+  Down: ['down'],
+  Left: ['left'],
+  Right: ['right'],
+  StickUp: ['up'],
+  StickDown: ['down'],
+  StickLeft: ['left'],
+  StickRight: ['right'],
+};
+
+/** How each controller button is written on screen. */
+export const PAD_LABELS: Readonly<Record<PadButton, string>> = {
+  A: 'Ⓐ',
+  B: 'Ⓑ',
+  X: 'Ⓧ',
+  Y: 'Ⓨ',
+  LB: 'LB',
+  RB: 'RB',
+  RT: 'RT',
+  LT: 'LT',
+  View: 'View',
+  Menu: 'Menu',
+  L3: 'L3',
+  R3: 'R3',
+  Up: '↑',
+  Down: '↓',
+  Left: '←',
+  Right: '→',
+  StickUp: '↑',
+  StickDown: '↓',
+  StickLeft: '←',
+  StickRight: '→',
+};
+
+/** The controller button for an action (the first in the layout), or null when only a key does it. */
+export function padButtonFor(action: InputAction): PadButton | null {
+  for (const [button, actions] of Object.entries(GAMEPAD_BINDINGS) as [PadButton, readonly InputAction[]][]) {
+    if (actions.includes(action)) return button;
+  }
+  return null;
+}
 
 const ACTION_BY_CODE = new Map<string, InputAction>();
 for (const [action, codes] of Object.entries(KEYBOARD_BINDINGS) as [InputAction, readonly string[]][]) {
   for (const code of codes) ACTION_BY_CODE.set(code, action);
 }
 
-/** The key to show for an action on screen: "V" for KeyV. */
-export function keyLabel(action: InputAction): string {
+/**
+ * The key or button to show for an action on screen, for the device the player last used:
+ * "V" for KeyV, "Ⓐ" for confirm on a controller; '' when that device has nothing for it.
+ */
+export function keyLabel(action: InputAction, device: InputDevice = inputDevice()): string {
+  if (device === 'gamepad') {
+    const button = padButtonFor(action);
+    return button ? PAD_LABELS[button] : '';
+  }
   const code = KEYBOARD_BINDINGS[action][0] ?? '';
   return code.replace(/^(Key|Digit)/, '');
 }
