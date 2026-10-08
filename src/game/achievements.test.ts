@@ -71,7 +71,8 @@ describe('reporting achievements to the store', () => {
 
 describe('the achievements page for the store', () => {
   it('lists every achievement with its store name, name and text, and nothing else', () => {
-    const rows = achievementsPage.split('\n').filter((line) => line.startsWith('| `'));
+    // Lines end in \r\n where git checks files out that way (Windows).
+    const rows = achievementsPage.split(/\r?\n/).filter((line) => line.startsWith('| `'));
     expect(rows).toEqual(ACHIEVEMENTS.map((a) => `| \`${a.id}\` | ${a.name} | ${a.text} |`));
   });
 });
