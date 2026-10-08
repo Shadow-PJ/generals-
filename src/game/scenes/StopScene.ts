@@ -1,16 +1,20 @@
-// What waits at a run's node, other than a fight: the spoils after a won fight, an event's hard
-// choice, the merchant, a rest camp, and the end of the run. Each shows a little text and a list
+// What waits at a run's node, other than a fight: the spoils after a won fight (and after an elite
+// fight, the beaten commander's orders to take as a decree), an event's hard choice, the merchant,
+// a rest camp, and the end of the run. Each shows a little text and a list
 // of options. ↑↓ (or Tab) pick an option, Enter takes it, Esc leaves when you may.
 
 import Phaser from 'phaser';
 import { fighterLabel, offerLabel, offerText } from '../../campaign/describe';
 import { oathGold } from '../../campaign/oaths';
+import { cardCost } from '../../cards/cost';
+import { describeCard, shortCard } from '../../cards/describe';
 import { offerRarity } from '../../campaign/offers';
 import {
   buy,
   buyProblem,
   chooseEvent,
   closeRun,
+  decreeChoices,
   eventChoiceProblem,
   healAtMerchant,
   healProblem,
@@ -19,6 +23,7 @@ import {
   pickSpoils,
   reroll,
   rerollProblem,
+  takeDecree,
   toggleKeep,
 } from '../../campaign/run';
 import { veteranRank } from '../../campaign/company';
@@ -28,6 +33,7 @@ import { EVENTS } from '../../data/events';
 import { FACTIONS } from '../../data/factions';
 import { GENERALS } from '../../data/generals';
 import { LEGENDARY_ACTION_DATA } from '../../data/legendary';
+import { rankRules, RANKS } from '../../data/ranks';
 import { REGIONS } from '../../data/regions';
 import { RUN_RULES } from '../../data/runs';
 import { TROOP_NAMES } from '../../data/units';
@@ -36,7 +42,7 @@ import { keyLabel } from '../bindings';
 import { drawBoon, drawFighter, runFloor, runNumbers } from '../campaignUi';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
-import { currentCampaign, saveCampaign } from '../session';
+import { currentCampaign, earnedRank, saveCampaign } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
 import { addFrame, displayStyle, textStyle, titleCase } from '../ui';
 
@@ -146,6 +152,8 @@ export class StopScene extends Phaser.Scene {
     switch (stop.kind) {
       case 'spoils':
         return this.spoils(campaign, run, stop);
+      case 'decree':
+        return this.decree(campaign, run, stop);
       case 'event':
         return this.event(campaign, run, stop);
       case 'merchant':
@@ -176,10 +184,54 @@ export class StopScene extends Phaser.Scene {
           detail: offerDetail(run, offer),
           icon: offer,
           problem: null,
-          act: () => this.step(pickSpoils(campaign, i), 'Run'),
+          act: () => this.afterSpoils(pickSpoils(campaign, i)),
         })),
-        { label: 'Skip the pick', detail: `Take ${oathGold(RUN_RULES.skipGold, run.oaths)} more gold instead.`, problem: null, act: () => this.step(pickSpoils(campaign, null), 'Run') },
+        { label: 'Skip the pick', detail: `Take ${oathGold(RUN_RULES.skipGold, run.oaths)} more gold instead.`, problem: null, act: () => this.afterSpoils(pickSpoils(campaign, null)) },
       ],
+    };
+  }
+
+  /** After the spoils: an elite fight's beaten commander offers its orders next; otherwise, back to the map. */
+  private afterSpoils(next: Campaign): void {
+    this.selected = 0;
+    this.step(next, next.run?.stop ? 'stay' : 'Run');
+  }
+
+  /** The beaten elite commander's orders (session 7D): take one as your decree, or march on. */
+  private decree(campaign: Campaign, run: RunState, stop: Extract<Stop, { kind: 'decree' }>): View {
+    const rank = earnedRank();
+    const choices = decreeChoices(run, rank);
+    const commander = `${GENERALS[stop.commander.general].name}’s commander (Rank ${rankRules(stop.commander.rank).numeral})`;
+    const lines: View['lines'] = [
+      { text: `${commander} is beaten, and its orders are yours to take.`, bold: true },
+      {
+        text: 'Take one as your decree: your army fires it by itself, when its moment comes, in every battle of this run. It costs pips like any card, and your General reads it their way.',
+        color: TEXT.muted,
+      },
+    ];
+    if (run.decree) lines.push({ text: `Your decree now: ${describeCard(run.decree)}. Taking another replaces it.`, color: TEXT.gold });
+    if (choices.length === 0) {
+      const auto = RANKS.find((r) => r.autoMode)!;
+      lines.push({ text: `Standing orders need Rank ${auto.numeral}, when cards can fire by themselves.`, color: TEXT.threat });
+    }
+    const leave = () => this.step(takeDecree(campaign, null, rank), 'Run');
+    return {
+      title: 'THE BEATEN COMMANDER’S ORDERS',
+      titleColor: TEXT.title,
+      lines,
+      options: [
+        ...choices.map((card, i) => {
+          const cost = cardCost(card);
+          return {
+            label: shortCard(card),
+            detail: `${describeCard(card)} · ${cost} pip${cost === 1 ? '' : 's'}`,
+            problem: null,
+            act: () => this.step(takeDecree(campaign, i, rank), 'Run'),
+          };
+        }),
+        { label: run.decree ? 'Keep your decree' : 'March on', detail: run.decree ? 'Leave these orders.' : 'Take no decree.', problem: null, act: leave },
+      ],
+      leave,
     };
   }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Card } from '../cards/types';
 import { INSIGHT } from '../data/tech';
 import { newCampaign } from '../campaign/company';
 import { withRole } from '../campaign/army';
@@ -51,6 +52,16 @@ describe('a run’s fight on the battle screens', () => {
     expect(enemy).toMatchObject({ general: 'hiveMother', commander: undefined, specs: {} });
     expect(enemy.placement).toEqual(encounter.troops);
     expect(fightSetup(base, { ...run, stop: null }, 2)).toBeNull();
+    expect(setup.fight!.decree).toBeNull();
+  });
+
+  it('brings the run’s decree into the battle (session 7D)', () => {
+    const decree: Card = {
+      condition: { triggers: [{ kind: 'allyBelowHp', ally: 'any', hpPercent: 40 }], repeat: false },
+      steps: [{ action: 'hold', actors: { kind: 'all' } }],
+      auto: true,
+    };
+    expect(fightSetup(base, { ...atFight(), decree }, 3)!.fight!.decree).toEqual(decree);
   });
 
   it('tells the run how each fighter came out of the battle', () => {

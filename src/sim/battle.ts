@@ -87,7 +87,7 @@ export function createBattle(setup: BattleSetup): BattleState {
     },
     events: [],
     result: null,
-    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general, setup.learned, boons.player),
+    command: createCommand('player', setup.rank ?? 1, setup.loadout, setup.general, setup.learned, boons.player, true, setup.decree ?? null),
     enemyCommand: setup.enemyCommander
       ? createCommand(
           'enemy',

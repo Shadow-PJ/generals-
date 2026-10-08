@@ -14,7 +14,7 @@ import type { MatchSetup } from './match';
 
 /**
  * The fight waiting at your run's node, set up for the Prep, Orders and Battle screens: your
- * fielded fighters where they stood last, your reserve fighters and boons, on the region's map,
+ * fielded fighters where they stood last, your reserve fighters, boons and decree, on the region's map,
  * at the rank you have earned, with your Tech Web's specializations and nodes. Your cards and
  * General come from `base`.
  */
@@ -28,7 +28,7 @@ export function fightSetup(base: MatchSetup, run: RunState, earned: RankNumber, 
     practiceRank: null,
     map: encounter.map,
     specs: techSpecs(web),
-    fight: { encounter, reserves: reserveTroops(run), boons: [...run.boons], tech: techChoice(web) },
+    fight: { encounter, reserves: reserveTroops(run), boons: [...run.boons], tech: techChoice(web), decree: run.decree },
   };
 }
 

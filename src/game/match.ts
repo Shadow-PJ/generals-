@@ -2,7 +2,7 @@
 
 import type { TechChoice } from '../data/tech';
 import type { Encounter } from '../campaign/types';
-import type { Loadout } from '../cards/types';
+import type { Card, Loadout } from '../cards/types';
 import type { EnemyArmy, Troop, TroopPlacement } from '../data/armies';
 import type { BoonId } from '../data/boons';
 import type { GeneralId } from '../data/generals';
@@ -42,10 +42,12 @@ export interface MatchSetup {
   versus?: MatchRules;
 }
 
-/** A fight on a run: the enemy at your node, your run's reserve fighters and boons, and your Tech Web's nodes. */
+/** A fight on a run: the enemy at your node, your run's reserve fighters, boons and decree, and your Tech Web's nodes. */
 export interface CampaignFight {
   encounter: Encounter;
   reserves: Troop[];
   boons: BoonId[];
   tech: TechChoice;
+  /** The run's decree (session 7D), fired by itself; none when left out. */
+  decree?: Card | null;
 }

@@ -28,7 +28,7 @@ import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
 import { readArtifacts, readCompany, readFearRecords, readMastery, readOaths, readRun, readTech } from './run';
 
-export const PROFILE_VERSION = 7;
+export const PROFILE_VERSION = 8;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
 /** The save as it was before the last migration, in case an update ever goes wrong. */
 export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';

@@ -7,7 +7,7 @@ import type { BoonId } from '../data/boons';
 import type { EventId } from '../data/events';
 import type { FactionId } from '../data/factions';
 import type { GeneralId } from '../data/generals';
-import type { LegendaryAction } from '../cards/types';
+import type { Card, LegendaryAction } from '../cards/types';
 import type { MasteryId } from '../data/mastery';
 import type { MapId } from '../data/maps';
 import type { OathRanks } from '../data/oaths';
@@ -110,6 +110,12 @@ export interface Encounter {
   reserves: Troop[];
 }
 
+/** An elite fight's commander, beaten: its General and rank. */
+export interface BeatenCommander {
+  general: GeneralId;
+  rank: RankNumber;
+}
+
 export interface MerchantItem {
   offer: Offer;
   price: number;
@@ -119,8 +125,13 @@ export interface MerchantItem {
 /** What waits for you at the node you are on, until you are done there. */
 export type Stop =
   | { kind: 'fight'; encounter: Encounter }
-  /** After a won fight: the gold and any artifact are already yours; pick one offer or skip. */
-  | { kind: 'spoils'; gold: number; artifact: ArtifactId | null; offers: Offer[] }
+  /**
+   * After a won fight: the gold and any artifact are already yours; pick one offer or skip. After
+   * an elite fight, `commander` is the beaten commander, whose orders are offered next (session 7D).
+   */
+  | { kind: 'spoils'; gold: number; artifact: ArtifactId | null; offers: Offer[]; commander: BeatenCommander | null }
+  /** After an elite fight's spoils: take one of the beaten commander's cards as your decree, or keep yours (session 7D). */
+  | { kind: 'decree'; commander: BeatenCommander }
   /** `chosen` is null until you choose; then `outcome` says what happened. */
   | { kind: 'event'; event: EventId; chosen: number | null; outcome: string[] }
   | { kind: 'merchant'; stock: MerchantItem[]; rerolls: number }
@@ -176,4 +187,6 @@ export interface RunState {
   ironman: boolean;
   /** Oaths of Command taken when the run began (session 5F). */
   oaths: OathRanks;
+  /** A beaten commander's card your army fires by itself in the run's battles (session 7D), or null. */
+  decree: Card | null;
 }

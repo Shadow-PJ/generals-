@@ -1,18 +1,22 @@
-// A run, step by step: set out into a region, take a node, fight, pick the spoils, trade with the
-// merchant, rest at a camp, face an event, and end at the ruler. Each step takes the campaign and
+// A run, step by step: set out into a region, take a node, fight, pick the spoils (and after an
+// elite fight, perhaps a decree), trade with the merchant, rest at a camp, face an event, and end
+// at the ruler. Each step takes the campaign and
 // returns the next one; nothing is changed in place, and every roll comes from the run's
 // generator, so a run is the same for the same seed and the same choices.
 
+import type { Card } from '../cards/types';
 import { boonGold } from '../data/boons';
 import { EVENT_IDS, EVENTS } from '../data/events';
 import { BOSS_ORDER, learnedActions } from '../data/legendary';
 import { rarityChances } from '../data/rarity';
+import type { RankNumber } from '../data/ranks';
 import { openRegions, REGIONS, type RegionId } from '../data/regions';
 import { RUN_RULES } from '../data/runs';
 import { COMPANY_RULES } from '../data/veterans';
 import { createRng, nextInt, type RngState } from '../sim';
 import { benchWounded, joined, removeFighter } from './army';
 import { afterBattle, defaultKeep, fighterFromVeteran, filledCompany, veteranFromFighter } from './company';
+import { decreeOffers } from './decrees';
 import { nodeEncounter } from './encounters';
 import { applyChoice, choiceProblem, newArtifact } from './events';
 import { campHeal, fallenHp, fearBounty, fearOf, oathGold, oathInsight, oathPrice, spoilsOffers } from './oaths';
@@ -69,6 +73,7 @@ export function newRun(campaign: Campaign, region: RegionId, seed: number): Camp
     insight: 0,
     ironman: campaign.ironman,
     oaths: { ...campaign.oaths },
+    decree: null,
   };
   for (const v of company) run = joined(run, fighterFromVeteran(v, 0));
   return { ...campaign, company, run: { ...run, rng: { ...rng } } };
@@ -178,24 +183,48 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
     const artifact = encounter.kind === 'elite' ? newArtifact(rng, healed, campaign.artifacts) : null;
     // Deeper in the run, and after an elite fight, the offers are rarer.
     const offers = rollOffers(rng, healed, campaign.bossesBeaten, rarityChances(floor, encounter.kind === 'elite'), spoilsOffers(healed.oaths));
+    // A beaten elite commander's orders are offered next, as a decree (session 7D).
+    const commander = encounter.kind === 'elite' && encounter.commander !== null ? { general: encounter.general, rank: encounter.commander } : null;
     return {
       ...healed,
       gold: healed.gold + gold,
       artifacts: artifact ? [...healed.artifacts, artifact] : healed.artifacts,
-      stop: { kind: 'spoils', gold, artifact, offers },
+      stop: { kind: 'spoils', gold, artifact, offers, commander },
     };
   });
   return { ...earned, run: next };
 }
 
-/** Takes one of the spoils' offers, or skips them for a little gold (index null). */
+/**
+ * Takes one of the spoils' offers, or skips them for a little gold (index null). After an elite
+ * fight, the beaten commander's orders wait next.
+ */
 export function pickSpoils(campaign: Campaign, index: number | null): Campaign {
   const run = runOf(campaign);
   if (run.stop?.kind !== 'spoils') throw new Error('No spoils to pick');
-  if (index === null) return { ...campaign, run: { ...run, gold: run.gold + oathGold(RUN_RULES.skipGold, run.oaths), stop: null } };
+  const commander = run.stop.commander;
+  const next: Stop | null = commander ? { kind: 'decree', commander } : null;
+  if (index === null) return { ...campaign, run: { ...run, gold: run.gold + oathGold(RUN_RULES.skipGold, run.oaths), stop: next } };
   const offer = run.stop.offers[index];
   if (!offer) throw new Error(`No offer ${index}`);
-  return { ...campaign, run: { ...takeOffer(run, offer), stop: null } };
+  return { ...campaign, run: { ...takeOffer(run, offer), stop: next } };
+}
+
+/** The cards the beaten commander at your stop offers as a decree, at your rank. */
+export function decreeChoices(run: RunState, yourRank: RankNumber): Card[] {
+  if (run.stop?.kind !== 'decree') throw new Error('No decree to take');
+  const { general, rank } = run.stop.commander;
+  return decreeOffers(general, rank, yourRank);
+}
+
+/** Takes one of the beaten commander's cards as the run's decree, in place of any before; or keeps yours (index null). */
+export function takeDecree(campaign: Campaign, index: number | null, yourRank: RankNumber): Campaign {
+  const run = runOf(campaign);
+  const choices = decreeChoices(run, yourRank);
+  if (index === null) return { ...campaign, run: { ...run, stop: null } };
+  const card = choices[index];
+  if (!card) throw new Error(`No decree ${index}`);
+  return { ...campaign, run: { ...run, decree: structuredClone(card), stop: null } };
 }
 
 function merchantStop(run: RunState): Extract<Stop, { kind: 'merchant' }> {

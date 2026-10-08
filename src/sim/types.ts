@@ -61,6 +61,11 @@ export interface BattleSetup {
   boss?: BossId;
   /** Each side's Tech Web nodes by class (session 5E), on top of its specializations. None when left out. */
   tech?: { player?: TechChoice; enemy?: TechChoice };
+  /**
+   * Your run's decree (session 7D): a beaten commander's card your army fires by itself, in a
+   * slot after the slot bar's, when your rank allows it. None when left out.
+   */
+  decree?: Card | null;
 }
 
 /**
@@ -69,7 +74,7 @@ export interface BattleSetup {
  * the other player's are the enemy's.
  */
 export type BattleInput =
-  /** Fire a card slot: 0 to 3 are the regular slots, 4 the Legendary slot. */
+  /** Fire a card slot: 0 to 3 are the regular slots, 4 the Legendary slot. (The decree's slot, 5, fires only by itself.) */
   | { tick: number; kind: 'slot'; slot: number; side?: Side }
   | { tick: number; kind: 'ultimate'; side?: Side };
 

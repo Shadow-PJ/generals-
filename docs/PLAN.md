@@ -10,7 +10,7 @@ Seven phases, 24 sessions. Each session ends with a pull request that the owner 
 | 4. Combos and content | 4A to 4D | Every General, class, combo and map in skirmish mode |
 | 5. Progression and campaign | 5A to 5F | The full campaign from Squad Leader to Legend, as roguelite runs |
 | 6. Polish and multiplayer | 6A to 6D | Real art and sound, balance, controller and Steam Deck play, battles against friends |
-| 7. Release | 7A, 7B, 7C | Generals on Steam, then on the Epic Games Store |
+| 7. Release | 7A, 7B, 7C, 7D | Generals on Steam, then on the Epic Games Store |
 
 ## Phase 1: Battle core
 
@@ -302,3 +302,12 @@ Added after 7B at the owner's request: the open items from the 7B pull request.
 - [x] The Gamblers' Tent becomes the Quartermaster, an event with no bet, so the age rating has no simulated gambling; saved runs at the old event still load
 - [x] Versus sends cards without the words typed for them, and the battle keeps none
 - [x] The age-rating answers updated to match
+
+### 7D. Decrees
+
+Added after 7C at the owner's request: from `docs/inspiration.md`, "taking the beaten General's card" (9 Kings).
+
+- [x] After an elite fight's spoils, the beaten commander's cards are offered, fitted to your rank: take one as the run's decree, or march on
+- [x] The decree fires by itself in every battle of the run, in a slot of its own with no key, through the validator and your General's personality rules like any card
+- [x] The decree shown in battle, on the run map and in the Battle IQ report
+- [x] Save version 8 with the run's decree

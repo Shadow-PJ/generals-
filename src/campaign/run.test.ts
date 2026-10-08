@@ -25,6 +25,7 @@ import {
   pickSpoils,
   reroll,
   setOutProblem,
+  takeDecree,
 } from './run';
 import { nextChoices } from './runMap';
 import { freshCampaign, runOf, runThrough } from './testing';
@@ -112,7 +113,8 @@ describe('fights', () => {
 
   it('a lost fight ends the run and loses the artifacts you carry; you keep the XP', () => {
     let c = finishFight(enterNode(runThrough(['elite', 'battle', 'boss']), 0), won());
-    c = enterNode(pickSpoils(c, null), 0);
+    // An elite fight's spoils lead to the beaten commander's orders (session 7D): decline them.
+    c = enterNode(takeDecree(pickSpoils(c, null), null, 1), 0);
     const carried = runOf(c).artifacts;
     c = finishFight(c, { won: false, fighters: [], xp: 20 });
     expect(runOf(c).stop).toMatchObject({ kind: 'end', won: false, lost: carried, banked: [] });
@@ -124,7 +126,8 @@ describe('fights', () => {
   it('beating the ruler wins the run: it banks your artifacts, recruits them, teaches their action, unlocks a class and opens a region', () => {
     let c = finishFight(enterNode(runThrough(['elite', 'boss']), 0), won());
     const carried = runOf(c).artifacts;
-    c = enterNode(pickSpoils(c, null), 0);
+    // An elite fight's spoils lead to the beaten commander's orders (session 7D): decline them.
+    c = enterNode(takeDecree(pickSpoils(c, null), null, 1), 0);
     expect(runOf(c).stop).toMatchObject({ kind: 'fight', encounter: { kind: 'boss', general: 'hiveMother' } });
     c = finishFight(c, won());
     expect(runOf(c).stop).toMatchObject({ kind: 'end', won: true, banked: carried, lost: [], learned: 'hijack', opened: ['redCanyon'], unlocked: 'assassin', died: [] });
@@ -151,7 +154,8 @@ describe('camps', () => {
   it('heal every fighter and bank the artifacts you carry', () => {
     let c = finishFight(enterNode(runThrough(['elite', 'camp', 'boss']), 0), won([{ id: 1, hp: 0.2 }, { id: 2, hp: 0.9 }]));
     const carried = runOf(c).artifacts;
-    c = enterNode(pickSpoils(c, null), 0);
+    // An elite fight's spoils lead to the beaten commander's orders (session 7D): decline them.
+    c = enterNode(takeDecree(pickSpoils(c, null), null, 1), 0);
     const run = runOf(c);
     expect(run.stop).toEqual({ kind: 'camp', healed: RUN_RULES.campHeal, banked: carried });
     expect(run.roster.find((f) => f.id === 1)!.hp).toBeCloseTo(0.2 + RUN_RULES.campHeal);

@@ -11,6 +11,8 @@
 // Version 6 (session 6A): the Captain's tips. A save that has already earned XP has played its
 // first battles, so tips start off there (Settings turns them back on).
 // Version 7 (session 5F): Oaths of Command and Fear records; a run in progress took no oaths.
+// Version 8 (session 7D): a run's decree; a run in progress has none, and spoils waiting from an
+// elite fight offer no beaten commander's orders.
 
 import { defaultKeep, freshName, NO_RECORD, startingCompany } from '../campaign/company';
 import type { Fighter } from '../campaign/types';
@@ -39,7 +41,17 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   5: (save) => ({ ...save, version: 6, tutorial: { on: !(typeof save.xp === 'number' && save.xp > 0), seen: [] } }),
   /** No oaths and no Fear won yet; a run in progress took none, and an ended one had no Fear. */
   6: (save) => ({ ...save, version: 7, oaths: {}, fearRecords: {}, run: withoutOaths(save.run) }),
+  /** A run in progress has no decree yet, and its waiting spoils offer no commander's orders. */
+  7: (save) => ({ ...save, version: 8, run: withoutDecree(save.run) }),
 };
+
+/** A version 7 run: no decree, and spoils without a beaten commander. */
+function withoutDecree(run: unknown): unknown {
+  if (typeof run !== 'object' || run === null || Array.isArray(run)) return run;
+  const r = run as SaveData;
+  const stop = typeof r.stop === 'object' && r.stop !== null && (r.stop as SaveData).kind === 'spoils' ? { ...(r.stop as SaveData), commander: null } : r.stop;
+  return { ...r, decree: null, stop };
+}
 
 /** A version 6 run: it took no oaths, and if it has ended, it had no Fear and paid no bounty. */
 function withoutOaths(run: unknown): unknown {

@@ -96,8 +96,8 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(7);
-    expect(profileVersion(writeProfile(saved()))).toBe(7);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(8);
+    expect(profileVersion(writeProfile(saved()))).toBe(8);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
@@ -155,6 +155,29 @@ describe('the saved profile', () => {
     expect(run?.stop).toEqual({ kind: 'event', event: 'quartermaster', chosen: null, outcome: [] });
     expect(run?.eventsSeen).toEqual(['oldShrine', 'quartermaster']);
     data.run.eventsSeen = ['gamblersTent', 'quartermaster'];
+    expect(readProfile(JSON.stringify(data)).run).toBeNull();
+  });
+
+  it('loads a version 7 save: a run in progress has no decree, and spoils waiting offer no commander’s orders', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 7;
+    delete data.run.decree;
+    delete data.run.stop.commander;
+    const run = readProfile(JSON.stringify(data)).run;
+    expect(run).not.toBeNull();
+    expect(run!.decree).toBeNull();
+    expect(run!.stop).toMatchObject({ kind: 'spoils', commander: null });
+  });
+
+  it('keeps a run’s decree and a beaten commander’s orders waiting (session 7D)', () => {
+    const profile = saved();
+    const decree = card('When my Ranger drops below 50%, protect her');
+    profile.run = { ...profile.run!, decree: { ...decree, auto: true }, stop: { kind: 'decree', commander: { general: 'warlord', rank: 3 } } };
+    const read = readProfile(writeProfile(profile)).run!;
+    expect(read.decree).toEqual({ ...decree, auto: true });
+    expect(read.stop).toEqual({ kind: 'decree', commander: { general: 'warlord', rank: 3 } });
+    const data = JSON.parse(writeProfile(profile));
+    data.run.stop.commander.rank = 9;
     expect(readProfile(JSON.stringify(data)).run).toBeNull();
   });
 
