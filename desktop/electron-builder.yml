@@ -6,17 +6,25 @@ copyright: Copyright © 2026 Shadow-PJ
 directories:
   output: release
 # The app needs only the game build and the compiled main process; Vite already bundled Phaser.
-# Its one runtime package, steamworks.js (session 7A), comes along as a production dependency:
-# its native module and Steam's own library stay outside app.asar so they can load, and only the
-# ones for the platform being built are kept.
+# Its two runtime packages come along as production dependencies: steamworks.js (session 7A),
+# whose native module and Steam's own library stay outside app.asar so they can load, keeping
+# only the ones for the platform being built; and koffi (session 7B), which calls Epic's SDK,
+# whose native module (in @koromix/koffi-<platform>, installed only for the platform building)
+# stays outside too, without its C++ sources and docs.
 files:
   - package.json
   - dist/**/*
   - desktop/build/**/*
   - '!node_modules/steamworks.js/dist/osx/**'
   - '!node_modules/steamworks.js/dist/win64/*.lib'
+  - '!node_modules/koffi/{doc,lib,vendor}/**'
+  - '!node_modules/koffi/src/koffi/src/**/*.{S,asm,cc,def,hh,inc}'
+  - '!node_modules/koffi/src/koffi/CMakeLists.txt'
+  - '!node_modules/koffi/{cnoke.cjs,CHANGELOG.md}'
+  - '!node_modules/@koromix/*/musl_*/**'
 asarUnpack:
   - node_modules/steamworks.js/dist/**
+  - node_modules/@koromix/**
 icon: desktop/icon.png
 win:
   target:

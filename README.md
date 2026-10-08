@@ -65,11 +65,13 @@ npm run desktop:installer   # build the Windows installer into release/ (run it 
 npm run desktop:linux       # build the Linux AppImage (Linux PCs and the Steam Deck) into release/
 npm run desktop:steam       # build the unpacked app Steam takes, for this system, into release/
 npm run steam:upload        # upload release/win-unpacked and linux-unpacked to Steam (docs/store/steam/README.md)
-npm run art:achievements    # draw the achievement icons into release/achievements/
+npm run epic:stage          # make the Epic build from release/win-unpacked, with Epic's SDK (docs/store/epic/README.md)
+npm run epic:upload         # upload it to the Epic Games Store with BuildPatchTool
+npm run art:achievements    # draw the achievement icons into release/achievements/ (-- <folder> --scale 4 for Epic's)
 ```
 
 The desktop app lives in `desktop/`: `main.ts` opens the window and serves the same game build as the browser version, and `preload.cts` gives the game its few requests (files, fullscreen, window size). Game code reaches them only through `src/platform`.
 
-Under Steam the desktop app also unlocks achievements, shows your friends what you are doing and turns on the overlay, through steamworks.js (`desktop/steam.ts`); started any other way, it plays the same without them. `docs/store/` is the store kit: the page's words, art and screenshot checklists, the trailer, the AI disclosure draft and the Steamworks setup.
+Under Steam the desktop app also unlocks achievements, shows your friends what you are doing and turns on the overlay, through steamworks.js (`desktop/steam.ts`); the Epic build does the same from the Epic Games Launcher, through Epic's SDK (`desktop/epic.ts`, `desktop/eos.ts`). Started any other way, it plays the same without them. `docs/store/` is the store kit: the page's words, art and screenshot checklists, the trailer, the AI disclosure draft, the age-rating answers, and the Steamworks and Epic setup.
 
 The multiplayer relay lives in `server/`, a small Node package of its own with a `Dockerfile`; `server/README.md` says how to run and host it. A build points at a hosted relay with `VITE_RELAY_URL` (the workflows take it from the `RELAY_URL` repository variable).

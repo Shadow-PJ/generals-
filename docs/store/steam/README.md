@@ -83,7 +83,7 @@ with the controls, and types orders with its own on-screen keyboard.
 
 ## 6. Building and uploading
 
-1. Build the folders: run **Actions > Steam builds > Run workflow**, then download both
+1. Build the folders: run **Actions > Store builds > Run workflow**, then download both
    artifacts and unpack them into `release/`:
    `tar -xzf Generals-Steam-Windows.tar.gz -C release` and the same for Linux. (Or run
    `npm run desktop:steam` on a Windows PC and on a Linux PC.)

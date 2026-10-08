@@ -290,7 +290,7 @@ Owner's release checklist (not for Claude to tick):
 
 ### 7B. Epic build
 
-- [ ] Epic Online Services through `src/platform`, for Epic achievements, which Epic requires
-- [ ] Cross-play with other PC stores, already covered by the relay server from 6D
-- [ ] Answers drafted for the age-rating questionnaire, which Epic also requires
-- [ ] Epic build upload steps written down in `docs/store/`
+- [x] Epic Online Services through `src/platform`, for Epic achievements, which Epic requires
+- [x] Cross-play with other PC stores, already covered by the relay server from 6D
+- [x] Answers drafted for the age-rating questionnaire, which Epic also requires
+- [x] Epic build upload steps written down in `docs/store/`

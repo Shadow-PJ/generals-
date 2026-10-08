@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readPresence, startSteam, steamAppId, steamworksLoadProblem, SteamStore, type SteamClient } from './steam';
+import { readPresence } from './presence';
+import { startSteam, steamAppId, steamworksLoadProblem, SteamStore, type SteamClient } from './steam';
 
 function fakeClient(turnDown = 0) {
   const unlocked: string[] = [];

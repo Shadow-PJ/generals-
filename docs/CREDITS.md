@@ -11,6 +11,12 @@ characters in the source code, and wrote every sound effect as a synthesizer rec
 piece of music as notes. No image, sound or music generation model was used, and nothing was
 traced or copied from other work. All of it is marked AI-made below for Steam's disclosure.
 
+The desktop app also carries code libraries, which are not assets: Electron, steamworks.js
+(session 7A) and koffi (session 7B), all MIT-licensed, whose license files ship inside the app;
+Steam's own library, under Valve's Steamworks SDK agreement; and, in the Epic build only, Epic's
+EOS SDK library, under Epic's SDK license. Both store agreements allow shipping their library
+inside the game.
+
 | Asset | File | Made by | License | AI-made |
 | --- | --- | --- | --- | --- |
 | App icon (three gold chevrons on a dark square) | `desktop/icon.png` | Drawn from simple shapes by a script written for this project by an AI coding assistant | Original work, part of this project | Yes: its drawing script was written by an AI coding assistant |
@@ -25,7 +31,7 @@ traced or copied from other work. All of it is marked AI-made below for Steam's 
 | Font: Jacquard 12 (titles and banners) | `@fontsource/jacquard-12` (bundled) | The Soft Type Project Authors (Sarah Cadigan-Fried), https://github.com/scfried/soft-type-jacquard | SIL Open Font License 1.1 (`public/licenses/OFL-Jacquard12.txt`) | No |
 | Sound effects (blows, arrows, spells, cards, ultimates, menu clicks, fanfare, lament and the rest) | `src/game/audio/sounds.ts` | Synthesizer recipes written for this project by an AI coding assistant; played by the game's own synthesizer (`src/game/audio/audio.ts`) | Original work, part of this project | Yes |
 | Music: the Capital's theme, the battle theme and the rulers' theme | `src/game/audio/music.ts` | Composed as notes for this project by an AI coding assistant; played by the game's own synthesizer | Original work, part of this project | Yes |
-| Achievement icons (session 7A): each achievement's emblem from the game's own sprites, on a framed plate, in color and in gray | `tools/art/achievementIcons.ts` (made with `npm run art:achievements`) | Drawn by code written for this project by an AI coding assistant, from the sprites above | Original work, part of this project | Yes |
+| Achievement icons (session 7A): each achievement's emblem from the game's own sprites, on a framed plate, in color and in gray; 256×256 for Steam, scaled up whole for Epic (session 7B) | `tools/art/achievementIcons.ts` (made with `npm run art:achievements`) | Drawn by code written for this project by an AI coding assistant, from the sprites above | Original work, part of this project | Yes |
 | Order reader weights | `models/order-reader.json` | Trained by `tools/reader/train.ts` from orders made by `tools/dataset/generate.ts`; no outside data | Original work, part of this project | A trained model, but players never see text it wrote: it only picks parts of a card |
 
 To replace any of it with art or sound by a person, swap the drawing or recipe in its file (the

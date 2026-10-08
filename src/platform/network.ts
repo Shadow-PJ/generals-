@@ -1,7 +1,8 @@
 // Talking to the multiplayer relay (session 6D). Both builds use the WebSocket built into the
 // browser and into the desktop app's Chromium, so they share this one network; it sits in the
-// platform layer because game code never opens a connection itself, and a store build could
-// swap in its own (Steam's networking) without touching the game.
+// platform layer because game code never opens a connection itself. Every build uses it,
+// whichever store started the game, so players from every store meet on the same relay: the
+// cross-play Epic requires (session 7B).
 
 /** An open connection to the relay: text in, text out. */
 export interface Connection {

@@ -5,11 +5,11 @@
 import type { DesktopBridge } from './bridge';
 import { loadLocalModel } from './model';
 import { buildRelay, webSocketNetwork } from './network';
-import { NO_STORE, type Presence, type Store } from './store';
+import { NO_STORE, type Presence, type Store, type StoreName } from './store';
 import type { Platform } from './types';
 
 /** The store that started the app, reached through the main process; none when the app runs on its own. */
-export function desktopStore(bridge: DesktopBridge, name: 'none' | 'steam'): Store {
+export function desktopStore(bridge: DesktopBridge, name: StoreName): Store {
   if (name === 'none') return NO_STORE;
   return {
     name,

@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { DesktopBridge } from './bridge';
 import { createDesktopPlatform } from './desktop';
+import type { StoreName } from './store';
 
-function fakeBridge(store: 'none' | 'steam' = 'none') {
+function fakeBridge(store: StoreName = 'none') {
   const files = new Map<string, string>();
   const calls: string[] = [];
   let onFullscreen: (on: boolean) => void = () => undefined;
@@ -72,11 +73,24 @@ describe('desktop platform', () => {
     platform.store.setPresence(null);
     expect(steam.calls).toEqual(['unlock RANK_2', 'presence {"line":"Run","params":{"region":"Red Canyon"}}', 'presence null']);
 
+    const epic = fakeBridge('epic');
+    const fromEpic = await createDesktopPlatform(epic.bridge);
+    expect(fromEpic.store.name).toBe('epic');
+    fromEpic.store.unlockAchievement('BOSS_WARLORD');
+    fromEpic.store.setPresence({ line: 'Versus', params: {} });
+    expect(epic.calls).toEqual(['unlock BOSS_WARLORD', 'presence {"line":"Versus","params":{}}']);
+
     const alone = fakeBridge('none');
     const outside = await createDesktopPlatform(alone.bridge);
     expect(outside.store.name).toBe('none');
     outside.store.unlockAchievement('RANK_2');
     outside.store.setPresence({ line: 'Capital', params: {} });
     expect(alone.calls).toEqual([]);
+  });
+
+  it('plays Versus through the same relay whichever store started it, so stores cross-play', async () => {
+    const relays = new Set<string>();
+    for (const store of ['none', 'steam', 'epic'] as const) relays.add((await createDesktopPlatform(fakeBridge(store).bridge)).network.defaultRelay);
+    expect(relays.size).toBe(1);
   });
 });

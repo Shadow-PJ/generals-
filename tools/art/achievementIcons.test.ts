@@ -23,3 +23,21 @@ describe('achievement icons', () => {
     expect(seen.size).toBeGreaterThanOrEqual(ACHIEVEMENTS.length - 2);
   });
 });
+
+describe('scaling an icon up for a store that wants it bigger', () => {
+  it('turns each pixel into a square block, so the pixel art stays sharp', () => {
+    const icon = achievementIcon(ACHIEVEMENTS[0]!, true);
+    const big = icon.scaled(4);
+    expect([big.width, big.height]).toEqual([ICON_SIZE * 4, ICON_SIZE * 4]);
+    let same = true;
+    for (let y = 0; y < big.height && same; y += 7) {
+      for (let x = 0; x < big.width; x += 5) {
+        const a = (y * big.width + x) * 4;
+        const b = (Math.floor(y / 4) * ICON_SIZE + Math.floor(x / 4)) * 4;
+        if (big.rgba.subarray(a, a + 4).join() !== icon.rgba.subarray(b, b + 4).join()) same = false;
+      }
+    }
+    expect(same).toBe(true);
+    expect(() => icon.scaled(1.5)).toThrow();
+  });
+});

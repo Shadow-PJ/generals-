@@ -10,3 +10,7 @@ tools/dataset/out/
 # The art preview sheets (npm run art:preview)
 art-preview*.png
 server/build/
+
+# Epic's SDK library and the game's EOS settings (session 7B) stay on the owner's computer.
+desktop/eos/*
+!desktop/eos/README.md

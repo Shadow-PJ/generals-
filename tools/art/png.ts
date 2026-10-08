@@ -68,6 +68,19 @@ export class Canvas {
     }
   }
 
+  /** The image scaled up by a whole number, each pixel a square block, so it stays sharp. */
+  scaled(factor: number): Canvas {
+    if (!Number.isInteger(factor) || factor < 1) throw new Error(`Scale by a whole number, not ${factor}`);
+    const out = new Canvas(this.width * factor, this.height * factor, 0);
+    for (let y = 0; y < out.height; y++) {
+      for (let x = 0; x < out.width; x++) {
+        const from = (Math.floor(y / factor) * this.width + Math.floor(x / factor)) * 4;
+        out.rgba.set(this.rgba.subarray(from, from + 4), (y * out.width + x) * 4);
+      }
+    }
+    return out;
+  }
+
   png(): Buffer {
     return encodePng(this.width, this.height, this.rgba);
   }
