@@ -1,6 +1,7 @@
 // The desktop app's main process. It opens one window that runs the same game build as the
 // browser version, served from inside the app, and answers the game's few requests: read and
-// write its files, fullscreen, window size. The game never gets Node or Electron itself.
+// write its files, fullscreen, window size, and under Steam its achievements and presence
+// (session 7A). The game never gets Node or Electron itself.
 
 import {
   app,
@@ -14,12 +15,14 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from 'electron';
+import { readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { DesktopInfo } from '../src/platform/bridge.js';
 import { DataFiles } from './dataFiles.js';
 import { runSmokeTest, smokeLog, smokeModel, smokeTestMode, type SmokeMode } from './smokeTest.js';
+import { startSteam, steamAppId, steamworksLoadProblem, type SteamStore } from './steam.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 /** The game build (`npm run build` output). In the installed app it sits inside app.asar. */
@@ -45,6 +48,8 @@ if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
 }
 
 let win: BrowserWindow | null = null;
+/** Steam, when Steam started the app (or a test App ID was given); null otherwise. */
+let steam: SteamStore | null = null;
 let shown = false;
 let fullscreenOnShow = false;
 let markReady: () => void = () => undefined;
@@ -100,6 +105,7 @@ function listenToGame(files: DataFiles, savesFolder: string): void {
     savesFolder,
     fullscreen: win?.isFullScreen() || fullscreenOnShow,
     workArea: workArea(),
+    store: steam ? 'steam' : 'none',
   }));
   handle('read-file', (name) => files.read(name));
   handle('write-file', (name, text) => files.write(name, text));
@@ -127,6 +133,22 @@ function listenToGame(files: DataFiles, savesFolder: string): void {
   ipcMain.on('quit', (event) => {
     if (fromGame(event)) app.quit();
   });
+  // The store checks what it is given; without Steam these do nothing.
+  ipcMain.on('unlock-achievement', (event, id: unknown) => {
+    if (fromGame(event)) steam?.unlock(id);
+  });
+  ipcMain.on('set-presence', (event, presence: unknown) => {
+    if (fromGame(event)) steam?.presence(presence);
+  });
+}
+
+/** A file's text, or null when it can't be read. */
+function readText(file: string): string | null {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch {
+    return null;
+  }
 }
 
 /** `query` is added to the page address; smoke tests use it to switch on the game's test hook. */
@@ -184,6 +206,11 @@ if (!app.requestSingleInstanceLock()) {
   });
   app.on('window-all-closed', () => (smokeMode ? app.exit(1) : app.quit()));
 
+  // Steam starts before the app is ready: its overlay needs Chromium switches set first.
+  const appId = smokeMode ? null : steamAppId(process.env, process.argv, readText, [path.dirname(app.getPath('exe')), process.cwd()]);
+  if (appId !== null) steam = startSteam(appId, (line) => console.log(line));
+  app.on('will-quit', () => steam?.stop());
+
   void app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     const dataFolder = app.getPath('userData');
@@ -206,8 +233,11 @@ function startSmokeTest(mode: SmokeMode, window: BrowserWindow, files: DataFiles
     app.exit(passed ? 0 : 1);
   };
   setTimeout(() => finish(false, 'it took too long'), SMOKE_TEST_LIMIT_MS);
+  // The app carries Steam's module and library (session 7A); Steam itself isn't started here.
+  const steamProblem = mode === 'play' ? steamworksLoadProblem() : null;
+  if (mode === 'play') log(steamProblem ? `FAIL  steamworks.js loads in the app: ${steamProblem}` : 'ok    steamworks.js loads in the app, for Steam');
   runSmokeTest({ mode, win: window, gameReady, readProfile: () => files.read('saves/profile.json'), log }).then(
-    (passed) => finish(passed, 'see the lines above'),
+    (passed) => finish(passed && steamProblem === null, 'see the lines above'),
     (error: unknown) => finish(false, String(error)),
   );
 }

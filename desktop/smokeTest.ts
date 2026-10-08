@@ -3,7 +3,7 @@
 // Capital to a skirmish, writes an order into slot 1 and starts a battle; `--smoke-test=reopen` starts the app again and checks the card is still in slot 1.
 // This is the owner check from docs/PLAN.md (install, play, close, reopen), done by a script.
 // The play test also has the order reader read a free-form order, which checks its weights load
-// in the installed app. `--smoke-test=model --smoke-model=<id>` switches on the experimental
+// in the installed app, and checks steamworks.js loads there (session 7A). `--smoke-test=model --smoke-model=<id>` switches on the experimental
 // language model, waits for it to download, and has it read a few free-form orders, timing each.
 
 import type { BrowserWindow } from 'electron';

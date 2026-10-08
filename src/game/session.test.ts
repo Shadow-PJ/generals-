@@ -4,8 +4,8 @@ import { fieldPlacement, withRole } from '../campaign/army';
 import { enterNode, newRun } from '../campaign/run';
 import { MAPS } from '../data/maps';
 import { RANK_XP } from '../data/progression';
-import type { FileName, Platform } from '../platform';
-import { readProfile } from '../save/profile';
+import { NO_STORE, type FileName, type Platform, type Store } from '../platform';
+import { newProfile, readProfile, writeProfile } from '../save/profile';
 import { readSettings } from '../save/settings';
 import {
   applyWindowSettings,
@@ -28,7 +28,7 @@ import {
 } from './session';
 
 /** A platform that keeps files in memory and records what it was asked to do. */
-function fakePlatform(options: { desktop: boolean; files?: Partial<Record<FileName, string>> }) {
+function fakePlatform(options: { desktop: boolean; files?: Partial<Record<FileName, string>>; store?: Store }) {
   const files = new Map<FileName, string>(Object.entries(options.files ?? {}) as [FileName, string][]);
   const log: string[] = [];
   let fullscreen = false;
@@ -65,6 +65,7 @@ function fakePlatform(options: { desktop: boolean; files?: Partial<Record<FileNa
     },
     speech: null,
     network: { defaultRelay: 'ws://localhost:8787', connect: () => Promise.reject(new Error('offline')) },
+    store: options.store ?? NO_STORE,
   };
   return { platform, files, log, failNextWrites: (on: boolean) => (failWrites = on) };
 }
@@ -150,6 +151,18 @@ describe('the session', () => {
     await saveCampaign(campaign);
     await startSession(fake.platform);
     expect(currentCampaign()).toEqual(campaign);
+  });
+
+  it('tells the store about achievements as your save earns them, each once, starting with those earned before', async () => {
+    const unlocked: string[] = [];
+    const store: Store = { name: 'steam', unlockAchievement: (id) => unlocked.push(id), setPresence: () => undefined };
+    const steam = fakePlatform({ desktop: true, store, files: { 'saves/profile.json': writeProfile({ ...newProfile(), bossesBeaten: ['hiveMother'] }) } });
+    await startSession(steam.platform);
+    expect(unlocked).toEqual(['BOSS_HIVE_MOTHER']);
+    await gainXp(1_000_000);
+    expect(unlocked).toEqual(['BOSS_HIVE_MOTHER', 'RANK_2', 'RANK_3', 'RANK_4', 'RANK_5']);
+    await gainXp(10);
+    expect(unlocked).toHaveLength(5);
   });
 
   it('a campaign fight keeps your cards and General, but never replaces your skirmish army or practice rank', async () => {

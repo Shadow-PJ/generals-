@@ -6,15 +6,24 @@ copyright: Copyright © 2026 Shadow-PJ
 directories:
   output: release
 # The app needs only the game build and the compiled main process; Vite already bundled Phaser.
+# Its one runtime package, steamworks.js (session 7A), comes along as a production dependency:
+# its native module and Steam's own library stay outside app.asar so they can load, and only the
+# ones for the platform being built are kept.
 files:
   - package.json
   - dist/**/*
   - desktop/build/**/*
+  - '!node_modules/steamworks.js/dist/osx/**'
+  - '!node_modules/steamworks.js/dist/win64/*.lib'
+asarUnpack:
+  - node_modules/steamworks.js/dist/**
 icon: desktop/icon.png
 win:
   target:
     - target: nsis
       arch: [x64]
+  files:
+    - '!node_modules/steamworks.js/dist/linux64/**'
 nsis:
   # One click, installed for this Windows user only, so no admin prompt.
   oneClick: true
@@ -24,11 +33,13 @@ nsis:
   # Uninstalling keeps your saves in %APPDATA%\Generals.
   deleteAppDataOnUninstall: false
 linux:
-  # One file that runs on any Linux PC, the Steam Deck's desktop mode included; Steam itself
-  # will get the unpacked folder (release/linux-unpacked) from session 7A.
+  # One file that runs on any Linux PC, the Steam Deck's desktop mode included; Steam gets the
+  # unpacked folder (release/linux-unpacked) instead, from `npm run desktop:steam` (session 7A).
   target:
     - target: AppImage
       arch: [x64]
+  files:
+    - '!node_modules/steamworks.js/dist/win64/**'
   category: Game
   # The window belongs to the app's menu entry (its icon and name in the task bar).
   syncDesktopName: true

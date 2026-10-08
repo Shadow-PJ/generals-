@@ -19,6 +19,8 @@ const bridge: DesktopBridge = {
   },
   ready: () => ipcRenderer.send('ready'),
   quit: () => ipcRenderer.send('quit'),
+  unlockAchievement: (id) => ipcRenderer.send('unlock-achievement', id),
+  setPresence: (presence) => ipcRenderer.send('set-presence', presence),
 };
 
 contextBridge.exposeInMainWorld('generalsDesktop', bridge);

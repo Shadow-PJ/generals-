@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { LocalModel, Platform } from '../platform';
-import { ORDER_MODELS } from '../platform';
+import { NO_STORE, ORDER_MODELS } from '../platform';
 import { orderModelState, orderModelTranslator, syncOrderModel } from './orderModel';
 import { changeSettings, startSession } from './session';
 
@@ -36,6 +36,7 @@ function fakePlatform() {
       }),
     speech: null,
     network: { defaultRelay: 'ws://localhost:8787', connect: () => Promise.reject(new Error('offline')) },
+    store: NO_STORE,
   };
   return { platform, loads, unloaded };
 }

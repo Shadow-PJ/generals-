@@ -281,11 +281,12 @@ Owner's release checklist (not for Claude to tick):
 
 ### 7A. Steam build and store kit
 
-- [ ] Steamworks integration through `src/platform`, with a maintained library such as steamworks.js: achievements, Steam Cloud for the save folder, rich presence and the overlay
-- [ ] An achievements list tied to ranks, bosses, combos and mastery
-- [ ] Build upload scripts for SteamPipe
-- [ ] A store kit in `docs/store/`: description, feature list, capsule art checklist, screenshot list and trailer shot list
-- [ ] A draft of the Steam AI disclosure in `docs/store/`: the live AI that ships (the small model turning orders into cards), its guardrails (fixed card format, validator, pre-written replies) and any AI-made assets from `docs/CREDITS.md`
+- [x] Steamworks integration through `src/platform`, with a maintained library such as steamworks.js: achievements, Steam Cloud for the save folder, rich presence and the overlay
+- [x] An achievements list tied to ranks, bosses, combos and mastery
+- [x] Build upload scripts for SteamPipe
+- [x] A store kit in `docs/store/`: description, feature list, capsule art checklist, screenshot list and trailer shot list
+- [x] A draft of the Steam AI disclosure in `docs/store/`: the live AI that ships (the small model turning orders into cards), its guardrails (fixed card format, validator, pre-written replies) and any AI-made assets from `docs/CREDITS.md`
+- [x] Achievement icons drawn from the game's sprites (`npm run art:achievements`), and a manual workflow that builds the folders Steam takes
 
 ### 7B. Epic build
 

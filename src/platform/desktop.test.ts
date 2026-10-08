@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { DesktopBridge } from './bridge';
 import { createDesktopPlatform } from './desktop';
 
-function fakeBridge() {
+function fakeBridge(store: 'none' | 'steam' = 'none') {
   const files = new Map<string, string>();
   const calls: string[] = [];
   let onFullscreen: (on: boolean) => void = () => undefined;
   const bridge: DesktopBridge = {
-    info: async () => ({ savesFolder: 'C:\\Users\\Ali\\AppData\\Roaming\\Generals\\saves', fullscreen: false, workArea: { width: 1920, height: 1040 } }),
+    info: async () => ({ savesFolder: 'C:\\Users\\Ali\\AppData\\Roaming\\Generals\\saves', fullscreen: false, workArea: { width: 1920, height: 1040 }, store }),
     readFile: async (name) => files.get(name) ?? null,
     writeFile: async (name, text) => void files.set(name, text),
     setFullscreen: async (on) => void calls.push(`fullscreen ${on}`),
@@ -18,6 +18,8 @@ function fakeBridge() {
     },
     ready: () => void calls.push('ready'),
     quit: () => void calls.push('quit'),
+    unlockAchievement: (id) => void calls.push(`unlock ${id}`),
+    setPresence: (presence) => void calls.push(`presence ${JSON.stringify(presence)}`),
   };
   return { bridge, files, calls, fullscreenFromOutside: (on: boolean) => onFullscreen(on) };
 }
@@ -59,5 +61,22 @@ describe('desktop platform', () => {
     platform.ready();
     platform.ready();
     expect(fake.calls).toEqual(['size 1200x880', 'ready']);
+  });
+
+  it('passes achievements and presence to the store that started it, and to nothing outside one', async () => {
+    const steam = fakeBridge('steam');
+    const platform = await createDesktopPlatform(steam.bridge);
+    expect(platform.store.name).toBe('steam');
+    platform.store.unlockAchievement('RANK_2');
+    platform.store.setPresence({ line: 'Run', params: { region: 'Red Canyon' } });
+    platform.store.setPresence(null);
+    expect(steam.calls).toEqual(['unlock RANK_2', 'presence {"line":"Run","params":{"region":"Red Canyon"}}', 'presence null']);
+
+    const alone = fakeBridge('none');
+    const outside = await createDesktopPlatform(alone.bridge);
+    expect(outside.store.name).toBe('none');
+    outside.store.unlockAchievement('RANK_2');
+    outside.store.setPresence({ line: 'Capital', params: {} });
+    expect(alone.calls).toEqual([]);
   });
 });

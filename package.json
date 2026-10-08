@@ -19,10 +19,13 @@
     "sim": "tsx tools/sim.ts",
     "balance": "tsx tools/balance/run.ts",
     "art:preview": "tsx tools/art/preview.ts",
+    "art:achievements": "tsx tools/art/writeAchievementIcons.ts",
     "desktop:compile": "tsc -p desktop/tsconfig.json",
     "desktop": "npm run build && npm run desktop:compile && electron .",
     "desktop:installer": "npm run build && npm run desktop:compile && electron-builder --win --config desktop/electron-builder.yml --publish never",
     "desktop:linux": "npm run build && npm run desktop:compile && electron-builder --linux --config desktop/electron-builder.yml --publish never",
+    "desktop:steam": "npm run build && npm run desktop:compile && electron-builder --dir --config desktop/electron-builder.yml --publish never",
+    "steam:upload": "tsx tools/steam/upload.ts",
     "dataset": "tsx tools/dataset/generate.ts",
     "eval": "tsx tools/eval/eval.ts",
     "train:reader": "tsx tools/reader/train.ts",
@@ -44,5 +47,8 @@
     "vite": "^8.3.2",
     "vitest": "^5.0.3",
     "ws": "^8.22.0"
+  },
+  "dependencies": {
+    "steamworks.js": "^0.4.0"
   }
 }

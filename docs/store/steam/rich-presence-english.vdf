@@ -1,0 +1,16 @@
+// Generals: the rich presence file for Steam (session 7A). Upload it in Steamworks under
+// Community > Rich Presence, then publish. The game sets steam_display to one of these tokens
+// and fills in %region% and %ruler% itself (src/game/presence.ts names the lines; a test checks
+// every line it uses is here, with its words).
+"lang"
+{
+	"Language"	"english"
+	"Tokens"
+	{
+		"#Capital"	"In the Capital"
+		"#Run"	"On a run in %region%"
+		"#Boss"	"Facing %ruler% in %region%"
+		"#Skirmish"	"Practising in a skirmish"
+		"#Versus"	"In a versus match"
+	}
+}
