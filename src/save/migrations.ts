@@ -15,6 +15,8 @@
 // elite fight offer no beaten commander's orders.
 // Version 9 (session 7F): crossroads on a run's map, and the deals a won one offers; a run in
 // progress keeps the map it had, with no crossroads.
+// Version 10 (session 7G): endless runs past the ruler, and your best endless score; a run in
+// progress hasn't marched on, and no run has scored yet.
 
 import { defaultKeep, freshName, NO_RECORD, startingCompany } from '../campaign/company';
 import type { Fighter } from '../campaign/types';
@@ -47,7 +49,17 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   7: (save) => ({ ...save, version: 8, run: withoutDecree(save.run) }),
   /** Nothing to change: a run in progress keeps its map, which has no crossroads. */
   8: (save) => ({ ...save, version: 9 }),
+  /** No endless score yet; a run in progress hasn't marched on past its ruler, and an ended one had no score. */
+  9: (save) => ({ ...save, version: 10, endlessBest: 0, run: notEndless(save.run) }),
 };
+
+/** A version 9 run: not endless, and if it has ended, with no endless score. */
+function notEndless(run: unknown): unknown {
+  if (typeof run !== 'object' || run === null || Array.isArray(run)) return run;
+  const r = run as SaveData;
+  const stop = typeof r.stop === 'object' && r.stop !== null && (r.stop as SaveData).kind === 'end' ? { ...(r.stop as SaveData), endless: null } : r.stop;
+  return { ...r, endless: null, stop };
+}
 
 /** A version 7 run: no decree, and spoils without a beaten commander. */
 function withoutDecree(run: unknown): unknown {

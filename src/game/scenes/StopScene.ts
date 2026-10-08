@@ -24,6 +24,8 @@ import {
   merchantPrices,
   pickSpoils,
   dealTakeProblem,
+  goHome,
+  marchOn,
   reroll,
   rerollProblem,
   takeDeal,
@@ -34,6 +36,7 @@ import { veteranRank } from '../../campaign/company';
 import type { Campaign, Offer, RunState, Stop } from '../../campaign/types';
 import { ARTIFACTS } from '../../data/artifacts';
 import { DEALS, type DealCost } from '../../data/crossroads';
+import { ENDLESS_RULES } from '../../data/endless';
 import { EVENTS } from '../../data/events';
 import { FACTIONS } from '../../data/factions';
 import { GENERALS } from '../../data/generals';
@@ -172,6 +175,8 @@ export class StopScene extends Phaser.Scene {
         return this.decree(campaign, run, stop);
       case 'event':
         return this.event(campaign, run, stop);
+      case 'endless':
+        return this.endless(campaign, run, stop);
       case 'merchant':
         return this.merchant(campaign, run, stop);
       case 'camp':
@@ -319,6 +324,45 @@ export class StopScene extends Phaser.Scene {
     };
   }
 
+  /** Past a ruler once every ruler has fallen (session 7G): march on into a harder lap, or go home with the win. */
+  private endless(campaign: Campaign, run: RunState, stop: Extract<Stop, { kind: 'endless' }>): View {
+    const ruler = GENERALS[REGIONS[run.region].ruler].name;
+    const score = run.endless?.score ?? 0;
+    const rules = ENDLESS_RULES;
+    const lines: View['lines'] =
+      stop.lap === 0
+        ? [{ text: `${ruler} falls: no ruler of the realm stands now.`, bold: true }]
+        : [{ text: `Lap ${stop.lap} cleared: ${ruler} falls again. Your score: ${score}.`, color: TEXT.gold, bold: true }];
+    lines.push({
+      text: 'March on past the ruler into a fresh lap of the region, its armies stronger every lap, for a high score. Your army, gold, boons, artifacts and decree march with you. The run is won already: go home whenever you like, and a lost fight ends it as a win.',
+      color: TEXT.muted,
+    });
+    lines.push({ text: `Your best endless score: ${campaign.endlessBest > 0 ? campaign.endlessBest : 'none yet'}.`, color: TEXT.muted });
+    return {
+      picture: 'won',
+      title: stop.lap === 0 ? 'THE ROAD GOES ON' : `LAP ${stop.lap} CLEARED`,
+      titleColor: TEXT.victory,
+      lines,
+      options: [
+        {
+          label: `March on: lap ${stop.lap + 1}`,
+          detail: `Every lap, every army has ${rules.perLap.rare} more Rare and ${rules.perLap.epic} more Epic troop and a commander a rank higher; Legendary troops from lap ${rules.legendaryAfterLap + 1}. A fight won scores ${rules.score.fight}, the ruler ${rules.score.fight + rules.score.ruler}.`,
+          problem: null,
+          act: () => this.step(marchOn(campaign), 'Run'),
+        },
+        {
+          label: 'Go home',
+          detail: run.endless ? `End the run as won, with a score of ${score}.` : 'End the run as won.',
+          problem: null,
+          act: () => {
+            this.selected = 0;
+            this.step(goHome(campaign), 'stay');
+          },
+        },
+      ],
+    };
+  }
+
   private merchant(campaign: Campaign, run: RunState, stop: Extract<Stop, { kind: 'merchant' }>): View {
     const prices = merchantPrices(run);
     const leave = () => this.step(leaveStop(campaign), 'Run');
@@ -408,6 +452,12 @@ export class StopScene extends Phaser.Scene {
       if (stop.unlocked) lines.push({ text: `Runs can now offer ${TROOP_NAMES[stop.unlocked].many}.`, color: TEXT.combo });
       for (const id of stop.opened) lines.push({ text: `A new region is open: ${REGIONS[id].name}.`, color: TEXT.perfect });
       if (stop.banked.length > 0) lines.push({ text: `Banked for good: ${stop.banked.map((a) => ARTIFACTS[a].name).join(', ')}.`, color: TEXT.gold });
+      // An endless run (session 7G): its score, and the fallen of an Ironman run that fell past the ruler.
+      if (stop.endless) {
+        const best = stop.endless.best ? ': a new best!' : `. Your best: ${campaign.endlessBest}.`;
+        lines.push({ text: `Endless score: ${stop.endless.score}${best}`, color: TEXT.gold, bold: true });
+      }
+      if (stop.died.length > 0) lines.push({ text: `Ironman: ${names(stop.died)} fell for good.`, color: TEXT.defeat });
     } else {
       lines.push({ text: `Your run through ${region.name} ended on ${runFloor(run).toLowerCase()}.`, bold: true });
       if (stop.lost.length > 0) lines.push({ text: `Lost with the run: ${stop.lost.map((a) => ARTIFACTS[a].name).join(', ')}.`, color: TEXT.defeat });
@@ -437,7 +487,7 @@ export class StopScene extends Phaser.Scene {
         act: () => this.step(toggleKeep(campaign, f.id), 'stay'),
       };
     });
-    return { picture: 'won', title: 'REGION CLEARED!', titleColor: TEXT.victory, lines, options: [...fighters, back], leave };
+    return { picture: 'won', title: stop.endless ? 'THE ROAD ENDS' : 'REGION CLEARED!', titleColor: TEXT.victory, lines, options: [...fighters, back], leave };
   }
 
   private render(): void {

@@ -7,7 +7,7 @@
 
 import Phaser from 'phaser';
 import { titles } from '../../campaign/mastery';
-import { abandonRun, newRun, setOutProblem } from '../../campaign/run';
+import { abandonRun, endlessFrom, newRun, setOutProblem } from '../../campaign/run';
 import { fearOf } from '../../data/oaths';
 import { ARTIFACTS } from '../../data/artifacts';
 import { GENERALS } from '../../data/generals';
@@ -288,7 +288,10 @@ export class CapitalScene extends Phaser.Scene {
       this.ui.add(addButton(this, PANEL_X + 90, y + 16, 'Carry on  ⏎', () => this.go(), 180, 34).container);
       this.ui.add(addButton(this, PANEL_X + 90, y + 58, 'Abandon run  Del', () => this.abandon(), 180, 30).container);
       y += 84;
-      if (this.confirmAbandon) add(`Press ${keyLabel('clear')} again to give up the run. You lose the artifacts you carry; you keep your XP.`, 12, TEXT.defeat, true);
+      // Past the ruler (session 7G) the run is won already: giving up goes home with the win.
+      const won = run.endless !== null || run.stop?.kind === 'endless';
+      const warning = won ? 'to go home: the run ends as the win it is.' : 'to give up the run. You lose the artifacts you carry; you keep your XP.';
+      if (this.confirmAbandon) add(`Press ${keyLabel('clear')} again ${warning}`, 12, won ? TEXT.victory : TEXT.defeat, true);
       return;
     }
     if (status === 'locked') {
@@ -296,6 +299,11 @@ export class CapitalScene extends Phaser.Scene {
       return;
     }
     if (status === 'cleared') add('Cleared: you can run it again for XP, but its ruler has nothing new to teach.', 12, TEXT.muted, false, 8);
+    // Endless (session 7G): with no other ruler standing, beating this one offers the road on.
+    if (endlessFrom(campaign.bossesBeaten, id)) {
+      const best = campaign.endlessBest > 0 ? ` Best score: ${campaign.endlessBest}.` : '';
+      add(`ENDLESS: beat this ruler and the road goes on, lap after lap, for a score.${best}`, 12, TEXT.perfect, true, 8);
+    }
     this.ui.add(addButton(this, PANEL_X + 90, y + 16, 'Set out  ⏎', () => this.go(), 180, 34).container);
     // Oaths of Command (session 5F): harder runs for more Insight.
     const fear = fearOf(campaign.oaths);

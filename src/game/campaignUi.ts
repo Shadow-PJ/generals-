@@ -58,10 +58,11 @@ export function drawBoon(g: Graphics, boon: BoonId, x: number, y: number): void 
 export function runNumbers(run: RunState): string {
   const parts = [`${run.gold} gold`, `${run.roster.length} fighters`, `${run.boons.length} boon${run.boons.length === 1 ? '' : 's'}`];
   if (run.artifacts.length > 0) parts.push(`${run.artifacts.length} artifact${run.artifacts.length === 1 ? '' : 's'} carried`);
+  if (run.endless) parts.push(`score ${run.endless.score}`);
   return parts.join('  ·  ');
 }
 
-/** "Floor 3 of 8". */
+/** "Floor 3 of 8", or past the ruler (session 7G) "Lap 2 · Floor 3 of 8". */
 export function runFloor(run: RunState): string {
-  return `Floor ${Math.max(1, run.path.length)} of ${run.map.length}`;
+  return `${run.endless ? `Lap ${run.endless.lap} · ` : ''}Floor ${Math.max(1, run.path.length)} of ${run.map.length}`;
 }

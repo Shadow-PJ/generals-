@@ -185,7 +185,8 @@ export class RunScene extends Phaser.Scene {
     /** What a crossroads offers (session 7F), on a line of its own between the headline and the scouting. */
     let offer: string | null = null;
     if (run.stop && here) {
-      headline = `Waiting for you here: ${nodeName(here.node)}`;
+      // Past a beaten ruler, what waits is the choice to march on (session 7G).
+      headline = run.stop.kind === 'endless' ? 'The ruler has fallen: the road goes on' : `Waiting for you here: ${nodeName(here.node)}`;
       detail = `Press ${keyLabel('confirm')} to carry on.`;
     } else if (picked !== undefined) {
       const node = run.map[run.path.length]![picked]!;

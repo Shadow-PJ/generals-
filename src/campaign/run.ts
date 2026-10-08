@@ -7,10 +7,12 @@
 import type { Card } from '../cards/types';
 import { boonGold } from '../data/boons';
 import { EVENT_IDS, EVENTS } from '../data/events';
+import type { GeneralId } from '../data/generals';
 import { BOSS_ORDER, learnedActions } from '../data/legendary';
 import { rarityChances } from '../data/rarity';
 import type { RankNumber } from '../data/ranks';
 import { openRegions, REGIONS, type RegionId } from '../data/regions';
+import { ENDLESS_RULES } from '../data/endless';
 import { RUN_RULES } from '../data/runs';
 import { COMPANY_RULES } from '../data/veterans';
 import { createRng, nextInt, type RngState } from '../sim';
@@ -24,7 +26,7 @@ import { campHeal, fallenHp, fearBounty, fearOf, oathGold, oathInsight, oathPric
 import { rollOffers, rollStock, takeOffer } from './offers';
 import { pick } from './random';
 import { currentNode, generateRunMap, nextChoices } from './runMap';
-import type { Campaign, RunState, Stop } from './types';
+import type { Campaign, Encounter, RunState, Stop } from './types';
 
 /** How a fight went, for the run: who is left standing, with how much HP, and what they did. */
 export interface FightOutcome {
@@ -76,6 +78,7 @@ export function newRun(campaign: Campaign, region: RegionId, seed: number): Camp
     ironman: campaign.ironman,
     oaths: { ...campaign.oaths },
     decree: null,
+    endless: null,
   };
   for (const v of company) run = joined(run, fighterFromVeteran(v, 0));
   return { ...campaign, company, run: { ...run, rng: { ...rng } } };
@@ -156,7 +159,8 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
     return { ...run, roster, xp: run.xp + Math.max(0, outcome.xp), insight: run.insight + insight };
   });
   const fell = new Set(outcome.fighters.filter((f) => f.hp === null || f.hp <= 0).map((f) => f.id));
-  if (!outcome.won) return endRun(earned, recorded, false, fell);
+  // An endless run (session 7G) ends at its first lost fight, as the win it already was.
+  if (!outcome.won) return endRun(earned, recorded, run.endless !== null, fell);
 
   const hp = new Map(outcome.fighters.map((f) => [f.id, f.hp]));
   // A fighter who fell gets back up hurt and sits the next fight out (in Ironman, it dies); the
@@ -164,6 +168,7 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
   let healed: RunState = {
     ...recorded,
     fightsWon: run.fightsWon + 1,
+    endless: run.endless && { ...run.endless, score: run.endless.score + endlessPoints(encounter.kind) },
     roster: recorded.roster.map((f) => {
       if (!hp.has(f.id)) return { ...f, wounded: false };
       const left = hp.get(f.id)!;
@@ -172,7 +177,11 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
   };
   if (run.ironman) for (const id of fell) healed = removeFighter(healed, id);
   healed = benchWounded(healed);
-  if (encounter.kind === 'boss') return endRun(earned, healed, true);
+  if (encounter.kind === 'boss') {
+    // Once every ruler has fallen, a ruler beaten offers to march on past it (session 7G).
+    if (endlessOpen(campaign, run)) return { ...earned, run: { ...healed, stop: { kind: 'endless', lap: run.endless?.lap ?? 0 } } };
+    return endRun(earned, healed, true);
+  }
 
   const floor = run.path.length - 1;
   const next = rolling(healed, (rng) => {
@@ -352,7 +361,54 @@ export function leaveStop(campaign: Campaign): Campaign {
 export function abandonRun(campaign: Campaign): Campaign {
   const run = runOf(campaign);
   if (run.stop?.kind === 'end') return campaign;
-  return endRun(campaign, run, false);
+  // Past the ruler, the run is won already: giving up goes home with the win (session 7G).
+  return endRun(campaign, run, run.endless !== null || run.stop?.kind === 'endless');
+}
+
+/** Every ruler has fallen, counting this run's: beating a ruler now offers to march on (session 7G). */
+export function endlessOpen(campaign: Campaign, run: RunState): boolean {
+  return endlessFrom(campaign.bossesBeaten, run.region);
+}
+
+/** Beating this region's ruler would leave no ruler standing, so it offers the road on. */
+export function endlessFrom(bossesBeaten: readonly GeneralId[], region: RegionId): boolean {
+  const ruler = REGIONS[region].ruler;
+  return BOSS_ORDER.every((g) => g === ruler || bossesBeaten.includes(g));
+}
+
+/** What a fight won past the ruler adds to an endless run's score: more for beating the ruler again. */
+function endlessPoints(kind: Encounter['kind']): number {
+  return ENDLESS_RULES.score.fight + (kind === 'boss' ? ENDLESS_RULES.score.ruler : 0);
+}
+
+/** The seed of an endless lap's map: its own, so each lap is a fresh road. */
+function lapSeed(seed: number, lap: number): number {
+  return (seed ^ (lap * 0x2545f491)) | 0;
+}
+
+/**
+ * Marches on past the ruler (session 7G): a fresh map of the region, a lap further, its armies
+ * stronger. Your army, gold, boons, artifacts and decree march with you.
+ */
+export function marchOn(campaign: Campaign): Campaign {
+  const run = runOf(campaign);
+  if (run.stop?.kind !== 'endless') throw new Error('No road on');
+  const lap = run.stop.lap + 1;
+  const next = rolling(run, (rng) => ({
+    ...run,
+    map: markCrossroads(generateRunMap(rng), lapSeed(run.seed, lap)),
+    path: [],
+    stop: null,
+    endless: { lap, score: run.endless?.score ?? 0 },
+  }));
+  return { ...campaign, run: next };
+}
+
+/** Goes home from past the ruler: the run ends as the win it is (session 7G). */
+export function goHome(campaign: Campaign): Campaign {
+  const run = runOf(campaign);
+  if (run.stop?.kind !== 'endless') throw new Error('No road on');
+  return endRun(campaign, run, true);
 }
 
 /** After a won run: a fighter stays in your company, or doesn't. At most 8 stay. */
@@ -360,7 +416,7 @@ export function toggleKeep(campaign: Campaign, fighterId: number): Campaign {
   const run = runOf(campaign);
   const stop = run.stop;
   if (stop?.kind !== 'end' || !stop.won) throw new Error('Only a won run lets fighters stay');
-  if (!run.roster.some((f) => f.id === fighterId)) return campaign;
+  if (!run.roster.some((f) => f.id === fighterId) || stop.died.includes(fighterId)) return campaign;
   const keep = stop.keep.includes(fighterId) ? stop.keep.filter((id) => id !== fighterId) : [...stop.keep, fighterId];
   if (keep.length > COMPANY_RULES.size) return campaign;
   return { ...campaign, run: { ...run, stop: { ...stop, keep } } };
@@ -388,15 +444,18 @@ export function closeRun(campaign: Campaign): Campaign {
 /**
  * The end of a run. A win banks what you carry and beats the ruler: that opens the next region,
  * may unlock a class, and teaches the ruler's Legendary action. A loss loses what you carry, and
- * in Ironman the fighters who fell in the last fight die.
+ * in Ironman the fighters who fell in the last fight die. An endless run (session 7G) always ends
+ * as a win, even at a lost fight (where in Ironman the fallen still die), and keeps its score.
  */
 function endRun(campaign: Campaign, run: RunState, won: boolean, fell: ReadonlySet<number> = new Set()): Campaign {
   const fear = fearOf(run.oaths);
+  const died = run.ironman ? run.roster.filter((f) => fell.has(f.id)).map((f) => f.id) : [];
   if (!won) {
-    const died = run.ironman ? run.roster.filter((f) => fell.has(f.id)).map((f) => f.id) : [];
-    const stop: Stop = { kind: 'end', won, banked: [], lost: [...run.artifacts], learned: null, opened: [], unlocked: null, keep: [], died, fear, bounty: 0 };
+    const stop: Stop = { kind: 'end', won, banked: [], lost: [...run.artifacts], learned: null, opened: [], unlocked: null, keep: [], died, fear, bounty: 0, endless: null };
     return { ...campaign, run: { ...run, artifacts: [], stop } };
   }
+  // An endless run's score, and your best (session 7G).
+  const score = run.endless?.score ?? null;
   // Winning above the region's highest Fear yet pays a bounty of Insight (session 5F).
   const { bounty, record } = fearBounty(campaign.fearRecords, run.region, fear);
   const region = REGIONS[run.region];
@@ -412,14 +471,17 @@ function endRun(campaign: Campaign, run: RunState, won: boolean, fell: ReadonlyS
     learned: learnedActions(bossesBeaten).find((a) => !knew.includes(a)) ?? null,
     opened: openRegions(bossesBeaten).filter((r) => !before.includes(r)),
     unlocked: firstWin ? region.unlocksClass : null,
-    keep: defaultKeep(run.roster),
-    died: [],
+    // An endless run that fell in Ironman: the fallen die, and can't stay.
+    keep: defaultKeep(run.roster.filter((f) => !died.includes(f.id))),
+    died,
     fear,
     bounty,
+    endless: score === null ? null : { score, best: score > campaign.endlessBest },
   };
   return {
     ...campaign,
     bossesBeaten,
+    endlessBest: Math.max(campaign.endlessBest, score ?? 0),
     artifacts: banked(campaign, run),
     insight: campaign.insight + bounty,
     fearRecords: { ...campaign.fearRecords, [run.region]: record },

@@ -334,6 +334,6 @@ Added after 7D at the owner's request: from `docs/inspiration.md`, "Two clear ch
 
 Added after 7D at the owner's request: from `docs/inspiration.md`, "Endless after the last ruler" (9 Kings).
 
-- [ ] Once every region's ruler is beaten, a run can go on past its ruler into ever stronger armies
-- [ ] A score for how far an endless run gets, and your best kept with your profile
-- [ ] Saved with the run, and older saves still load
+- [x] Once every region's ruler is beaten, a run can go on past its ruler into ever stronger armies (laps of the region, harder every lap)
+- [x] A score for how far an endless run gets, and your best kept with your profile
+- [x] Saved with the run, and older saves still load (save version 10)

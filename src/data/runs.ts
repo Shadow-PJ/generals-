@@ -19,6 +19,8 @@ export interface FightTier {
   /** How many enemy troops (field first, then reserves) are Epic, then how many Rare; the rest are Common. */
   epic: number;
   rare: number;
+  /** How many are Legendary, before the Epic ones: only deep in an endless run (session 7G). None when left out. */
+  legendary?: number;
 }
 
 export const RUN_RULES = {

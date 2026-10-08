@@ -45,6 +45,8 @@ export interface Campaign {
   oaths: OathRanks;
   /** The highest Fear at which you have won each region's run. */
   fearRecords: Partial<Record<RegionId, number>>;
+  /** Your best endless score (session 7G): 0 until an endless run ends. */
+  endlessBest: number;
 }
 
 /** What each class has bought of its Tech Web: nodes, and the specialization taken (one at most). */
@@ -140,6 +142,11 @@ export type Stop =
    * is null until you take one; then `outcome` says what happened.
    */
   | { kind: 'crossroads'; gold: number; deals: DealId[]; chosen: number | null; outcome: string[] }
+  /**
+   * After a ruler falls once every ruler has fallen (session 7G): march on past it into a new lap,
+   * or go home. `lap` is the lap just finished: 0 for the run's own map.
+   */
+  | { kind: 'endless'; lap: number }
   /** `chosen` is null until you choose; then `outcome` says what happened. */
   | { kind: 'event'; event: EventId; chosen: number | null; outcome: string[] }
   | { kind: 'merchant'; stock: MerchantItem[]; rerolls: number }
@@ -162,6 +169,8 @@ export type Stop =
       /** The run's Fear, and the Insight a win above the region's highest Fear yet paid. */
       fear: number;
       bounty: number;
+      /** An endless run's score, and whether it beat your best (session 7G); null for a run that never marched on. */
+      endless: { score: number; best: boolean } | null;
     };
 
 export interface RunState {
@@ -197,4 +206,6 @@ export interface RunState {
   oaths: OathRanks;
   /** A beaten commander's card your army fires by itself in the run's battles (session 7D), or null. */
   decree: Card | null;
+  /** Once you march on past the ruler (session 7G): the lap you are on (1 and up) and the score so far. Null until then. */
+  endless: { lap: number; score: number } | null;
 }
