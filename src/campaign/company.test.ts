@@ -177,7 +177,7 @@ describe('equipping artifacts', () => {
     let c = equip(stocked, 8, 'warHorn');
     c = finishFight(enterNode(newRun(c, 'deepForest', 7), 0), won());
     // Straight to the end of the run, keeping everyone but troop 8.
-    c = { ...c, run: { ...runOf(c), stop: { kind: 'end', won: true, banked: [], lost: [], learned: null, opened: [], unlocked: null, keep: [1, 2, 3, 4, 5, 6, 7], died: [], fear: 0, bounty: 0 } } };
+    c = { ...c, run: { ...runOf(c), stop: { kind: 'end', won: true, banked: [], lost: [], learned: null, opened: [], unlocked: null, keep: [1, 2, 3, 4, 5, 6, 7], died: [], fear: 0, bounty: 0, endless: null } } };
     const home = closeRun(c);
     expect(home.company.some((v) => v.artifact === 'warHorn')).toBe(false);
     expect(freeArtifacts(home)).toContain('warHorn');

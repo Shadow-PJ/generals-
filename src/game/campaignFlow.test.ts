@@ -64,6 +64,23 @@ describe('a run’s fight on the battle screens', () => {
     expect(fightSetup(base, { ...atFight(), decree }, 3)!.fight!.decree).toEqual(decree);
   });
 
+  it('a fight deep into an endless run fields Legendary troops, and the battle plays out (session 7G)', () => {
+    const start = newRun(newCampaign(), 'deepForest', 21);
+    const campaign = enterNode({ ...start, run: { ...start.run!, endless: { lap: 5, score: 0 } } }, 0);
+    const setup = fightSetup(base, campaign.run!, 5)!;
+    const enemy = enemyArmyOf(setup);
+    expect([...enemy.placement, ...enemy.reserves].filter((t) => typeof t !== 'string' && t.rarity === 'legendary').length).toBeGreaterThan(0);
+    const state = createBattle({
+      seed: setup.fight!.encounter.seed,
+      map: MAPS[setup.map],
+      player: setup.placement,
+      enemy: enemy.placement,
+      reserves: { player: yourReserves(setup), enemy: enemy.reserves },
+    });
+    while (!state.result) stepBattle(state);
+    expect(['player', 'enemy', 'draw']).toContain(state.result.winner);
+  });
+
   it('tells the run how each fighter came out of the battle', () => {
     const setup = fightSetup(base, atFight(), 1)!;
     const enemy = enemyArmyOf(setup);

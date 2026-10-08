@@ -41,8 +41,8 @@ const base: MatchSetup = {
 
 /** A new save's campaign, as the game loads it. */
 function newSave(): Campaign {
-  const { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery, oaths, fearRecords } = newProfile();
-  return { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery, oaths, fearRecords };
+  const { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery, oaths, fearRecords, endlessBest } = newProfile();
+  return { run, artifacts, bossesBeaten, company, insight, tech, ironman, mastery, oaths, fearRecords, endlessBest };
 }
 
 /** Plays one run to its end: the first way on, the first offer, the first event choice that can be made. */

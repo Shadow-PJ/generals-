@@ -80,6 +80,12 @@ plan is yours to fix.
   and take one of two deals, each a big gain bought with a real cost, in place of the spoils' pick
   of three. See `docs/DESIGN.md`, Crossroads.
 
+## Built in session 7G (the owner asked for it)
+
+- **Endless after the last ruler** (9 Kings): once no ruler stands, beating a ruler offers to march
+  on into laps of the region, its armies stronger every lap, for a high score kept with your
+  profile. See `docs/DESIGN.md`, Endless.
+
 ## Noted for later
 
 - **Two Generals, swap mid-battle** (Skul): lead with two recruited Generals and swap with a key,
@@ -88,5 +94,3 @@ plan is yours to fix.
 - **The General's Banner** (The King is Watching): a zone you steer across the field with the arrow
   keys or a stick; troops near it fight harder. It would give the battle a steady hands-on control
   between card presses, and fits the controller work of session 6C.
-- **Endless after the last ruler** (9 Kings): keep fighting stronger armies after the fifth boss,
-  for a high score.

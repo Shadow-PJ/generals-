@@ -28,7 +28,7 @@ import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
 import { readArtifacts, readCompany, readFearRecords, readMastery, readOaths, readRun, readTech } from './run';
 
-export const PROFILE_VERSION = 9;
+export const PROFILE_VERSION = 10;
 export const PROFILE_FILE: FileName = 'saves/profile.json';
 /** The save as it was before the last migration, in case an update ever goes wrong. */
 export const PROFILE_BACKUP_FILE: FileName = 'saves/profile-backup.json';
@@ -71,6 +71,8 @@ export interface Profile {
   /** Oaths of Command for your next run, and the highest Fear won in each region (session 5F). */
   oaths: OathRanks;
   fearRecords: Partial<Record<RegionId, number>>;
+  /** Your best endless score (session 7G). */
+  endlessBest: number;
   /** The Captain's tips (session 6A). */
   tutorial: Tutorial;
 }
@@ -93,7 +95,7 @@ export function starterLoadout(): Loadout {
 }
 
 export function newProfile(): Profile {
-  const { run, artifacts, company, insight, tech, ironman, mastery, oaths, fearRecords } = newCampaign();
+  const { run, artifacts, company, insight, tech, ironman, mastery, oaths, fearRecords, endlessBest } = newCampaign();
   return {
     version: PROFILE_VERSION,
     loadout: starterLoadout(),
@@ -119,6 +121,7 @@ export function newProfile(): Profile {
     mastery,
     oaths,
     fearRecords,
+    endlessBest,
     tutorial: newTutorial(),
   };
 }
@@ -173,6 +176,7 @@ export function readProfile(text: string | null): Profile {
   profile.mastery = readMastery(saved.mastery);
   profile.oaths = readOaths(saved.oaths);
   profile.fearRecords = readFearRecords(saved.fearRecords);
+  if (typeof saved.endlessBest === 'number' && Number.isInteger(saved.endlessBest) && saved.endlessBest >= 0) profile.endlessBest = saved.endlessBest;
   profile.tutorial = readTutorial(saved.tutorial);
   return profile;
 }

@@ -175,6 +175,8 @@ function stop(value: unknown): Stop {
         chosen: nullable(d.chosen, (v) => int(v)),
         outcome: list(d.outcome).map((l) => (typeof l === 'string' ? l : fail())),
       };
+    case 'endless':
+      return { kind: 'endless', lap: int(d.lap) };
     case 'merchant':
       return { kind: 'merchant', stock: list(d.stock).map(merchantItem), rerolls: int(d.rerolls) };
     case 'camp':
@@ -192,6 +194,10 @@ function stop(value: unknown): Stop {
         died: ids<number>(list(d.died).map((v) => int(v)), d.died),
         fear: int(d.fear ?? 0),
         bounty: int(d.bounty ?? 0),
+        endless: nullable(d.endless, (v) => {
+          const e = obj(v);
+          return { score: int(e.score), best: bool(e.best) };
+        }),
       };
     default:
       return fail();
@@ -295,6 +301,10 @@ function run(value: unknown): RunState {
     ironman: bool(d.ironman),
     oaths: readOaths(d.oaths),
     decree: nullable(d.decree, card),
+    endless: nullable(d.endless, (v) => {
+      const e = obj(v);
+      return { lap: int(e.lap, 1), score: int(e.score) };
+    }),
   };
 }
 

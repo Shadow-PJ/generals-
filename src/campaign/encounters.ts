@@ -1,7 +1,8 @@
 // The enemy at a fight node. Enemies grow stronger along the path: small armies with no commander
 // on the first floors, then full armies with reserves, Rare and Epic troops and commanders of
 // rising rank. Elite fights bring a stronger commander and rarer troops, and the boss the
-// ruler's own army. Every boss you had beaten before the run makes its fights harder still.
+// ruler's own army. Every boss you had beaten before the run makes its fights harder still, and
+// so does every lap of an endless run (session 7G).
 
 import type { Rarity } from '../data/rarity';
 import { BOSS_RULES, type BossId } from '../data/bosses';
@@ -10,6 +11,7 @@ import type { GeneralId } from '../data/generals';
 import { REGIONS } from '../data/regions';
 import { OATH_RULES, oathValue, type OathRanks } from '../data/oaths';
 import { BOSS_FIGHTS, ELITE_FIGHT, FIGHT_TIERS, RUN_LEVEL_STEP, type FightTier } from '../data/runs';
+import { ENDLESS_RULES } from '../data/endless';
 import { MAPS } from '../data/maps';
 import type { RankNumber } from '../data/ranks';
 import type { UnitClass } from '../data/units';
@@ -26,9 +28,10 @@ function rankAtMost(rank: number): RankNumber {
 
 /**
  * The enemy army for a fight of this kind on this floor of a region ruled by `ruler`, `level`
- * bosses into the campaign, under the run's Oaths of Command (session 5F).
+ * bosses into the campaign, under the run's Oaths of Command (session 5F), `lap` laps into an
+ * endless run (session 7G).
  */
-export function fightTier(kind: Encounter['kind'], floor: number, level: number, ruler: BossId, oaths: OathRanks = {}): FightTier {
+export function fightTier(kind: Encounter['kind'], floor: number, level: number, ruler: BossId, oaths: OathRanks = {}, lap = 0): FightTier {
   const base = kind === 'boss' ? BOSS_FIGHTS[ruler] : FIGHT_TIERS[Math.min(floor, FIGHT_TIERS.length - 1)]!;
   let { commander, epic, rare } = base;
   if (kind === 'elite') {
@@ -46,18 +49,28 @@ export function fightTier(kind: Encounter['kind'], floor: number, level: number,
     epic += oathValue(oaths, OATH_RULES.tyrantsWrath.epic, 'tyrantsWrath');
     if (commander !== null) commander = rankAtMost(commander + oathValue(oaths, OATH_RULES.tyrantsWrath.commander, 'tyrantsWrath'));
   }
+  // An endless run (session 7G): every lap past the ruler, rarer troops and sharper commanders.
+  if (lap > 0) {
+    rare += lap * ENDLESS_RULES.perLap.rare;
+    epic += lap * ENDLESS_RULES.perLap.epic;
+    if (commander !== null) commander = rankAtMost(commander + lap * ENDLESS_RULES.perLap.commander);
+    return { ...base, commander, epic, rare, legendary: Math.max(0, lap - ENDLESS_RULES.legendaryAfterLap) };
+  }
   return { ...base, commander, epic, rare };
 }
 
 /** The encounter at a fight node, rolled from the run's generator. */
 export function makeEncounter(rng: RngState, run: RunState, kind: Encounter['kind'], floor: number): Encounter {
   const region = REGIONS[run.region];
-  const tier = fightTier(kind, floor, run.level, region.ruler, run.oaths);
+  const tier = fightTier(kind, floor, run.level, region.ruler, run.oaths, run.endless?.lap ?? 0);
   const count = tier.troops + tier.reserves;
   const classes: UnitClass[] =
     kind === 'boss' ? [...region.bossArmy].slice(0, count) : Array.from({ length: count }, () => weighted(rng, region.enemyClasses));
   // The rarest troops go where the dice put them, field first.
-  const rarities: Rarity[] = Array.from({ length: count }, (_, i) => (i < tier.epic ? 'epic' : i < tier.epic + tier.rare ? 'rare' : 'common'));
+  const legendary = tier.legendary ?? 0;
+  const rarities: Rarity[] = Array.from({ length: count }, (_, i) =>
+    i < legendary ? 'legendary' : i < legendary + tier.epic ? 'epic' : i < legendary + tier.epic + tier.rare ? 'rare' : 'common',
+  );
   const order = [...shuffled(rng, Array.from({ length: tier.troops }, (_, i) => i)), ...Array.from({ length: tier.reserves }, (_, i) => tier.troops + i)];
   const troops = classes.map((cls, i) => ({ cls, rarity: rarities[order.indexOf(i)]! }));
   return {
@@ -71,9 +84,9 @@ export function makeEncounter(rng: RngState, run: RunState, kind: Encounter['kin
   };
 }
 
-/** A node's own seed: every fight on a run's map is fixed when the map is made. */
+/** A node's own seed: every fight on a run's map is fixed when the map is made; an endless lap's map has its own. */
 function nodeSeed(run: RunState, floor: number, index: number): number {
-  return (run.seed ^ ((floor + 1) * 0x9e3779b1) ^ ((index + 1) * 0x85ebca6b)) | 0;
+  return (run.seed ^ ((floor + 1) * 0x9e3779b1) ^ ((index + 1) * 0x85ebca6b) ^ ((run.endless?.lap ?? 0) * 0xc2b2ae35)) | 0;
 }
 
 /**

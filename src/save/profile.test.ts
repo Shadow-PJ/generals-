@@ -97,8 +97,8 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(9);
-    expect(profileVersion(writeProfile(saved()))).toBe(9);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(10);
+    expect(profileVersion(writeProfile(saved()))).toBe(10);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
@@ -210,9 +210,39 @@ describe('the saved profile', () => {
     // A version 8 save was written before crossroads: its map has none.
     for (const floor of data.run.map) for (const node of floor) delete node.crossroads;
     const read = readProfile(JSON.stringify(data));
-    expect(read.version).toBe(9);
+    expect(read.version).toBe(10);
     expect(read.run).not.toBeNull();
     expect(read.run!.map.flat().some((n) => n.crossroads)).toBe(false);
+  });
+
+  it('keeps an endless run, the road on past a ruler, its score and your best (session 7G)', () => {
+    const profile = saved();
+    profile.endlessBest = 17;
+    profile.run = { ...profile.run!, endless: { lap: 2, score: 9 }, stop: { kind: 'endless', lap: 2 } };
+    const read = readProfile(writeProfile(profile));
+    expect(read.endlessBest).toBe(17);
+    expect(read.run!.endless).toEqual({ lap: 2, score: 9 });
+    expect(read.run!.stop).toEqual({ kind: 'endless', lap: 2 });
+    // An ended endless run keeps its score on the end screen.
+    profile.run = { ...profile.run!, stop: { kind: 'end', won: true, banked: [], lost: [], learned: null, opened: [], unlocked: null, keep: [], died: [], fear: 0, bounty: 0, endless: { score: 9, best: false } } };
+    expect(readProfile(writeProfile(profile)).run!.stop).toMatchObject({ kind: 'end', endless: { score: 9, best: false } });
+    // A damaged best is dropped, not the save; a damaged lap drops the run.
+    const data = JSON.parse(writeProfile(profile));
+    data.endlessBest = -3;
+    expect(readProfile(JSON.stringify(data)).endlessBest).toBe(0);
+    data.run.endless = { lap: 0, score: 1 };
+    expect(readProfile(JSON.stringify(data)).run).toBeNull();
+  });
+
+  it('loads a version 9 save: no endless best yet, and the run in progress hasn’t marched on', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 9;
+    delete data.endlessBest;
+    delete data.run.endless;
+    const read = readProfile(JSON.stringify(data));
+    expect(read.endlessBest).toBe(0);
+    expect(read.run).not.toBeNull();
+    expect(read.run!.endless).toBeNull();
   });
 
   it('keeps your Oaths of Command and Fear records, and only the parts that read', () => {
