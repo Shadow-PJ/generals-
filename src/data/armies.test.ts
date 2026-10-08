@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import smokeTest from '../../desktop/smokeTest.ts?raw';
 import { runBattle, type BattleInput } from '../sim';
 import { STARTER_ARMY, STARTER_ARMY_MIRRORED, STARTER_ORDERS } from './armies';
 import { MAPS } from './maps';
@@ -24,4 +25,12 @@ describe('the starter orders (session 7E)', () => {
     // Neither loses it alone: "Rangers fall back", once a starter order, lost every battle pressed like this.
     for (const slot of [0, 1]) expect(wins([slot], seeds)).toBeGreaterThanOrEqual(seeds * 0.4);
   }, 30_000);
+
+  it('is what the desktop app’s smoke test finds in slot 1 of a new save', () => {
+    expect(smokeTest).toContain(`const STARTER_ORDER = '${STARTER_ORDERS[0]!.text}';`);
+    // The order it writes over it is no part of a starter order, so finding it in the save proves the save.
+    const written = /const ORDER = '([^']+)';/.exec(smokeTest)?.[1];
+    expect(written).toBeTruthy();
+    for (const card of STARTER_ORDERS) expect(card.text).not.toContain(written);
+  });
 });
