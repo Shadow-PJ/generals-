@@ -5,7 +5,7 @@
 // session 6A, the other region open from the start too, so tuning the bosses can't wall a new save.
 
 import { describe, expect, it } from 'vitest';
-import { closeRun, chooseEvent, enterNode, eventChoiceProblem, finishFight, leaveStop, newRun, pickSpoils } from '../campaign/run';
+import { closeRun, chooseEvent, dealTakeProblem, enterNode, eventChoiceProblem, finishFight, leaveStop, newRun, pickSpoils, takeDeal } from '../campaign/run';
 import { nextChoices } from '../campaign/runMap';
 import type { Campaign } from '../campaign/types';
 import { emptyLoadout } from '../cards/types';
@@ -83,6 +83,10 @@ function playRun(start: Campaign, seed: number, region: RegionId = 'deepForest')
         c = stop.chosen === null ? chooseEvent(c, index) : leaveStop(c);
         break;
       }
+      // A won crossroads (session 7F): take the first deal it can pay for.
+      case 'crossroads':
+        c = stop.chosen === null ? takeDeal(c, stop.deals.findIndex((_, i) => dealTakeProblem(run, i) === null)) : leaveStop(c);
+        break;
       default:
         c = leaveStop(c);
     }

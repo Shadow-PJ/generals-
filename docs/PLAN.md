@@ -326,9 +326,9 @@ Added after 7D at the owner's request ("improve the quality and design of the ga
 
 Added after 7D at the owner's request: from `docs/inspiration.md`, "Two clear choices instead of three" (Thronefall).
 
-- [ ] Some stops offer a sharp either/or: two choices, each with a clear gain and a clear cost, in place of a pick of three
-- [ ] Shown on the run map, so you can plan your path around them
-- [ ] Saved with the run, and older saves still load
+- [x] Some stops offer a sharp either/or: two choices, each with a clear gain and a clear cost, in place of a pick of three (crossroads battles and their deals)
+- [x] Shown on the run map, so you can plan your path around them
+- [x] Saved with the run, and older saves still load (save version 9)
 
 ### 7G. Endless after the last ruler
 

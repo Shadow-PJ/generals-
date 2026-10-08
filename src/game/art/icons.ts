@@ -24,6 +24,20 @@ const castle = still([
   '................',
 ]);
 
+/** On a crossroads battle's medallion (session 7F): a signpost, its boards pointing two ways. */
+export const CROSSROADS_MARK: Sprite = still([
+  '...kWk...',
+  '.kkkWkkkk',
+  '.kwwwwwwk',
+  '.kkkWkkkk',
+  'kkkkWkkk.',
+  'kwwwwwwk.',
+  'kkkkWkkk.',
+  '...kWk...',
+  '...kWk...',
+  '..kkWkk..',
+]);
+
 /** A stop on a run's map, by kind. */
 export const NODE_ICONS: Readonly<Record<NodeKind, Sprite>> = {
   battle: still([

@@ -5,7 +5,7 @@ import { GENERAL_IDS } from '../../data/generals';
 import { NODE_KINDS } from '../../data/runs';
 import { REGION_IDS } from '../../data/regions';
 import { UNIT_CLASSES, type UnitClass } from '../../data/units';
-import { CAPITAL_ICON, NODE_ICONS, REGION_ICONS } from './icons';
+import { CAPITAL_ICON, CROSSROADS_MARK, NODE_ICONS, REGION_ICONS } from './icons';
 import { BASE, sidePalette } from './palette';
 import type { Palette, Sprite } from './pixels';
 import { PORTRAITS, portraitPalette } from './portraits';
@@ -34,6 +34,7 @@ export const ART_SHEET: readonly SheetEntry[] = [
   ...NODE_KINDS.map((k) => ({ name: `node ${k}`, sprite: NODE_ICONS[k], palette: BASE })),
   ...REGION_IDS.map((r) => ({ name: `region ${r}`, sprite: REGION_ICONS[r], palette: BASE })),
   { name: 'capital', sprite: CAPITAL_ICON, palette: BASE },
+  { name: 'crossroads mark', sprite: CROSSROADS_MARK, palette: BASE },
   { name: 'castle', sprite: CASTLE_ART, palette: CASTLE_PALETTE },
   { name: 'pip', sprite: PIP_GEM, palette: GEM_PALETTES.pip },
   { name: 'pip (cheap)', sprite: PIP_GEM, palette: GEM_PALETTES.cheap },

@@ -13,6 +13,8 @@
 // Version 7 (session 5F): Oaths of Command and Fear records; a run in progress took no oaths.
 // Version 8 (session 7D): a run's decree; a run in progress has none, and spoils waiting from an
 // elite fight offer no beaten commander's orders.
+// Version 9 (session 7F): crossroads on a run's map, and the deals a won one offers; a run in
+// progress keeps the map it had, with no crossroads.
 
 import { defaultKeep, freshName, NO_RECORD, startingCompany } from '../campaign/company';
 import type { Fighter } from '../campaign/types';
@@ -43,6 +45,8 @@ const MIGRATIONS: Readonly<Record<number, (save: SaveData) => SaveData>> = {
   6: (save) => ({ ...save, version: 7, oaths: {}, fearRecords: {}, run: withoutOaths(save.run) }),
   /** A run in progress has no decree yet, and its waiting spoils offer no commander's orders. */
   7: (save) => ({ ...save, version: 8, run: withoutDecree(save.run) }),
+  /** Nothing to change: a run in progress keeps its map, which has no crossroads. */
+  8: (save) => ({ ...save, version: 9 }),
 };
 
 /** A version 7 run: no decree, and spoils without a beaten commander. */

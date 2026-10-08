@@ -4,6 +4,7 @@
 import type { Troop, TroopPlacement } from '../data/armies';
 import type { ArtifactId } from '../data/artifacts';
 import type { BoonId } from '../data/boons';
+import type { DealId } from '../data/crossroads';
 import type { EventId } from '../data/events';
 import type { FactionId } from '../data/factions';
 import type { GeneralId } from '../data/generals';
@@ -93,6 +94,8 @@ export interface Fighter extends FighterTraits {
 export interface RunNode {
   kind: NodeKind;
   next: number[];
+  /** A battle that is a crossroads (session 7F): won, it offers two deals instead of the spoils' pick. */
+  crossroads?: true;
 }
 
 /** A fighter or a boon, offered in the spoils or sold by the merchant. */
@@ -132,6 +135,11 @@ export type Stop =
   | { kind: 'spoils'; gold: number; artifact: ArtifactId | null; offers: Offer[]; commander: BeatenCommander | null }
   /** After an elite fight's spoils: take one of the beaten commander's cards as your decree, or keep yours (session 7D). */
   | { kind: 'decree'; commander: BeatenCommander }
+  /**
+   * After a won crossroads battle (session 7F): its gold is yours; take one of two deals. `chosen`
+   * is null until you take one; then `outcome` says what happened.
+   */
+  | { kind: 'crossroads'; gold: number; deals: DealId[]; chosen: number | null; outcome: string[] }
   /** `chosen` is null until you choose; then `outcome` says what happened. */
   | { kind: 'event'; event: EventId; chosen: number | null; outcome: string[] }
   | { kind: 'merchant'; stock: MerchantItem[]; rerolls: number }

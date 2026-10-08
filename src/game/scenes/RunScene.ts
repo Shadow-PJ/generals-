@@ -1,11 +1,13 @@
 // A run's map: floors of nodes from left to right, ending at the region's ruler. You pick your
 // path one node at a time; what waits at a node (an event, the merchant, a camp) opens when you
-// get there, but a fight is scouted (session 5F): picking it shows the army that waits. Your army, gold, boons and the artifacts you carry are shown below.
+// get there, but a fight is scouted (session 5F): picking it shows the army that waits. A
+// crossroads battle (session 7F) wears a signpost and says what it offers. Your army, gold, boons
+// and the artifacts you carry are shown below.
 // ←→ (or Tab) pick a node you can reach, Enter goes there, Esc goes back to the Capital and the
 // run waits for you.
 
 import Phaser from 'phaser';
-import { NODE_NAMES, NODE_TEXT, scoutText } from '../../campaign/describe';
+import { CROSSROADS_TEXT, NODE_TEXT, nodeName, scoutText } from '../../campaign/describe';
 import { nodeEncounter } from '../../campaign/encounters';
 import { enterNode } from '../../campaign/run';
 import { currentNode, nextChoices } from '../../campaign/runMap';
@@ -16,7 +18,7 @@ import { BOONS } from '../../data/boons';
 import { fearOf } from '../../data/oaths';
 import { REGIONS } from '../../data/regions';
 import type { NodeKind } from '../../data/runs';
-import { NODE_ICONS } from '../art/icons';
+import { CROSSROADS_MARK, NODE_ICONS } from '../art/icons';
 import { keyLabel } from '../bindings';
 import { paintCentered } from '../art/paint';
 import { BASE } from '../art/palette';
@@ -154,6 +156,8 @@ export class RunScene extends Phaser.Scene {
         // Nodes behind you fade: the ones you passed by most, the ones you took a little.
         const alpha = isHere || reachable ? 1 : f < run.path.length ? (taken(f, i) ? 0.55 : 0.3) : 0.8;
         this.drawNode(g, node.kind, p.x, p.y, alpha);
+        // A crossroads battle (session 7F) wears a signpost on its medallion.
+        if (node.crossroads) paintCentered(g, CROSSROADS_MARK.frames.still!, BASE, p.x + NODE_R - 2, p.y - NODE_R + 4, { scale: UI_PIXEL, alpha });
         // Where you stand: your banner. Where you can go: a soft gold ring; the one picked, gold corner marks.
         if (isHere) this.ui.add(this.add.image(p.x + 14, p.y - 8, MAP_ART.banner).setOrigin(0, 1).setScale(UI_PIXEL));
         if (reachable) g.lineStyle(2, COLORS.glow, 0.55).strokeCircle(p.x, p.y, NODE_R + 6);
@@ -169,7 +173,7 @@ export class RunScene extends Phaser.Scene {
           if (reachable) zone.on('pointerdown', () => (i === picked ? this.go(i) : ((this.choice = choices.indexOf(i)), this.render())));
           this.ui.add(zone);
         }
-        const [plate, label] = addPlate(this, p.x, p.y + NODE_R + (node.kind === 'boss' ? 22 : 15), NODE_NAMES[node.kind], textStyle(11, reachable ? TEXT.title : TEXT.body, reachable));
+        const [plate, label] = addPlate(this, p.x, p.y + NODE_R + (node.kind === 'boss' ? 22 : 15), nodeName(node), textStyle(11, reachable ? TEXT.title : TEXT.body, reachable));
         this.ui.add([plate.setAlpha(Math.max(alpha, 0.6)), label.setAlpha(Math.max(alpha, 0.6))]);
       }),
     );
@@ -178,12 +182,16 @@ export class RunScene extends Phaser.Scene {
     const lineY = FOOTER_Y - 40;
     let headline: string;
     let detail: string;
+    /** What a crossroads offers (session 7F), on a line of its own between the headline and the scouting. */
+    let offer: string | null = null;
     if (run.stop && here) {
-      headline = `Waiting for you here: ${NODE_NAMES[here.node.kind]}`;
+      headline = `Waiting for you here: ${nodeName(here.node)}`;
       detail = `Press ${keyLabel('confirm')} to carry on.`;
     } else if (picked !== undefined) {
-      const kind = run.map[run.path.length]![picked]!.kind;
-      headline = `${NODE_NAMES[kind]}  ·  ${keyLabel('confirm')} to go`;
+      const node = run.map[run.path.length]![picked]!;
+      const kind = node.kind;
+      headline = `${nodeName(node)}  ·  ${keyLabel('confirm')} to go`;
+      if (node.crossroads) offer = `${CROSSROADS_TEXT}.`;
       // Scouting: a fight shows the army that waits there, before you choose.
       const scouted = nodeEncounter(run, run.path.length, picked);
       detail = scouted ? `Scouted: ${scoutText(scouted)}` : NODE_TEXT[kind];
@@ -195,7 +203,9 @@ export class RunScene extends Phaser.Scene {
       headline = 'The run is over.';
       detail = '';
     }
-    this.ui.add(this.add.text(16, lineY, headline, textStyle(15, TEXT.perfect, true)));
+    // A crossroads' offer takes the line above the scouting, and the headline moves up to make room.
+    this.ui.add(this.add.text(16, offer ? lineY - 20 : lineY, headline, textStyle(15, TEXT.perfect, true)));
+    if (offer) this.ui.add(this.add.text(16, lineY, offer, textStyle(12, TEXT.gold, true)));
     this.ui.add(this.add.text(16, lineY + 20, detail, textStyle(12, TEXT.body)));
     const fear = fearOf(run.oaths);
     this.ui.add(this.add.text(GAME_WIDTH - 16, lineY, `${runFloor(run)}${fear > 0 ? `  ·  Fear ${fear}` : ''}`, textStyle(13, fear > 0 ? TEXT.threat : TEXT.muted, true)).setOrigin(1, 0));

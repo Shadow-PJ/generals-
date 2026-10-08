@@ -9,6 +9,7 @@ import { LEGENDARY_ACTIONS, type LegendaryAction } from '../cards/types';
 import { ARMY_SIZE, RESERVE_COUNT, type Troop, type TroopPlacement } from '../data/armies';
 import { ARTIFACT_IDS, type ArtifactId } from '../data/artifacts';
 import { BOON_IDS, type BoonId } from '../data/boons';
+import { CROSSROADS_RULES, DEAL_IDS, type DealId } from '../data/crossroads';
 import { EVENT_IDS, type EventId } from '../data/events';
 import { FACTION_IDS, type FactionId } from '../data/factions';
 import { GENERAL_IDS, type GeneralId } from '../data/generals';
@@ -160,6 +161,13 @@ function stop(value: unknown): Stop {
       };
     case 'decree':
       return { kind: 'decree', commander: beatenCommander(d.commander) };
+    case 'crossroads': {
+      const deals = list(d.deals).map((v) => oneOf<DealId>(DEAL_IDS, v));
+      if (deals.length !== CROSSROADS_RULES.deals) fail();
+      const chosen = nullable(d.chosen, (v) => int(v));
+      if (chosen !== null && chosen >= deals.length) fail();
+      return { kind: 'crossroads', gold: int(d.gold), deals, chosen, outcome: list(d.outcome).map((l) => (typeof l === 'string' ? l : fail())) };
+    }
     case 'event':
       return {
         kind: 'event',
@@ -232,7 +240,11 @@ function runMap(value: unknown): RunNode[][] {
   const floors = list(value).map((f) =>
     list(f).map((n) => {
       const d = obj(n);
-      return { kind: oneOf<NodeKind>(NODE_KINDS, d.kind), next: list(d.next).map((i) => int(i)) };
+      const kind = oneOf<NodeKind>(NODE_KINDS, d.kind);
+      const node: RunNode = { kind, next: list(d.next).map((i) => int(i)) };
+      // Only a battle can be a crossroads (session 7F).
+      if (d.crossroads === true && kind === 'battle') node.crossroads = true;
+      return node;
     }),
   );
   if (floors.length === 0 || floors.some((f) => f.length === 0)) fail();
