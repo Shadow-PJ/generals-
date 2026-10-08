@@ -55,6 +55,7 @@ import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
 import { UI_PIXEL } from '../art/frames';
 import type { StopScene as StopPicture } from '../art/stops';
 import { stopSceneTexture } from '../art/textures';
+import { firstTakeable } from '../stopCursor';
 import { PICTURE_GAP, pictureHeight } from '../stopPicture';
 import { addFrame, displayStyle, textStyle, titleCase } from '../ui';
 
@@ -86,6 +87,8 @@ interface View {
   titleColor: string;
   lines: { text: string; color?: string; bold?: boolean }[];
   options: Option[];
+  /** Where the cursor starts, when not on the first option you can take (session 7H). */
+  cursor?: number;
   /** What Esc does, if anything. */
   leave?: () => void;
 }
@@ -103,6 +106,8 @@ function offerDetail(run: RunState, offer: Offer): string {
 
 export class StopScene extends Phaser.Scene {
   private selected = 0;
+  /** A new view opens: its cursor starts on the first option you can take (session 7H). */
+  private fresh = true;
   private message = '';
   private ui!: Phaser.GameObjects.Container;
 
@@ -111,7 +116,7 @@ export class StopScene extends Phaser.Scene {
   }
 
   init(): void {
-    this.selected = 0;
+    this.fresh = true;
     this.message = '';
   }
 
@@ -215,7 +220,7 @@ export class StopScene extends Phaser.Scene {
 
   /** After the spoils: an elite fight's beaten commander offers its orders next; otherwise, back to the map. */
   private afterSpoils(next: Campaign): void {
-    this.selected = 0;
+    this.fresh = true;
     this.step(next, next.run?.stop ? 'stay' : 'Run');
   }
 
@@ -355,7 +360,7 @@ export class StopScene extends Phaser.Scene {
           detail: run.endless ? `End the run as won, with a score of ${score}.` : 'End the run as won.',
           problem: null,
           act: () => {
-            this.selected = 0;
+            this.fresh = true;
             this.step(goHome(campaign), 'stay');
           },
         },
@@ -487,7 +492,9 @@ export class StopScene extends Phaser.Scene {
         act: () => this.step(toggleKeep(campaign, f.id), 'stay'),
       };
     });
-    return { picture: 'won', title: stop.endless ? 'THE ROAD ENDS' : 'REGION CLEARED!', titleColor: TEXT.victory, lines, options: [...fighters, back], leave };
+    // Who stays is already chosen: the cursor starts on going home, so Enter carries on (session 7H).
+    const options = [...fighters, back];
+    return { picture: 'won', title: stop.endless ? 'THE ROAD ENDS' : 'REGION CLEARED!', titleColor: TEXT.victory, lines, options, cursor: options.length - 1, leave };
   }
 
   private render(): void {
@@ -495,6 +502,8 @@ export class StopScene extends Phaser.Scene {
     const view = this.view();
     const run = currentCampaign().run;
     if (!view || !run) return;
+    if (this.fresh) this.selected = view.cursor ?? firstTakeable(view.options);
+    this.fresh = false;
     if (this.selected >= view.options.length) this.selected = 0;
     const cx = GAME_WIDTH / 2;
     // The words and options are laid out first, from the top of `body`; the picture then takes

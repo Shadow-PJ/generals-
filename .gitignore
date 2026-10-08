@@ -14,3 +14,6 @@ server/build/
 # Epic's SDK library and the game's EOS settings (session 7B) stay on the owner's computer.
 desktop/eos/*
 !desktop/eos/README.md
+# Output of the browser scripts in tools/browser (session 7H)
+playthrough/
+store-shots/

@@ -236,6 +236,8 @@ export class BattleScene extends Phaser.Scene {
   private decreeText: Phaser.GameObjects.Text | null = null;
   private pipsText!: Phaser.GameObjects.Text;
   private ultimateText!: Phaser.GameObjects.Text;
+  /** Whether each long ultimate label fits its panel, measured once (session 7H). */
+  private readonly labelFits = new Map<string, boolean>();
   /** The enemy commander's Momentum, and a warning when its ultimate is close. */
   private enemyCommandText!: Phaser.GameObjects.Text;
   private chainText!: Phaser.GameObjects.Text;
@@ -1074,7 +1076,13 @@ export class BattleScene extends Phaser.Scene {
     let label = `${u}: ${ultimate.name}  ${Math.floor(share * 100)}%`;
     if (finisher) label = `${u}: FINISHER now!`;
     else if (ready) label = `${u}: ${ultimate.name.toUpperCase()} ready!`;
-    else if (momentumFull(this.state, command)) label = `${u}: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
+    else if (momentumFull(this.state, command)) {
+      // A long need doesn't fit beside the ultimate's name in the panel: the need alone (session 7H).
+      const need = ultimate.needs ?? 'a moment';
+      const full = `${u}: ${ultimate.name} needs ${need}`;
+      if (!this.labelFits.has(full)) this.labelFits.set(full, this.ultimateText.setText(full).width <= width);
+      label = this.labelFits.get(full) ? full : `${u}: needs ${need}`;
+    }
     recolor(this.ultimateText.setText(label), finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
   }
 

@@ -591,6 +591,16 @@ The owner asked to improve the quality and design of the game. A screen-by-scree
 - **The Orders screen's General line** switches among your recruited Generals, as the General screen does; it was labeled "debug" and no longer is.
 - **A layout check** runs in development builds on every screen as it opens and reports words that run into buttons, into other words or off the screen, and button labels wider than their button (`src/game/layoutCheck.ts`). It found the headers above; release builds leave it out.
 
+## Release polish (session 7H)
+
+The owner asked for the game to be made ready to ship, with no new features. The game was played through by keyboard in the browser by a script (`npm run playthrough`), from a new profile over several runs and from a run past the last ruler, and its screens taken for the store at 1920 × 1080. It found these, and they are fixed:
+
+- **A stop's cursor starts on something you can take:** a merchant's stock you can't afford, or an event's choice you can't pay for, is passed over, so the first Enter does something. On a won run's last screen the cursor starts on "Back to the Capital": who stays is already chosen, and Enter used to send the first fighter away.
+- **The ultimate's line fits its panel:** while it waits for its moment, a long need ("Reaper's Toll needs a troop below 20% HP") ran past the panel's edge; when it doesn't fit, the line says only what is needed ("U: needs a troop below 20% HP").
+- **Words:** titles keep small words small ("Storm on the Pass", "Oaths of Command"), and "an" comes before a vowel ("an Ambush", "An Epic Ranger joins your army", "an Iron Fortress run").
+- **The bars beside the game** (on a screen wider than the game's 15 : 11, like a Steam Deck's) are the game's own dark plum in the browser and the desktop app; they were the old cool navy.
+- **No stalls while playing:** the sprite shaders are all built on the Boot screen, before the title, instead of the first time each is needed (one stalled mid-battle). See `docs/performance.md`.
+
 ## The Captain's tips (session 6A)
 
 The tutorial is the Captain, your first General, talking you through your first battles. Each tip is a line or two in a small box, said once, the first time its moment comes; it fades by itself after 12 s (8 s in battle) or at a click, and never takes a key, so the screen under it works as usual. Tips stop once each has been said.

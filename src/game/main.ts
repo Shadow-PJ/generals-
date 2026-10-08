@@ -129,13 +129,20 @@ function exposeTestHook(game: Phaser.Game): void {
         const match = currentMatch();
         return match && { role: match.role, phase: match.phase, code: match.code, round: match.round };
       },
+      /** The screens open now, for scripts that play the game through (session 7H). */
+      scenes: () => game.scene.getScenes(true).map((scene) => scene.scene.key),
+      /** Frames drawn per second, as the game loop measures them (session 7H). */
+      fps: () => game.loop.actualFps,
       /** The battle on screen: its tick, fingerprint and result, to compare two games' battles. */
       battle: () => {
         const scene = game.scene.getScene('Battle') as unknown as { state?: BattleState } | null;
         const state = scene?.state;
         if (!state) return null;
         const fired = state.events.filter((e) => e.type === 'cardFired').map((e) => e.side);
-        return { tick: state.tick, hash: stateHash(state), result: state.result, inputs: state.inputLog.length, fired };
+        // Your ultimates and signature combos so far: the store screenshots wait for them (session 7H).
+        const ultimates = state.events.filter((e) => e.type === 'ultimate' && e.side === 'player').length;
+        const combos = state.events.filter((e) => e.type === 'combo' && e.side === 'player').length;
+        return { tick: state.tick, hash: stateHash(state), result: state.result, inputs: state.inputLog.length, fired, ultimates, combos };
       },
     },
   });

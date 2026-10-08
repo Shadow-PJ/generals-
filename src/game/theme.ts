@@ -19,9 +19,21 @@ export const DISPLAY_FONT = '"Jacquard 12", "Pixelify Sans", serif';
 /** The color under every text: a dark drop shadow, so words read on art. */
 export const TEXT_SHADOW = '#0c0910';
 
-/** "THE CAPITAL" → "The Capital": the display font reads best in mixed case. */
+/** Small words a title keeps in lower case, unless they start or end it (session 7H). */
+const MINOR_WORDS = new Set(['a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);
+
+/**
+ * "THE CAPITAL" → "The Capital": the display font reads best in mixed case. Small words stay
+ * small ("Storm on the Pass"), except as the first or last word or after a colon or a dot.
+ */
 export function titleCase(text: string): string {
-  return text.toLowerCase().replace(/(^|[\s·:(\-–—"“])(\p{L})/gu, (_, before: string, letter: string) => before + letter.toUpperCase());
+  const lower = text.toLowerCase();
+  return lower.replace(/\p{L}[\p{L}'’]*/gu, (word: string, at: number) => {
+    const before = lower.slice(0, at).trimEnd();
+    const opens = before === '' || /[·:(–—"“!?]$/.test(before);
+    const last = !/\p{L}/u.test(lower.slice(at + word.length));
+    return MINOR_WORDS.has(word) && !opens && !last ? word : word[0]!.toUpperCase() + word.slice(1);
+  });
 }
 
 /**

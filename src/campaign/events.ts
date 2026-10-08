@@ -8,7 +8,7 @@ import { PERKS } from '../data/perks';
 import { RARITY_RULES, rarityAbove } from '../data/rarity';
 import type { RngState } from '../sim';
 import { addFighter, removeFighter } from './army';
-import { fighterLabel, offerLabel } from './describe';
+import { aOrAn, capitalized, fighterLabel, offerLabel } from './describe';
 import { boonOfferOrNull, rollFighter, rollPerks } from './offers';
 import { pick } from './random';
 import type { RunState } from './types';
@@ -79,7 +79,7 @@ function applyEffect(
       for (let i = 0; i < (effect.count ?? 1); i++) {
         const fighter = rollFighter(rng, next, effect.rarity, bossesBeaten, effect.cls);
         next = addFighter(next, fighter, effect.hp ?? 1);
-        lines.push(`A ${fighterLabel(fighter.cls, fighter.rarity, fighter.faction)} joins your army${effect.hp !== undefined && effect.hp < 1 ? `, at ${percent(effect.hp)} HP` : ''}.`);
+        lines.push(`${capitalized(aOrAn(fighterLabel(fighter.cls, fighter.rarity, fighter.faction)))} joins your army${effect.hp !== undefined && effect.hp < 1 ? `, at ${percent(effect.hp)} HP` : ''}.`);
       }
       return { run: next, lines };
     }

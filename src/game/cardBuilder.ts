@@ -1,6 +1,7 @@
 // The card builder's menus as plain data: every menu row lists its choices as finished cards,
 // so moving left or right on a row simply picks the next card. No Phaser here, so it is tested.
 
+import { aOrAn, capitalized } from '../campaign/describe';
 import { describeTarget, ACTION_NAMES } from '../cards/describe';
 import type { ActionName, Actors, Card, Place, Step, Target, Trigger, TriggerKind } from '../cards/types';
 import { REGULAR_ACTIONS, TRIGGER_KINDS } from '../cards/types';
@@ -301,7 +302,7 @@ function stepParamRows(card: Card, i: number, step: Step): BuilderRow[] {
           card,
           `${id}.reserve`,
           'Reserve',
-          reserves.map((r) => [r ? `A ${TROOP_NAMES[r].one}` : 'The next in line', withStep(card, i, { ...step, reserve: r })]),
+          reserves.map((r) => [r ? capitalized(aOrAn(TROOP_NAMES[r].one)) : 'The next in line', withStep(card, i, { ...step, reserve: r })]),
         ),
       );
       break;
