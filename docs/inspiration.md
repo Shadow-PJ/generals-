@@ -68,6 +68,12 @@ plan is yours to fix.
   are on in your army, the spoils can offer a duo boon of that pair: it counts for both factions and
   adds an effect of its own.
 
+## Built in session 7D (the owner picked it)
+
+- **Decrees** (from 9 Kings, taking a beaten king's card). After an elite fight, take one of the
+  beaten commander's cards as your run's decree: your army fires it by itself in every battle of
+  the run. See `docs/DESIGN.md`, Decrees.
+
 ## Noted for later
 
 - **Two Generals, swap mid-battle** (Skul): lead with two recruited Generals and swap with a key,
@@ -78,6 +84,4 @@ plan is yours to fix.
   between card presses, and fits the controller work of session 6C.
 - **Endless after the last ruler** (9 Kings): keep fighting stronger armies after the fifth boss,
   for a high score.
-- **Taking the beaten General's card** (9 Kings): after an elite fight, pick one of the enemy
-  commander's cards as a run-long decree.
 - **Two clear choices instead of three** (Thronefall): some stops could offer a sharp either/or.

@@ -2,7 +2,9 @@
 // Like the rest of the profile, reading is forgiving: a run that doesn't read correctly in every
 // part is dropped (null) rather than half-loaded, and the rest of your save still loads.
 
-import type { Encounter, Fighter, FighterRecord, MerchantItem, Offer, RunNode, RunState, Stop, TechWeb, Veteran } from '../campaign/types';
+import type { BeatenCommander, Encounter, Fighter, FighterRecord, MerchantItem, Offer, RunNode, RunState, Stop, TechWeb, Veteran } from '../campaign/types';
+import { readCard } from '../cards/schema';
+import type { Card } from '../cards/types';
 import { LEGENDARY_ACTIONS, type LegendaryAction } from '../cards/types';
 import { ARMY_SIZE, RESERVE_COUNT, type Troop, type TroopPlacement } from '../data/armies';
 import { ARTIFACT_IDS, type ArtifactId } from '../data/artifacts';
@@ -68,6 +70,15 @@ function ids<T>(options: readonly T[], value: unknown): T[] {
 }
 
 const rank = (v: unknown) => oneOf<RankNumber>(RANKS.map((r) => r.rank), v);
+
+/** A card as saved (a run's decree), read as the card format reads any card. */
+const card = (v: unknown): Card => readCard(v) ?? fail();
+
+/** An elite fight's beaten commander (session 7D). */
+function beatenCommander(value: unknown): BeatenCommander {
+  const d = obj(value);
+  return { general: oneOf<GeneralId>(GENERAL_IDS, d.general), rank: rank(d.rank) };
+}
 
 /** Events renamed since a run could be saved, by their old ids: the Gamblers' Tent became the Quartermaster (session 7C). */
 const RENAMED_EVENTS: Readonly<Record<string, EventId>> = { gamblersTent: 'quartermaster' };
@@ -140,7 +151,15 @@ function stop(value: unknown): Stop {
     case 'fight':
       return { kind: 'fight', encounter: encounter(d.encounter) };
     case 'spoils':
-      return { kind: 'spoils', gold: int(d.gold), artifact: nullable(d.artifact, (v) => oneOf<ArtifactId>(ARTIFACT_IDS, v)), offers: list(d.offers).map(offer) };
+      return {
+        kind: 'spoils',
+        gold: int(d.gold),
+        artifact: nullable(d.artifact, (v) => oneOf<ArtifactId>(ARTIFACT_IDS, v)),
+        offers: list(d.offers).map(offer),
+        commander: nullable(d.commander, beatenCommander),
+      };
+    case 'decree':
+      return { kind: 'decree', commander: beatenCommander(d.commander) };
     case 'event':
       return {
         kind: 'event',
@@ -263,6 +282,7 @@ function run(value: unknown): RunState {
     insight: int(d.insight),
     ironman: bool(d.ironman),
     oaths: readOaths(d.oaths),
+    decree: nullable(d.decree, card),
   };
 }
 

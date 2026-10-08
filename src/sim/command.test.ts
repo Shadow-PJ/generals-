@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Card } from '../cards/types';
 import { COMMAND_RULES, ULTIMATES } from '../data/command';
 import { stepBattle } from './battle';
-import { slotReadiness, ultimateReady } from './command';
+import { DECREE_SLOT, SLOT_COUNT, slotReadiness, ultimateReady } from './command';
+import { stateHash } from './hash';
 import { battleWith, cardOf } from './testing/fixtures';
 import { secondsToTicks } from './time';
 import type { BattleState } from './types';
@@ -172,6 +173,45 @@ describe('firing cards', () => {
     const tick = state.tick;
     press(state, 0);
     expect(state.inputLog).toEqual([{ tick, kind: 'slot', slot: 0 }]);
+  });
+});
+
+describe('a run’s decree (session 7D)', () => {
+  const decree: Card = { ...hurtRanger, auto: true };
+
+  it('sits in a slot of its own after the slot bar and fires by itself, paying pips like any card', () => {
+    const state = quiet([hold], { decree });
+    expect(state.command.slots).toHaveLength(SLOT_COUNT + 1);
+    expect(state.command.slots[DECREE_SLOT]!.card).toEqual(decree);
+    const pips = state.command.pips;
+    const ranger = state.units.find((u) => u.cls === 'ranger')!;
+    ranger.hp = 100;
+    stepBattle(state);
+    expect(fired(state)).toEqual([expect.objectContaining({ slot: DECREE_SLOT, auto: true })]);
+    expect(state.command.pips).toBeLessThan(pips);
+    expect(slotReadiness(state, DECREE_SLOT)).toBe('resting');
+  });
+
+  it('has no key: pressing its slot does nothing, even while it could fire', () => {
+    const state = quiet([], { decree: { ...decree, auto: false } });
+    const ranger = state.units.find((u) => u.cls === 'ranger')!;
+    ranger.hp = 100;
+    stepBattle(state);
+    expect(slotReadiness(state, DECREE_SLOT)).toBe('ready');
+    press(state, DECREE_SLOT);
+    expect(fired(state)).toEqual([]);
+  });
+
+  it('follows your rank like any card: at Rank I, with no Auto, it is left out', () => {
+    expect(quiet([], { decree, rank: 1 }).command.slots[DECREE_SLOT]!.card).toBeNull();
+    expect(quiet([], { decree, rank: 2 }).command.slots[DECREE_SLOT]!.card).not.toBeNull();
+  });
+
+  it('leaves a battle without a decree exactly as it was', () => {
+    const plain = quiet([hold]);
+    expect(plain.command.slots).toHaveLength(SLOT_COUNT);
+    const withNone = quiet([hold], { decree: undefined });
+    expect(stateHash(withNone)).toBe(stateHash(plain));
   });
 });
 

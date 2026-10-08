@@ -21,7 +21,7 @@ support email address shown with the rating.
 
 | Topic | What Generals has |
 | --- | --- |
-| **Violence** | Fantasy combat between tiny pixel-art soldiers (16×16-pixel sprites) seen from above: swords, bows, shields and magic. A hit shows a small yellow spark and a damage number; a soldier who falls disappears in a gray puff. No blood, no gore, no body parts, no lasting bodies, no cruelty, no violence against people who aren't fighting, no realistic weapons and no realistic people. The player gives orders; they never control one soldier's attacks directly. |
+| **Violence** | Fantasy combat between tiny pixel-art soldiers (16×16-pixel sprites) seen from above: swords, bows, shields and magic. A hit shows a small yellow spark and a damage number; a soldier who falls tips over with a small gray puff and stays where it fell, a faded gray figure, until the battle ends. No blood, no gore, no body parts, no cruelty, no violence against people who aren't fighting, no realistic weapons and no realistic people. The player gives orders; they never control one soldier's attacks directly. |
 | **Blood** | None shown. Words only: names such as "Bloodbound" (a faction), "Blood Pact" (sacrifice a soldier for power), "Blood Oath", "Blood Spent" (an achievement) and lines such as "Blood will flow." from the Warlord. |
 | **Fear and horror** | None. "Fear" is a difficulty score for the vows you take. The Hive Mother's troops grow shells and claws as they win fights ("Adapt or be eaten"), drawn in the same small pixel art. Nothing is meant to scare. |
 | **Language** | No swearing, no slurs, no crude words. Generals reply to orders in short lines written for the game. |

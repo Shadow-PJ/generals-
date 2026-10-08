@@ -36,6 +36,8 @@ export interface BattleOptions {
   /** The card in the Legendary slot, and the Legendary actions you know. */
   legendary?: Card;
   learned?: LegendaryAction[];
+  /** A run's decree (session 7D). */
+  decree?: Card;
 }
 
 export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], options: BattleOptions = {}): BattleState {
@@ -54,6 +56,7 @@ export function battleWith(player: TroopPlacement[], enemy: TroopPlacement[], op
     enemyGeneral: options.enemyGeneral,
     specs: { player: options.specs, enemy: options.enemySpecs },
     learned: options.learned,
+    decree: options.decree,
   });
 }
 

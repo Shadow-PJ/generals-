@@ -7,6 +7,7 @@ export {
   chainTicksLeft,
   bloodPayer,
   commandOf,
+  DECREE_SLOT,
   inComeback,
   LEGENDARY_SLOT,
   momentumFull,

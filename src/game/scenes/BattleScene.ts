@@ -24,6 +24,7 @@ import {
   chainTicksLeft,
   commandOf,
   createBattle,
+  DECREE_SLOT,
   hiddenFromSide,
   LEGENDARY_SLOT,
   momentumFull,
@@ -158,6 +159,10 @@ const SLOT_W = 136;
 const SLOT_H = 80;
 const SLOT_GAP = 8;
 const SLOT_Y = BOTTOM_BAR_Y + 10;
+/** The decree's line (session 7D), at the bottom left of the field, just above the slot bar. */
+const DECREE_W = 420;
+const DECREE_H = 24;
+const DECREE_Y = BOTTOM_BAR_Y - DECREE_H - 8;
 const PANEL_X = 16 + SLOT_COUNT * (SLOT_W + SLOT_GAP);
 
 interface Point {
@@ -225,6 +230,8 @@ export class BattleScene extends Phaser.Scene {
   private pausedText!: Phaser.GameObjects.Text;
   private speedButtons: { pause: Button; normal: Button; fast: Button } | null = null;
   private slotTexts: SlotTexts[] = [];
+  /** A run's decree (session 7D), shown above the slot bar: its card and what it is doing. */
+  private decreeText: Phaser.GameObjects.Text | null = null;
   private pipsText!: Phaser.GameObjects.Text;
   private ultimateText!: Phaser.GameObjects.Text;
   /** The enemy commander's Momentum, and a warning when its ultimate is close. */
@@ -270,6 +277,7 @@ export class BattleScene extends Phaser.Scene {
     this.slotFlashUntil = new Map();
     this.threatTexts = new Map();
     this.slotTexts = [];
+    this.decreeText = null;
     this.hpGhost = {};
     this.numbers = [];
     this.numbersShown = 0;
@@ -310,6 +318,7 @@ export class BattleScene extends Phaser.Scene {
       boons: { player: data.fight?.boons ?? [] },
       tech: { player: data.fight?.tech ?? {} },
       boss: bossOf(data),
+      decree: data.fight?.decree ?? null,
     });
   }
 
@@ -394,6 +403,7 @@ export class BattleScene extends Phaser.Scene {
     }
 
     this.createBottomBar();
+    this.createDecree();
     this.chainBar = this.add.graphics();
     this.chainText = this.add.text(GAME_WIDTH - 16, BOTTOM_BAR_Y - 30, '', textStyle(22, TEXT.combo, true)).setOrigin(1, 0);
 
@@ -602,6 +612,9 @@ export class BattleScene extends Phaser.Scene {
         }
       } else if (e.type === 'overtime') {
         this.banner('OVERTIME', TEXT.overtime, 'Damage grows every second');
+      } else if (e.type === 'cardFired' && e.side === this.own && e.slot === DECREE_SLOT) {
+        this.slotFlashUntil.set(e.slot, time + 450);
+        this.screenPopup(16 + DECREE_W / 2, DECREE_Y - 6, e.link > 1 ? `Decree!  x${e.link}` : 'Decree!', e.link > 1 ? TEXT.combo : TEXT.body, 13);
       } else if (e.type === 'cardFired' && e.side === this.own) {
         this.slotFlashUntil.set(e.slot, time + 450);
         const x = 16 + e.slot * (SLOT_W + SLOT_GAP) + SLOT_W / 2;
@@ -957,10 +970,37 @@ export class BattleScene extends Phaser.Scene {
       .on('pointerdown', () => this.press({ kind: 'ultimate' }));
   }
 
+  /** The decree's line above the slot bar, when the run has one your rank can follow. */
+  private createDecree(): void {
+    const card = this.command.slots[DECREE_SLOT]?.card;
+    if (!card) return;
+    addFrame(this, 12, DECREE_Y, DECREE_W, DECREE_H, 'plain');
+    this.decreeText = this.add.text(20, DECREE_Y + 6, '', { ...textStyle(11, TEXT.body), wordWrap: { width: DECREE_W - 16 }, maxLines: 1 });
+  }
+
+  /** The decree's state: when it glows it is about to fire by itself; a flash when it has. */
+  private drawDecree(g: Phaser.GameObjects.Graphics, time: number, pulse: number): void {
+    const slot = this.command.slots[DECREE_SLOT];
+    if (!this.decreeText || !slot?.card) return;
+    const readiness = slotReadiness(this.state, DECREE_SLOT, this.command);
+    if (slot.glowing && readiness !== 'resting') g.lineStyle(3, COLORS.glow, pulse).strokeRect(10, DECREE_Y - 2, DECREE_W + 4, DECREE_H + 4);
+    if ((this.slotFlashUntil.get(DECREE_SLOT) ?? 0) > time) g.lineStyle(3, 0xffffff, 1).strokeRect(10, DECREE_Y - 2, DECREE_W + 4, DECREE_H + 4);
+    const status =
+      readiness === 'resting'
+        ? `resting ${Math.ceil(slot.restTicks / TICKS_PER_SECOND)} s`
+        : readiness === 'noPips'
+          ? `needs ${slotCost(this.state, DECREE_SLOT, this.command) ?? 0} pips`
+          : slot.glowing
+            ? 'firing'
+            : 'waits for its moment';
+    this.decreeText.setText(`DECREE (${status}): ${shortCard(slot.card)}`).setAlpha(readiness === 'resting' ? 0.6 : 1);
+  }
+
   private drawBottomBar(time: number): void {
     const g = this.bottomBar.clear();
     const command = this.command;
     const pulse = 0.55 + 0.45 * Math.sin(time / 120);
+    this.drawDecree(g, time, pulse);
 
     for (let i = 0; i < SLOT_COUNT; i++) {
       const x = 16 + i * (SLOT_W + SLOT_GAP);

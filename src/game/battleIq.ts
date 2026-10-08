@@ -10,7 +10,7 @@ import { SIGNATURE_COMBOS } from '../data/combos';
 import { GENERALS } from '../data/generals';
 import { rankRules } from '../data/ranks';
 import { TROOP_NAMES } from '../data/units';
-import { formatBattleTime, secondsToTicks, ticksToSeconds, type BattleEvent, type BattleState } from '../sim';
+import { DECREE_SLOT, formatBattleTime, secondsToTicks, ticksToSeconds, type BattleEvent, type BattleState } from '../sim';
 import { battleFacts } from './battleFacts';
 
 export type Grade = 'A' | 'B' | 'C' | 'D';
@@ -139,7 +139,8 @@ function bestDecision(state: BattleState): Candidate[] {
   }
   for (const fired of mine(state, 'cardFired')) {
     const kills = killsAfter(state, fired.tick);
-    if (kills > 0) out.push({ text: `The card in slot ${fired.slot + 1} at ${at(fired.tick)} led to ${kills} kill${kills === 1 ? '' : 's'} within 4 s.`, weight: 10 * kills });
+    const which = fired.slot === DECREE_SLOT ? 'Your decree' : `The card in slot ${fired.slot + 1}`;
+    if (kills > 0) out.push({ text: `${which} at ${at(fired.tick)} led to ${kills} kill${kills === 1 ? '' : 's'} within 4 s.`, weight: 10 * kills });
   }
   return out;
 }

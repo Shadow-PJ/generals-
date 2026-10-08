@@ -4,7 +4,9 @@
 // long chain is a Finisher. Your General bends one rule about pips (their mana twist). The
 // enemy may have a commander too, with its own Command bar; it fires its cards by script (all
 // Auto) and its ultimate as soon as it can. In a two-player battle (session 6D) that commander is
-// the other player, whose keys reach the battle as inputs for the enemy's side.
+// the other player, whose keys reach the battle as inputs for the enemy's side. On a run your
+// army may also follow a decree (session 7D): a beaten commander's card in a slot of its own,
+// with no key, that fires by itself.
 
 import { makesCombo } from '../cards/combos';
 import { cardCost } from '../cards/cost';
@@ -28,13 +30,17 @@ import { castUltimate, ultimateOf, ultimateUsable } from './ultimates';
 import type { BattleInput, BattleState, CommandState, Side, SlotState, Unit } from './types';
 
 export const LEGENDARY_SLOT = 4;
+/** The slots on the slot bar, with a key each: 4 regular slots and the Legendary slot. */
 export const SLOT_COUNT = 5;
+/** The decree's slot (session 7D), after the slot bar's: it has no key and fires only by itself. */
+export const DECREE_SLOT = SLOT_COUNT;
 
 /**
  * Sets up the slots. Each card goes through the validator as you wrote it (a card the rank
  * doesn't allow, or in a locked slot, is left out), then through your General's personality
  * rules, so the General's version is what fires. The Legendary slot opens once a boss has
- * taught a Legendary action (`learned`).
+ * taught a Legendary action (`learned`). A run's decree, when there is one, goes the same way
+ * into a slot after the others.
  */
 export function createCommand(
   side: Side,
@@ -44,6 +50,7 @@ export function createCommand(
   learned: readonly LegendaryAction[] = [],
   boons: readonly BoonId[] = [],
   human = side === 'player',
+  decree: Card | null = null,
 ): CommandState {
   const rules = rankRules(rank);
   const maxPips = rules.maxPips + extraMaxPips(boons);
@@ -56,6 +63,8 @@ export function createCommand(
   const cards: (Card | null)[] = [
     ...regular.map((card, i) => (slotUnlockRank(i, rank) ? null : read(card, regularSlot))),
     legendaryOpen ? read(loadout?.legendary ?? null, legendarySlot) : null,
+    // Only a battle with a decree has its slot, so every other battle stays as it was.
+    ...(decree ? [read(decree, regularSlot)] : []),
   ];
   const slots: SlotState[] = cards.map((card) => ({
     card,
@@ -311,7 +320,8 @@ export function applyInput(state: BattleState, input: BattleInput): void {
   if (!command?.human) return;
   state.inputLog.push(input);
   if (input.kind === 'slot') {
-    if (slotReadiness(state, input.slot, command) === 'ready') fireSlot(state, command, input.slot, false);
+    // A decree has no key: it fires only by itself.
+    if (input.slot !== DECREE_SLOT && slotReadiness(state, input.slot, command) === 'ready') fireSlot(state, command, input.slot, false);
   } else if (input.kind === 'ultimate') {
     fireUltimate(state, command);
   }

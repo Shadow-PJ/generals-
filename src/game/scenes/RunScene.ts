@@ -10,6 +10,7 @@ import { nodeEncounter } from '../../campaign/encounters';
 import { enterNode } from '../../campaign/run';
 import { currentNode, nextChoices } from '../../campaign/runMap';
 import type { RunState } from '../../campaign/types';
+import { describeCard } from '../../cards/describe';
 import { ARTIFACTS } from '../../data/artifacts';
 import { BOONS } from '../../data/boons';
 import { fearOf } from '../../data/oaths';
@@ -227,7 +228,7 @@ export class RunScene extends Phaser.Scene {
   }
 
 
-  /** Your army, gold, boons and carried artifacts. */
+  /** Your army, gold, boons, carried artifacts and decree. */
   private renderFooter(run: RunState): void {
     this.ui.add(addFrame(this, 4, FOOTER_Y, GAME_WIDTH - 8, GAME_HEIGHT - FOOTER_Y - 4, 'panel'));
     const g = this.add.graphics();
@@ -255,5 +256,8 @@ export class RunScene extends Phaser.Scene {
         wordWrap: { width: 560 },
       }),
     );
+    // The run's decree (session 7D): a beaten elite commander's order, fired by itself in every battle.
+    const decree = run.decree ? `DECREE: ${describeCard(run.decree)} (fires by itself in every battle)` : 'Win an elite fight to take one of its commander’s orders as your decree.';
+    this.ui.add(this.add.text(16, y + 108, decree, { ...textStyle(12, run.decree ? TEXT.body : TEXT.muted, !!run.decree), wordWrap: { width: GAME_WIDTH - 32 }, maxLines: 1 }));
   }
 }
