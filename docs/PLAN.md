@@ -10,7 +10,7 @@ Seven phases, 24 sessions. Each session ends with a pull request that the owner 
 | 4. Combos and content | 4A to 4D | Every General, class, combo and map in skirmish mode |
 | 5. Progression and campaign | 5A to 5F | The full campaign from Squad Leader to Legend, as roguelite runs |
 | 6. Polish and multiplayer | 6A to 6D | Real art and sound, balance, controller and Steam Deck play, battles against friends |
-| 7. Release | 7A, 7B | Generals on Steam, then on the Epic Games Store |
+| 7. Release | 7A, 7B, 7C | Generals on Steam, then on the Epic Games Store |
 
 ## Phase 1: Battle core
 
@@ -294,3 +294,11 @@ Owner's release checklist (not for Claude to tick):
 - [x] Cross-play with other PC stores, already covered by the relay server from 6D
 - [x] Answers drafted for the age-rating questionnaire, which Epic also requires
 - [x] Epic build upload steps written down in `docs/store/`
+
+### 7C. Rating and privacy fixes
+
+Added after 7B at the owner's request: the open items from the 7B pull request.
+
+- [x] The Gamblers' Tent becomes the Quartermaster, an event with no bet, so the age rating has no simulated gambling; saved runs at the old event still load
+- [x] Versus sends cards without the words typed for them, and the battle keeps none
+- [x] The age-rating answers updated to match

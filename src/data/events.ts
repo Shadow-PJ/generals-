@@ -22,9 +22,7 @@ export type EventEffect =
   /** One of your boons, at random, is lost. */
   | { kind: 'loseBoon' }
   /** An artifact you don't have yet, carried until you bank it. */
-  | { kind: 'artifact' }
-  /** Pay `stake` gold; with `chance` win `prize` gold back. */
-  | { kind: 'gamble'; stake: number; prize: number; chance: number };
+  | { kind: 'artifact' };
 
 export interface EventChoice {
   label: string;
@@ -50,7 +48,7 @@ export const EVENT_IDS = [
   'deserters',
   'fieldHospital',
   'blackBlade',
-  'gamblersTent',
+  'quartermaster',
   'abandonedArmory',
   'recruiter',
   'stormOnThePass',
@@ -118,14 +116,20 @@ export const EVENTS: Readonly<Record<EventId, EventData>> = {
       { label: 'Leave it be', text: 'Nothing happens', effects: [] },
     ],
   },
-  gamblersTent: {
-    title: "Gamblers' Tent",
-    story: 'Dice clatter in a smoky tent. "Double or nothing, Commander?"',
+  // The Gamblers' Tent until session 7C, when it stopped taking bets: a bet on in-game gold counts
+  // as simulated gambling for age ratings.
+  quartermaster: {
+    title: 'The Quartermaster',
+    story: 'A quartermaster sits on more supplies than he has soldiers. "Everything has a price, Commander."',
     choices: [
-      { label: 'Bet 30 gold', text: 'Even odds to win 75 gold back', effects: [{ kind: 'gamble', stake: 30, prize: 75, chance: 0.5 }] },
       {
-        label: 'Take their pot',
-        text: '+40 gold; they fight back: every fighter loses 10% HP',
+        label: 'Sell him a boon',
+        text: 'Give up one of your boons at random; +75 gold',
+        effects: [{ kind: 'loseBoon' }, { kind: 'gold', amount: 75 }],
+      },
+      {
+        label: 'Raid his stores',
+        text: '+40 gold; his guards fight back: every fighter loses 10% HP',
         effects: [{ kind: 'gold', amount: 40 }, { kind: 'hurt', share: 0.1 }],
       },
       { label: 'Walk away', text: 'Nothing happens', effects: [] },

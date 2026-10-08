@@ -69,6 +69,10 @@ function ids<T>(options: readonly T[], value: unknown): T[] {
 
 const rank = (v: unknown) => oneOf<RankNumber>(RANKS.map((r) => r.rank), v);
 
+/** Events renamed since a run could be saved, by their old ids: the Gamblers' Tent became the Quartermaster (session 7C). */
+const RENAMED_EVENTS: Readonly<Record<string, EventId>> = { gamblersTent: 'quartermaster' };
+const renamedEvent = (v: unknown) => (typeof v === 'string' && Object.hasOwn(RENAMED_EVENTS, v) ? RENAMED_EVENTS[v] : v);
+
 function rng(value: unknown): RngState {
   const d = obj(value);
   const part = (v: unknown) => int(v, -0x80000000, 0x7fffffff);
@@ -140,7 +144,7 @@ function stop(value: unknown): Stop {
     case 'event':
       return {
         kind: 'event',
-        event: oneOf<EventId>(EVENT_IDS, d.event),
+        event: oneOf<EventId>(EVENT_IDS, renamedEvent(d.event)),
         chosen: nullable(d.chosen, (v) => int(v)),
         outcome: list(d.outcome).map((l) => (typeof l === 'string' ? l : fail())),
       };
@@ -253,7 +257,7 @@ function run(value: unknown): RunState {
     reserves,
     boons: ids<BoonId>(BOON_IDS, d.boons),
     artifacts: ids<ArtifactId>(ARTIFACT_IDS, d.artifacts),
-    eventsSeen: ids<EventId>(EVENT_IDS, d.eventsSeen),
+    eventsSeen: ids<EventId>(EVENT_IDS, list(d.eventsSeen).map(renamedEvent)),
     fightsWon: int(d.fightsWon),
     xp: int(d.xp),
     insight: int(d.insight),

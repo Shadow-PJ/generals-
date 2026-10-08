@@ -4,7 +4,7 @@
 // the battle instead of being quietly dropped, so both players know why. Pure.
 
 import { validateCard } from '../cards/validator';
-import { LEGENDARY_ACTIONS, type Card } from '../cards/types';
+import { LEGENDARY_ACTIONS, type Card, type Loadout } from '../cards/types';
 import { ARMY_SIZE, RESERVE_COUNT, type TroopPlacement } from '../data/armies';
 import { GENERAL_IDS } from '../data/generals';
 import { MAP_IDS, MAPS } from '../data/maps';
@@ -98,6 +98,16 @@ function theirProblems(army: VersusArmy, rules: MatchRules): string[] {
   return problems;
 }
 
+/**
+ * The cards without the words typed for them (session 7C): only what a card does goes to the
+ * other game and into the battle, and a player's own words stay on their computer.
+ */
+export function cardsOnly(loadout: Loadout): Loadout {
+  const strip = (card: Card | null): Card | null =>
+    card === null ? null : structuredClone({ condition: card.condition, steps: card.steps, auto: card.auto });
+  return { slots: loadout.slots.map(strip), legendary: strip(loadout.legendary) };
+}
+
 /** Troops placed on the left, as their player set them up, moved to the same spots on the right. */
 export function mirrored(placement: readonly TroopPlacement[], mapWidth: number): TroopPlacement[] {
   return placement.map((t) => ({ ...t, x: mapWidth - t.x }));
@@ -118,12 +128,12 @@ export function versusBattle(rules: MatchRules, seed: number, host: VersusArmy, 
       guest.placement.map((t) => ({ cls: t.cls, x: t.x, y: t.y })),
       map.width,
     ),
-    loadout: host.loadout,
+    loadout: cardsOnly(host.loadout),
     rank: rules.rank,
     reserves: { player: [...host.reserves], enemy: [...guest.reserves] },
     general: host.general,
     enemyGeneral: guest.general,
-    enemyCommander: { rank: rules.rank, loadout: guest.loadout, human: true, learned: [...guest.learned] },
+    enemyCommander: { rank: rules.rank, loadout: cardsOnly(guest.loadout), human: true, learned: [...guest.learned] },
     specs: { player: host.specs, enemy: guest.specs },
     learned: [...host.learned],
   };

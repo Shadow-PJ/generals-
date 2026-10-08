@@ -3,7 +3,7 @@
 The Epic Games Store asks every game for an age rating, and gives one free through the
 **International Age Rating Coalition (IARC)**: a questionnaire in the Developer Portal's rating
 step, whose answers turn into ratings for each region (ESRB, PEGI, USK, ClassInd, ACB and
-others). This page drafts the answers for Generals as it is after session 7B (other stores
+others). This page drafts the answers for Generals as it is after session 7C (other stores
 that use IARC take the same answers).
 
 IARC words its questions its own way and changes them now and then, and a wrong answer can
@@ -26,13 +26,13 @@ support email address shown with the rating.
 | **Fear and horror** | None. "Fear" is a difficulty score for the vows you take. The Hive Mother's troops grow shells and claws as they win fights ("Adapt or be eaten"), drawn in the same small pixel art. Nothing is meant to scare. |
 | **Language** | No swearing, no slurs, no crude words. Generals reply to orders in short lines written for the game. |
 | **Sexual content and nudity** | None. |
-| **Drugs, alcohol and tobacco** | None. One event mentions a "smoky tent". |
+| **Drugs, alcohol and tobacco** | None. |
 | **Crude humor** | None. |
 | **Discrimination** | None. |
-| **Gambling** | **Simulated gambling, mildly:** one of the run's ten random events, the Gamblers' Tent ("Dice clatter in a smoky tent. 'Double or nothing, Commander?'"), offers to bet 30 of the run's gold on even odds to win 75. No real money, nothing to buy, no casino games shown, and the gold is lost when the run ends. |
+| **Gambling** | None. Nothing in the game is a bet or a game of chance played for a stake. (Until session 7C one random event, the Gamblers' Tent, let you bet run gold on a dice roll; it became the Quartermaster, who buys a boon for gold, and a test keeps every event free of bets.) |
 | **Random rewards** | After a won fight the player picks 1 of 3 offers (fighters and boons) rolled by rarity. They are earned by playing, never bought: the game has no purchases at all. |
 | **In-game purchases** | None: no real money, no loot boxes, no premium currency, no ads. |
-| **Players interacting** | Versus: two friends play a match by sharing a four-letter room code. Only armies, cards (made of fixed parts; the order a player typed travels inside its card but is never shown to the other player) and key presses go between the two games, through the game's relay server. No chat, no voice, no names or profiles shown, no pictures or other content shared, no matching with strangers. |
+| **Players interacting** | Versus: two friends play a match by sharing a four-letter room code. Only armies, cards (made of fixed parts; the words a player typed for a card stay on their own computer) and key presses go between the two games, through the game's relay server. No chat, no voice, no names or profiles shown, no pictures or other content shared, no matching with strangers. |
 | **Location and personal data** | The game shares no location and asks for no personal information. The relay keeps nothing. |
 | **Internet** | No browser or unrestricted internet inside the game. It goes online only for Versus (the relay), and, in the Epic and Steam builds, for the store's achievements and friends' presence. An optional setting downloads a small open language model for reading orders. |
 | **AI** | Orders written in plain English become cards through a rule parser and a small model running on the player's computer; it only ever picks parts of a card from fixed lists, and the General's replies are pre-written (`docs/store/ai-disclosure.md`). |
@@ -51,7 +51,7 @@ support email address shown with the rating.
 | References to or use of drugs, alcohol or tobacco? | **No.** |
 | Crude humor? | **No.** |
 | Discrimination or hate? | **No.** |
-| Simulated gambling? | **Yes**: one event bets in-game gold on even odds (see above); no real money. |
+| Simulated gambling? | **No.** |
 | Real-money gambling? | **No.** |
 | Users can chat or share content with others? | **No**: Versus sends only moves, no text, voice or pictures. |
 | Shares the user's location? | **No.** |
@@ -59,14 +59,11 @@ support email address shown with the rating.
 | Random items bought with real money (loot boxes)? | **No.** |
 | Unrestricted internet access? | **No.** |
 
-**Likely result:** a low rating for fantasy violence (around ESRB E10+, PEGI 7, USK 6), with
-**simulated gambling** possibly raising it (PEGI, for one, rates simulated gambling 12). That
-one event decides it: if a lower rating matters more than the event, change the Gamblers' Tent
-to something other than a bet before rating (an owner decision; see the 7B pull request).
+**Likely result:** a low rating for mild fantasy violence (around ESRB E10+, PEGI 7, USK 6).
+The ratings boards decide, not this page.
 
 ## Checklist
 
 - [ ] Re-read each question in the portal and fit the answers to it
-- [ ] Decide on the Gamblers' Tent before submitting
 - [ ] Enter the IARC and support email addresses
 - [ ] Keep the certificate IARC emails; other stores that use IARC can take the same rating

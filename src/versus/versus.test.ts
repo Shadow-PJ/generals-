@@ -73,6 +73,15 @@ describe('the versus battle', () => {
     expect(state.generals).toEqual({ player: 'captain', enemy: 'warlord' });
     expect(state.enemyCommand!.slots[0]!.card).not.toBeNull();
   });
+
+  it('keeps no typed words in either side’s cards, even from a game that sent them', () => {
+    const worded = army({ loadout: { slots: [{ ...hold, text: 'everyone hold, my secret plan' }, null], legendary: null } });
+    const setup = versusBattle(rules, 5, worded, worded);
+    expect(JSON.stringify(setup)).not.toContain('secret plan');
+    expect(setup.loadout?.slots[0]).toEqual(hold);
+    const state = createBattle(setup);
+    expect(stateHash(state)).toBe(stateHash(createBattle(versusBattle(rules, 5, army(), army()))));
+  });
 });
 
 /** A game in a lockstep match: its battle, its lockstep and what it saw. */

@@ -10,12 +10,12 @@ import type { RngState } from '../sim';
 import { addFighter, removeFighter } from './army';
 import { fighterLabel, offerLabel } from './describe';
 import { boonOfferOrNull, rollFighter, rollPerks } from './offers';
-import { chance, pick } from './random';
+import { pick } from './random';
 import type { RunState } from './types';
 
 /** Why you can't make this choice now (not enough gold, no boon to give up...), or null if you can. */
 export function choiceProblem(run: RunState, choice: EventChoice): string | null {
-  const cost = choice.effects.reduce((sum, e) => sum + (e.kind === 'gold' && e.amount < 0 ? -e.amount : e.kind === 'gamble' ? e.stake : 0), 0);
+  const cost = choice.effects.reduce((sum, e) => sum + (e.kind === 'gold' && e.amount < 0 ? -e.amount : 0), 0);
   if (cost > run.gold) return `Needs ${cost} gold`;
   for (const e of choice.effects) {
     if (e.kind === 'loseFighter' && run.roster.length < 2) return 'Needs a second fighter';
@@ -117,13 +117,6 @@ function applyEffect(
       const found = newArtifact(rng, run, banked);
       if (!found) return { run: { ...run, gold: run.gold + 40 }, lines: ['You already have every artifact: +40 gold instead.'] };
       return { run: { ...run, artifacts: [...run.artifacts, found] }, lines: [`You find an artifact: ${ARTIFACTS[found].name}. Bank it at a camp to keep it.`] };
-    }
-    case 'gamble': {
-      const won = chance(rng, effect.chance);
-      return {
-        run: { ...run, gold: Math.max(0, run.gold - effect.stake) + (won ? effect.prize : 0) },
-        lines: [won ? `You win! ${effect.prize} gold back for your ${effect.stake}.` : `You lose your ${effect.stake} gold.`],
-      };
     }
   }
 }

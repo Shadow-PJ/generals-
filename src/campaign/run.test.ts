@@ -229,9 +229,13 @@ describe('events', () => {
     const c = atEvent(0);
     const at = (event: (typeof EVENT_IDS)[number]) => ({ ...runOf(c), stop: { kind: 'event' as const, event, chosen: null, outcome: [] } });
     expect(eventChoiceProblem(at('sellswords'), 0)).toBe('Needs 60 gold');
-    expect(eventChoiceProblem(at('gamblersTent'), 0)).toBe('Needs 30 gold');
+    expect(eventChoiceProblem({ ...at('quartermaster'), boons: [] }, 0)).toBe('Needs a boon to give up');
     expect(eventChoiceProblem({ ...at('wanderingTactician'), boons: [] }, 1)).toBe('Needs a boon to give up');
     expect(eventChoiceProblem(at('stormOnThePass'), 0)).toBeNull();
+  });
+
+  it('no event takes a bet, so the game has no simulated gambling for age ratings', () => {
+    for (const id of EVENT_IDS) expect(JSON.stringify(EVENTS[id]), id).not.toMatch(/\b(bet|bets|gambl\w*|dice|wager\w*|odds|double or nothing)\b/i);
   });
 
   it('a run meets each event at most once until it has seen them all', () => {

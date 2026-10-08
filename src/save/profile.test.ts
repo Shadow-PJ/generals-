@@ -147,6 +147,17 @@ describe('the saved profile', () => {
     expect(profile.run!.oaths).toEqual({});
   });
 
+  it('reads a run saved at the Gamblers’ Tent as one at the Quartermaster, which took its place', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.run.stop = { kind: 'event', event: 'gamblersTent', chosen: null, outcome: [] };
+    data.run.eventsSeen = ['oldShrine', 'gamblersTent'];
+    const run = readProfile(JSON.stringify(data)).run;
+    expect(run?.stop).toEqual({ kind: 'event', event: 'quartermaster', chosen: null, outcome: [] });
+    expect(run?.eventsSeen).toEqual(['oldShrine', 'quartermaster']);
+    data.run.eventsSeen = ['gamblersTent', 'quartermaster'];
+    expect(readProfile(JSON.stringify(data)).run).toBeNull();
+  });
+
   it('keeps your Oaths of Command and Fear records, and only the parts that read', () => {
     const profile = saved();
     profile.oaths = { veteranFoes: 2, leanPurse: 1 };
