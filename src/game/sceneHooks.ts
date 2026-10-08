@@ -2,7 +2,8 @@
 // music plays: the Capital's theme on the menus; the battle sets its own. With a controller in
 // hand (session 6C), a small corner note says View reaches the screen's buttons. The menus stand
 // on a lit cloth with drifting dust (visual overhaul). It also tells the store what you are
-// doing, for your friends' lists (session 7A).
+// doing, for your friends' lists (session 7A). In development builds, it checks the screen's
+// layout (session 7E).
 
 import Phaser from 'phaser';
 import { playMusic } from './audio/audio';
@@ -12,6 +13,7 @@ import { presenceFor } from './presence';
 import { currentCampaign, currentPlatform } from './session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT } from './theme';
 import { addHint, textStyle } from './ui';
+import { watchLayout } from './layoutWatch';
 
 /** The music each screen asks for; screens left out keep whatever is playing. */
 const SCENE_MUSIC: Readonly<Record<string, TrackId | null>> = {
@@ -41,7 +43,11 @@ const FADE_MS = 180;
 /** Hooks every scene of the game: call once, before the first screen opens. */
 export function watchScenes(game: Phaser.Game): void {
   game.events.once(Phaser.Core.Events.READY, () => {
-    for (const scene of game.scene.getScenes(false)) scene.events.on(Phaser.Scenes.Events.CREATE, () => entered(scene));
+    for (const scene of game.scene.getScenes(false)) {
+      scene.events.on(Phaser.Scenes.Events.CREATE, () => entered(scene));
+      // Development builds check each screen for words running into each other (session 7E).
+      if (import.meta.env.DEV) scene.events.on(Phaser.Scenes.Events.CREATE, () => watchLayout(game, scene));
+    }
   });
 }
 

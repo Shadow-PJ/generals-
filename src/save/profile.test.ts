@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { newCampaign, startingCompany } from '../campaign/company';
 import { parseOrder } from '../cards/parser';
+import { slotUnlockRank, validateCard } from '../cards/validator';
 import type { Card } from '../cards/types';
-import { STARTER_ARMY, STARTER_RESERVES } from '../data/armies';
+import { STARTER_ARMY, STARTER_ORDERS, STARTER_RESERVES } from '../data/armies';
 import { RANK_XP } from '../data/progression';
 import { finishFight, enterNode, newRun } from '../campaign/run';
 import { newProfile, profileVersion, readProfile, writeProfile, type Profile } from './profile';
@@ -43,9 +44,9 @@ function saved(): Profile {
 }
 
 describe('the saved profile', () => {
-  it('starts with empty slots, the starter army, no XP and no bosses beaten, Tactical mode off and the Captain', () => {
+  it('starts with the starter orders, the starter army, no XP and no bosses beaten, Tactical mode off and the Captain', () => {
     const profile = readProfile(null);
-    expect(profile.loadout.slots).toEqual([null, null, null, null]);
+    expect(profile.loadout.slots).toEqual([...STARTER_ORDERS, null, null]);
     expect(profile.loadout.legendary).toBeNull();
     expect(profile.placement).toEqual(STARTER_ARMY);
     expect(profile.xp).toBe(0);
@@ -200,6 +201,20 @@ describe('the saved profile', () => {
     delete data.tutorial;
     expect(readProfile(JSON.stringify(data)).tutorial).toEqual({ on: false, seen: [] });
     expect(readProfile(JSON.stringify({ ...data, xp: 0 })).tutorial).toEqual({ on: true, seen: [] });
+  });
+
+  it('starts a new profile with the starter orders in its first slots (session 7E)', () => {
+    const { slots, legendary } = newProfile().loadout;
+    expect(slots).toEqual([...STARTER_ORDERS, null, null]);
+    expect(legendary).toBeNull();
+    // A copy: changing the profile's cards never changes the starter orders.
+    expect(slots[0]).not.toBe(STARTER_ORDERS[0]);
+    STARTER_ORDERS.forEach((card, i) => {
+      // Open at Rank I, allowed by its rules, and just what its words say.
+      expect(slotUnlockRank(i, 1)).toBeNull();
+      expect(validateCard(card, 1).ok).toBe(true);
+      expect(parseOrder(card.text!)).toEqual({ ok: true, card });
+    });
   });
 
   it('keeps the Captain\'s tips you have seen, and only real ones', () => {

@@ -5,6 +5,7 @@ import { UI_PIXEL, type FrameStyleId } from './art/frames';
 import { frameTexture } from './art/textures';
 import { playSound } from './audio/audio';
 import { registerButton } from './buttons';
+import { markButton } from './layoutWatch';
 import { currentRenderScale } from './display';
 import { deviceHint, deviceLabel } from './hints';
 import { onDeviceChange } from './inputDevice';
@@ -124,6 +125,7 @@ export function addButton(
   const ring = scene.add.graphics();
   const hit = scene.add.rectangle(0, 0, width, height, 0, 0).setInteractive({ useHandCursor: true });
   const container = scene.add.container(x, y, [ring, face, text, hit]);
+  markButton(container, label, width, height);
   let highlighted = false;
   let hover = false;
   let focused = false;

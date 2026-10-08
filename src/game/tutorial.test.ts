@@ -4,6 +4,7 @@ import { STARTER_ARMY, STARTER_ARMY_MIRRORED } from '../data/armies';
 import { OPEN_FIELD } from '../data/maps';
 import { TIP_IDS, TIPS } from '../data/tutorial';
 import { parseOrder } from '../cards/parser';
+import { validateCard } from '../cards/validator';
 import { emptyLoadout } from '../cards/types';
 import { newTutorial } from '../save/profile';
 import { createBattle, stepBattle, type BattleState } from '../sim';
@@ -28,6 +29,18 @@ describe("the Captain's tutorial", () => {
     expect(nextTip(tutorial, calls)).toBeNull();
     // Seen tips stay seen, in tip order, once each.
     expect(seeTip(tutorial, 'cardReady').seen).toEqual(['cardReady', 'ultimateReady']);
+  });
+
+  it('quotes only orders a Rank I player can give, in the tips of the first battles (session 7E)', () => {
+    for (const id of ['orders'] as const) {
+      const quoted = [...TIPS[id].text.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
+      expect(quoted.length).toBeGreaterThan(0);
+      for (const order of quoted) {
+        const read = parseOrder(order);
+        if (!read.ok) throw new Error(`${id}: "${order}" does not read: ${read.error}`);
+        expect(validateCard(read.card, 1).ok, order).toBe(true);
+      }
+    }
   });
 
   it('says nothing while tips are off; playing them again starts over', () => {

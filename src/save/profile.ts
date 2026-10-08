@@ -11,7 +11,7 @@ import type { RunState, TechWeb, Veteran } from '../campaign/types';
 import { readCard } from '../cards/schema';
 import { emptyLoadout, type Loadout } from '../cards/types';
 import type { ArtifactId } from '../data/artifacts';
-import { ENEMY_ARMIES, RESERVE_COUNT, STARTER_ARMY, STARTER_RESERVES, type EnemyArmy, type TroopPlacement } from '../data/armies';
+import { ENEMY_ARMIES, RESERVE_COUNT, STARTER_ARMY, STARTER_ORDERS, STARTER_RESERVES, type EnemyArmy, type TroopPlacement } from '../data/armies';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
 import { MAP_IDS, OPEN_FIELD, type MapId } from '../data/maps';
 import { GENERAL_IDS, STARTING_GENERAL, type GeneralId } from '../data/generals';
@@ -85,11 +85,18 @@ export function newTutorial(): Tutorial {
   return { on: true, seen: [] };
 }
 
+/** A new profile's slots: the starter orders first (session 7E), the rest empty. */
+export function starterLoadout(): Loadout {
+  const loadout = emptyLoadout();
+  STARTER_ORDERS.forEach((card, i) => (loadout.slots[i] = structuredClone(card)));
+  return loadout;
+}
+
 export function newProfile(): Profile {
   const { run, artifacts, company, insight, tech, ironman, mastery, oaths, fearRecords } = newCampaign();
   return {
     version: PROFILE_VERSION,
-    loadout: emptyLoadout(),
+    loadout: starterLoadout(),
     placement: STARTER_ARMY.map((t) => ({ ...t })),
     xp: 0,
     bossesBeaten: [],

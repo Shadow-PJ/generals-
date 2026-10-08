@@ -83,9 +83,10 @@ export class PrepScene extends Phaser.Scene {
       addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
       addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Army  Esc', () => this.goBack(), 140, 34);
     } else {
-      addButton(this, GAME_WIDTH - 628, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
-      addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.toTroops(), 112, 34);
-      addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
+      // Narrower than the run's buttons, to leave the hint room (session 7E).
+      addButton(this, GAME_WIDTH - 604, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 104, 34);
+      addButton(this, GAME_WIDTH - 492, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.toTroops(), 104, 34);
+      addButton(this, GAME_WIDTH - 380, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 104, 34);
       addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Capital  Esc', () => this.goBack(), 140, 34);
     }
     addButton(this, GAME_WIDTH - 90, TOP_BAR_HEIGHT / 2, 'Orders  ⏎', () => this.toOrders(), 150, 34);
