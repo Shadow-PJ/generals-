@@ -1,13 +1,18 @@
 // Draws every sprite in the game onto one PNG sheet, each frame at 4× on the three ground colors
-// it is seen on, and every map's ground onto a second one (walls in plain gray):
-// `npm run art:preview -- out.png` writes out.png and out-maps.png. For checking art without
-// starting the game.
+// it is seen on, every map's ground onto a second one (walls in plain gray), and the run's stop
+// pictures in every region onto a third (session 7E): `npm run art:preview -- out.png` writes
+// out.png, out-maps.png and out-stops.png. For checking art without starting the game.
 
 import { writeFileSync } from 'node:fs';
 import { MAPS } from '../../src/data/maps';
 import { ART_SHEET } from '../../src/game/art';
 import { groundImage } from '../../src/game/art/ground';
 import { pixelColors } from '../../src/game/art/pixels';
+import { STOP_SCENES, stopScenePixels } from '../../src/game/art/stops';
+import { REGION_IDS } from '../../src/data/regions';
+import { GAME_WIDTH } from '../../src/game/theme';
+import { STOP_PICTURE_H } from '../../src/game/stopPicture';
+import { UI_PIXEL } from '../../src/game/art/frames';
 import { TROOP_ART_SCALE } from '../../src/game/art/troops';
 import { Canvas } from './png';
 
@@ -76,3 +81,19 @@ maps.forEach(({ map, image }, n) => {
 const mapsOut = out.replace(/\.png$/, '') + '-maps.png';
 writeFileSync(mapsOut, sheet.png());
 console.log(`Wrote ${maps.length} maps to ${mapsOut}`);
+
+// The stop pictures: a column for each region, a line for each stop, at art size doubled.
+const stopW = GAME_WIDTH / UI_PIXEL;
+const stopH = STOP_PICTURE_H / UI_PIXEL;
+const stops = new Canvas(PAD + REGION_IDS.length * (stopW + PAD), PAD + STOP_SCENES.length * (stopH + PAD), 0x111111);
+STOP_SCENES.forEach((scene, row) =>
+  REGION_IDS.forEach((region, col) => {
+    const image = stopScenePixels(scene, region, stopW, stopH);
+    const left = PAD + col * (stopW + PAD);
+    const top = PAD + row * (stopH + PAD);
+    for (let j = 0; j < image.h; j++) for (let i = 0; i < image.w; i++) stops.fill(left + i, top + j, 1, 1, image.pixels[j * image.w + i]! & 0xffffff);
+  }),
+);
+const stopsOut = out.replace(/\.png$/, '') + '-stops.png';
+writeFileSync(stopsOut, stops.scaled(2).png());
+console.log(`Wrote ${STOP_SCENES.length} stop pictures in ${REGION_IDS.length} regions to ${stopsOut}`);

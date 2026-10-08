@@ -48,7 +48,7 @@ export const TIPS: Readonly<Record<TipId, Tip>> = {
   },
   orders: {
     scene: 'Orders',
-    text: 'Your first two slots hold orders to start with. Write your own in plain words, like "everyone focus their Rangers", and I turn it into a card for the slot. Press {key:start} to start the battle.',
+    text: 'Your first two slots hold orders to start with. Write your own in plain words, like "Vanguards focus their Guardian", and I turn it into a card for the slot. Press {key:start} to start the battle.',
   },
   battleStart: {
     scene: 'Battle',

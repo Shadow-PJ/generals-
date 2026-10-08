@@ -12,6 +12,7 @@ import { PORTRAITS, portraitPalette } from './portraits';
 import { PROP_ART, type PropId } from './props';
 import { TROOP_ART, TURRET_ART } from './troops';
 import { GEM_PALETTES, PIP_GEM, PIP_SOCKET } from './hud';
+import { STOP_ART } from './stops';
 import { CASTLE_ART, CASTLE_PALETTE, CLEARED_ICON, LOCK_ICON, MARKER_ARROW, RUN_BANNER } from './worldMap';
 
 export interface SheetEntry {
@@ -41,4 +42,5 @@ export const ART_SHEET: readonly SheetEntry[] = [
   { name: 'run banner', sprite: RUN_BANNER, palette: sidePalette('player') },
   { name: 'lock', sprite: LOCK_ICON, palette: BASE },
   { name: 'cleared', sprite: CLEARED_ICON, palette: BASE },
+  ...STOP_ART,
 ];
