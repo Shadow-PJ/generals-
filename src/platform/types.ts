@@ -1,10 +1,11 @@
 // What the game needs from the computer it runs on. Each build (the browser build and the
-// desktop app now; Steam and Epic later) provides one Platform, and game code never reaches
+// desktop app, which also runs under Steam) provides one Platform, and game code never reaches
 // past it to Electron, the file system or a store.
 
 import type { LoadOptions, LocalModel } from './model';
 import type { Network } from './network';
 import type { SpeechInput } from './speech';
+import type { Store } from './store';
 
 /**
  * The files the game keeps. Everything under `saves/` is your progress and is meant to sync
@@ -52,4 +53,6 @@ export interface Platform {
   readonly speech: SpeechInput | null;
   /** Connections to the multiplayer relay (session 6D). */
   readonly network: Network;
+  /** The store the game runs in, for achievements and presence (session 7A); NO_STORE outside one. */
+  readonly store: Store;
 }

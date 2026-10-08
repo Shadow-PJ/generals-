@@ -5,6 +5,7 @@
 import { loadLocalModel } from './model';
 import { buildRelay, webSocketNetwork } from './network';
 import { browserRecognition, webSpeech } from './speech';
+import { NO_STORE } from './store';
 import type { Display, FileName, Files, Platform } from './types';
 
 const KEY_PREFIX = 'generals/';
@@ -74,5 +75,7 @@ export function createBrowserPlatform(): Platform {
     loadModel: loadLocalModel,
     speech: webSpeech(browserRecognition()),
     network: webSocketNetwork(buildRelay(import.meta.env.VITE_RELAY_URL)),
+    // A browser tab belongs to no store.
+    store: NO_STORE,
   };
 }

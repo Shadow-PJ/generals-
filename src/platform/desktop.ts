@@ -5,7 +5,18 @@
 import type { DesktopBridge } from './bridge';
 import { loadLocalModel } from './model';
 import { buildRelay, webSocketNetwork } from './network';
+import { NO_STORE, type Presence, type Store } from './store';
 import type { Platform } from './types';
+
+/** The store that started the app, reached through the main process; none when the app runs on its own. */
+export function desktopStore(bridge: DesktopBridge, name: 'none' | 'steam'): Store {
+  if (name === 'none') return NO_STORE;
+  return {
+    name,
+    unlockAchievement: (id) => bridge.unlockAchievement(id),
+    setPresence: (presence: Presence | null) => bridge.setPresence(presence && { line: presence.line, params: { ...presence.params } }),
+  };
+}
 
 export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Platform> {
   const info = await bridge.info();
@@ -49,5 +60,6 @@ export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Plat
     // Electron's Chromium has the speech API but not the speech service behind it.
     speech: null,
     network: webSocketNetwork(buildRelay(import.meta.env.VITE_RELAY_URL)),
+    store: desktopStore(bridge, info.store),
   };
 }

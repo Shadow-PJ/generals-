@@ -1,12 +1,15 @@
 // What every screen does as it opens (session 6B): it fades in from the dark, and the right
 // music plays: the Capital's theme on the menus; the battle sets its own. With a controller in
 // hand (session 6C), a small corner note says View reaches the screen's buttons. The menus stand
-// on a lit cloth with drifting dust (visual overhaul).
+// on a lit cloth with drifting dust (visual overhaul). It also tells the store what you are
+// doing, for your friends' lists (session 7A).
 
 import Phaser from 'phaser';
 import { playMusic } from './audio/audio';
 import { addBackdrop } from './backdrop';
 import type { TrackId } from './audio/music';
+import { presenceFor } from './presence';
+import { currentCampaign, currentPlatform } from './session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT } from './theme';
 import { addHint, textStyle } from './ui';
 
@@ -42,8 +45,20 @@ export function watchScenes(game: Phaser.Game): void {
   });
 }
 
+/** The presence last sent, so an unchanged one isn't sent again. */
+let lastPresence = '';
+
+function showPresence(scene: Phaser.Scene): void {
+  const presence = presenceFor(scene.scene.key, scene.scene.settings.data, currentCampaign());
+  const text = JSON.stringify(presence);
+  if (!presence || text === lastPresence) return;
+  lastPresence = text;
+  currentPlatform().store.setPresence(presence);
+}
+
 function entered(scene: Phaser.Scene): void {
   const key = scene.scene.key;
+  showPresence(scene);
   const music = SCENE_MUSIC[key];
   if (music !== undefined) playMusic(music);
   if (!NO_BACKDROP.has(key)) addBackdrop(scene);

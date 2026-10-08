@@ -1,10 +1,12 @@
 // The running game's link to the computer: the platform, your saved profile and this
 // computer's settings. Screens read from here and call remember() when your cards, troops or
-// rank change, so closing the game at any moment keeps them.
+// rank change, so closing the game at any moment keeps them. Every change to your profile also
+// tells the store about achievements it earned (session 7A).
 
 import type { Campaign } from '../campaign/types';
 import { windowScales, type FileName, type Platform } from '../platform';
 import { CODEX_ENTRY_IDS, type CodexEntryId } from '../data/combos';
+import { AchievementReporter } from './achievements';
 import { rankForXp } from './progress';
 import {
   newProfile,
@@ -30,6 +32,8 @@ let settings: Settings = defaultSettings();
 const written = new Map<FileName, string>();
 /** Writes go one after another, so an older save can never land after a newer one. */
 let writeQueue: Promise<void> = Promise.resolve();
+/** Tells the store about achievements as your profile earns them. */
+let achievements: AchievementReporter | null = null;
 
 export async function startSession(p: Platform): Promise<void> {
   platform = p;
@@ -37,6 +41,9 @@ export async function startSession(p: Platform): Promise<void> {
   profile = readProfile(profileText);
   settings = readSettings(settingsText);
   written.clear();
+  // Achievements earned before the game ran in a store unlock there now.
+  achievements = new AchievementReporter((id) => p.store.unlockAchievement(id));
+  achievements.report(profile);
   if (profileText !== null) written.set(PROFILE_FILE, profileText);
   if (settingsText !== null) written.set(SETTINGS_FILE, settingsText);
   // An older save was brought up to date: keep the old file as a backup, then save the new one.
@@ -169,6 +176,7 @@ export function changeSettings(change: Partial<Omit<Settings, 'version'>>): Prom
 
 function write(name: FileName, text: string): Promise<void> {
   const p = currentPlatform();
+  if (name === PROFILE_FILE) achievements?.report(profile);
   const next = writeQueue.then(async () => {
     if (written.get(name) === text) return;
     await p.files.write(name, text);
