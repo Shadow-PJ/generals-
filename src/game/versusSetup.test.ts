@@ -50,6 +50,15 @@ describe('your side of a versus match', () => {
     expect(isArmyPlaced(MAPS.openField, 'player', setup.placement)).toBe(true);
   });
 
+  it('sends your cards without the words you typed for them: those stay on your computer', () => {
+    const typed: Card = { ...focus, text: 'everyone hit the nearest one, my secret plan' };
+    const setup = versusSetup(saved({ loadout: { slots: [typed, null, null, null], legendary: null } }), { map: 'openField', rank: 3 });
+    const army = versusArmy(setup);
+    expect(army.loadout.slots[0]).toEqual(focus);
+    expect(JSON.stringify(army)).not.toContain('secret plan');
+    expect(setup.loadout.slots[0]?.text).toBe(typed.text);
+  });
+
   it('sends an army the other game accepts, and says what stops yours in your words', () => {
     const setup = versusSetup(saved(), { map: 'openField', rank: 3 });
     expect(armyProblems(versusArmy(setup), setup.versus!)).toEqual([]);

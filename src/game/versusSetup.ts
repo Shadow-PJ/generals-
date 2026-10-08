@@ -5,7 +5,7 @@ import { STARTER_ARMY, type TroopPlacement } from '../data/armies';
 import { learnedActions } from '../data/legendary';
 import { MAPS, type MapData } from '../data/maps';
 import { isArmyPlaced } from '../sim';
-import { armyProblems } from '../versus/army';
+import { armyProblems, cardsOnly } from '../versus/army';
 import type { MatchRules, VersusArmy } from '../versus/messages';
 import type { MatchSetup } from './match';
 
@@ -35,14 +35,14 @@ export function versusSetup(saved: MatchSetup, rules: MatchRules): MatchSetup {
   };
 }
 
-/** The army your game sends: troops, reserves, specializations, General, cards and the Legendary actions you know. */
+/** The army your game sends: troops, reserves, specializations, General, cards (not the words you typed for them) and the Legendary actions you know. */
 export function versusArmy(setup: MatchSetup): VersusArmy {
   return {
     general: setup.general,
     placement: setup.placement.map(({ cls, x, y }) => ({ cls, x, y })),
     reserves: [...setup.reserves],
     specs: { ...setup.specs },
-    loadout: structuredClone(setup.loadout),
+    loadout: cardsOnly(setup.loadout),
     learned: learnedActions(setup.bossesBeaten),
   };
 }
