@@ -38,6 +38,9 @@ const RING = 195;
 const MEDALLION = 26;
 const REGION_R = 34;
 const PANEL_X = 616;
+/** The top bar's buttons: their width and the gap between them. */
+const MENU_BUTTON_W = 96;
+const MENU_GAP = 6;
 const PANEL_W = GAME_WIDTH - PANEL_X - 18;
 
 /** The medallion's ring for each state of a region. */
@@ -101,13 +104,22 @@ export class CapitalScene extends Phaser.Scene {
     fitCamera(this);
     addTitle(this, 'THE CAPITAL');
     addHint(this, 16, 38, '←→ region, Enter: set out.', '←→ region, Ⓐ: set out.', textStyle(13, TEXT.muted));
-    addButton(this, GAME_WIDTH - 790, TOP_BAR_HEIGHT / 2, 'Versus  M', () => this.scene.start('Versus'), 104, 34);
-    addButton(this, GAME_WIDTH - 680, TOP_BAR_HEIGHT / 2, 'Company  R', () => this.scene.start('Company'), 104, 34);
-    addButton(this, GAME_WIDTH - 570, TOP_BAR_HEIGHT / 2, 'Tech Web  K', () => this.scene.start('Tech'), 104, 34);
-    addButton(this, GAME_WIDTH - 460, TOP_BAR_HEIGHT / 2, 'General  G', () => this.open('Generals'), 104, 34);
-    addButton(this, GAME_WIDTH - 350, TOP_BAR_HEIGHT / 2, 'Skirmish  T', () => this.scene.start('Prep'), 104, 34);
-    addButton(this, GAME_WIDTH - 240, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.open('Codex'), 104, 34);
-    addButton(this, GAME_WIDTH - 100, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.open('Settings'), 160, 34);
+    // Seven buttons share the bar with the title: kept narrow enough to leave the title room (session 7E).
+    const menu: [string, () => void][] = [
+      ['Versus  M', () => this.scene.start('Versus')],
+      ['Company  R', () => this.scene.start('Company')],
+      ['Tech Web  K', () => this.scene.start('Tech')],
+      ['General  G', () => this.open('Generals')],
+      ['Skirmish  T', () => this.scene.start('Prep')],
+      ['Codex  C', () => this.open('Codex')],
+    ];
+    const settingsW = 120;
+    const right = GAME_WIDTH - 20 - settingsW - MENU_GAP;
+    menu.forEach(([label, go], i) => {
+      const x = right - (menu.length - 1 - i) * (MENU_BUTTON_W + MENU_GAP) - MENU_BUTTON_W / 2;
+      addButton(this, x, TOP_BAR_HEIGHT / 2, label, go, MENU_BUTTON_W, 34);
+    });
+    addButton(this, GAME_WIDTH - 20 - settingsW / 2, TOP_BAR_HEIGHT / 2, 'Settings  Esc', () => this.open('Settings'), settingsW, 34);
     this.createMap();
     addFrame(this, PANEL_X - 14, MAP.y - 8, PANEL_W + 26, MAP.h + 16, 'panel');
     // Markers, the panel and the footer: over the map and its fog.

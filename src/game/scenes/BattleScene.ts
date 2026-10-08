@@ -102,6 +102,8 @@ import type { FrameStyleId } from '../art/frames';
 import { GEM_PALETTES, PIP_GEM, PIP_SOCKET } from '../art/hud';
 import { paintCentered } from '../art/paint';
 import { currentMatch, GONE_TEXT } from '../versus';
+import { DamageTally } from '../damageTally';
+import { layoutFree } from '../layoutWatch';
 import { followMatch, leaveMatch } from '../versusScreens';
 
 export interface BattleData extends MatchSetup {
@@ -244,6 +246,9 @@ export class BattleScene extends Phaser.Scene {
   /** Damage numbers, kept for reuse, and how many have shown (to spread them out). */
   private numbers: Phaser.GameObjects.Text[] = [];
   private numbersShown = 0;
+  /** Hits on one troop close together add up into one number (session 7E): each troop's number now. */
+  private tally = new DamageTally();
+  private liveNumbers = new Map<number, Phaser.GameObjects.Text>();
   /** The slot cards' frames, restyled as they become ready, rest or lock. */
   private slotFrames: Phaser.GameObjects.Image[] = [];
   private slotStyles: FrameStyleId[] = [];
@@ -281,6 +286,8 @@ export class BattleScene extends Phaser.Scene {
     this.hpGhost = {};
     this.numbers = [];
     this.numbersShown = 0;
+    this.tally.clear();
+    this.liveNumbers = new Map();
     this.slotFrames = [];
     this.slotStyles = [];
     this.eventCursor = 0;
@@ -368,7 +375,8 @@ export class BattleScene extends Phaser.Scene {
     ]);
     // The guest commands the right side: the field is turned around, so their army is on the left.
     if (this.own === 'enemy') this.world.setPosition(map.width, TOP_BAR_HEIGHT).setScale(-1, 1);
-    this.labels = this.add.container(0, TOP_BAR_HEIGHT);
+    // Words that float over the battle may cross anything: the layout check leaves them be.
+    this.labels = layoutFree(this.add.container(0, TOP_BAR_HEIGHT));
 
     addFrame(this, 0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, 'bar');
     // Wells for both armies' HP bars and both Generals' portraits.
@@ -669,7 +677,7 @@ export class BattleScene extends Phaser.Scene {
     const kind: BurstKind =
       e.cause === 'burn' ? 'fire' : e.cause === 'rift' ? 'magic' : e.cause === 'shove' ? 'heavy' : e.amount === 0 ? 'frost' : 'hit';
     this.bursts.burst(kind, target.x, target.y - 4, e.amount >= 40 ? 1.5 : 1);
-    if (e.amount > 0 && e.cause !== 'burn' && e.cause !== 'rift') this.damageNumber(target.x, target.y - target.stats.radius - 6, e.amount, target.side !== this.own);
+    if (e.amount > 0 && e.cause !== 'burn' && e.cause !== 'rift') this.damageNumber(target.id, target.x, target.y - target.stats.radius - 6, e.amount, target.side !== this.own);
     const source = e.cause === 'attack' ? this.unit(e.sourceId) : undefined;
     if (!source || source.cls === 'ranger' || source.rooted) return;
     const dx = target.x - source.x;
@@ -1111,29 +1119,38 @@ export class BattleScene extends Phaser.Scene {
 
   /**
    * A hit's damage as a number jumping off the troop: pale on the enemy, red on yours, bigger
-   * and orange for a heavy blow. The numbers are kept and reused, as there are many.
+   * and orange for a heavy blow. Hits on one troop close together add up into its number, which
+   * pops again as it grows (session 7E). The numbers are kept and reused, as there are many.
    */
-  private damageNumber(x: number, y: number, amount: number, onEnemy: boolean): void {
-    let label = this.numbers.find((n) => !n.visible);
+  private damageNumber(unitId: number, x: number, y: number, amount: number, onEnemy: boolean): void {
+    const tally = this.tally.add(unitId, amount, this.time.now);
+    let label = tally.fresh ? undefined : this.liveNumbers.get(unitId);
+    if (!label?.visible) label = undefined;
     if (!label) {
-      if (this.numbers.length >= MAX_DAMAGE_NUMBERS) return;
-      label = this.add.text(0, 0, '', textStyle(12, TEXT.body, true)).setOrigin(0.5);
-      this.labels.add(label);
-      this.numbers.push(label);
+      label = this.numbers.find((n) => !n.visible);
+      if (!label) {
+        if (this.numbers.length >= MAX_DAMAGE_NUMBERS) return;
+        label = this.add.text(0, 0, '', textStyle(12, TEXT.body, true)).setOrigin(0.5);
+        this.labels.add(label);
+        this.numbers.push(label);
+      }
+      const jitter = ((this.numbersShown++ % 5) - 2) * 5;
+      label.setPosition(this.vx(x) + jitter, y);
+      this.liveNumbers.set(unitId, label);
     }
-    const heavy = amount >= 40;
-    const jitter = ((this.numbersShown++ % 5) - 2) * 5;
-    label
-      .setText(String(Math.round(amount)))
+    const heavy = tally.total >= 40;
+    const shown = label;
+    shown
+      .setText(String(Math.round(tally.total)))
       .setStyle(textStyle(heavy ? 16 : 12, heavy ? '#ffb347' : onEnemy ? '#fff3c4' : '#ff9a8a', true))
-      .setPosition(this.vx(x) + jitter, y)
+      .setY(y)
       .setAlpha(1)
-      .setScale(heavy ? 0.5 : 0.7)
+      .setScale(tally.fresh ? (heavy ? 0.5 : 0.7) : 1.3)
       .setVisible(true);
-    this.labels.bringToTop(label);
-    this.tweens.killTweensOf(label);
-    this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.Out' });
-    this.tweens.add({ targets: label, y: y - 18, alpha: 0, delay: 220, duration: 480, onComplete: () => label.setVisible(false) });
+    this.labels.bringToTop(shown);
+    this.tweens.killTweensOf(shown);
+    this.tweens.add({ targets: shown, scale: 1, duration: 140, ease: 'Back.Out' });
+    this.tweens.add({ targets: shown, y: y - 18, alpha: 0, delay: 320, duration: 480, onComplete: () => shown.setVisible(false) });
   }
 
   /** Floating text in screen space, for the slot bar. */

@@ -10,7 +10,7 @@ Seven phases, 24 sessions. Each session ends with a pull request that the owner 
 | 4. Combos and content | 4A to 4D | Every General, class, combo and map in skirmish mode |
 | 5. Progression and campaign | 5A to 5F | The full campaign from Squad Leader to Legend, as roguelite runs |
 | 6. Polish and multiplayer | 6A to 6D | Real art and sound, balance, controller and Steam Deck play, battles against friends |
-| 7. Release | 7A, 7B, 7C, 7D | Generals on Steam, then on the Epic Games Store |
+| 7. Release | 7A to 7G | Generals on Steam, then on the Epic Games Store |
 
 ## Phase 1: Battle core
 
@@ -311,3 +311,29 @@ Added after 7C at the owner's request: from `docs/inspiration.md`, "taking the b
 - [x] The decree fires by itself in every battle of the run, in a slot of its own with no key, through the validator and your General's personality rules like any card
 - [x] The decree shown in battle, on the run map and in the Battle IQ report
 - [x] Save version 8 with the run's decree
+
+### 7E. Quality and design pass
+
+Added after 7D at the owner's request ("improve the quality and design of the game"), from a screen-by-screen review in the browser.
+
+- [x] A layout check in development builds that reports words running into buttons, other words or the screen's edge on every screen, and every overlap it found fixed (the Capital's and the skirmish screen's headers)
+- [x] The run's stops (spoils, decree, events, merchant, rest camp, the run's end) open on a pixel-art picture of the place in the region's colors, sized to the room the options leave
+- [x] Damage numbers on one troop add up into a single number instead of piling into a blur
+- [x] A new profile starts with two starter orders that help when pressed whenever ready, and the Orders tip quotes an order Rank I can give
+- [x] The Orders screen's General line loses its "debug" label
+
+### 7F. Two clear choices
+
+Added after 7D at the owner's request: from `docs/inspiration.md`, "Two clear choices instead of three" (Thronefall).
+
+- [ ] Some stops offer a sharp either/or: two choices, each with a clear gain and a clear cost, in place of a pick of three
+- [ ] Shown on the run map, so you can plan your path around them
+- [ ] Saved with the run, and older saves still load
+
+### 7G. Endless after the last ruler
+
+Added after 7D at the owner's request: from `docs/inspiration.md`, "Endless after the last ruler" (9 Kings).
+
+- [ ] Once every region's ruler is beaten, a run can go on past its ruler into ever stronger armies
+- [ ] A score for how far an endless run gets, and your best kept with your profile
+- [ ] Saved with the run, and older saves still load

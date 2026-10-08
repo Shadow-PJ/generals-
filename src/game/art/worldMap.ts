@@ -173,6 +173,11 @@ const BIOMES: Readonly<Record<Biome, BiomeLook>> = {
   },
 };
 
+/** A region's ground colors, darkest first (the stop pictures stand on them, session 7E). */
+export function regionGround(region: RegionId): readonly number[] {
+  return BIOMES[REGION_BIOMES[region]].ground;
+}
+
 const WATER = [0x0c2236, 0x102b42, 0x14364f, 0x1a435c, 0x22526a, 0x2c637a];
 const FOAM = 0xa9d6df;
 const SPARKLE = 0x7fbfd0;

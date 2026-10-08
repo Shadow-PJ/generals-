@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { newCampaign } from '../campaign/company';
 import { fieldPlacement, withRole } from '../campaign/army';
 import { enterNode, newRun } from '../campaign/run';
+import { STARTER_ORDERS } from '../data/armies';
 import { MAPS } from '../data/maps';
 import { RANK_XP } from '../data/progression';
 import { NO_STORE, type FileName, type Platform, type Store } from '../platform';
@@ -228,7 +229,7 @@ describe('the session', () => {
 
   it('gives each screen its own copy of the saved setup', () => {
     savedSetup().loadout.slots[0] = { condition: null, steps: [], auto: false };
-    expect(savedSetup().loadout.slots[0]).toBeNull();
+    expect(savedSetup().loadout.slots[0]).toEqual(STARTER_ORDERS[0]);
   });
 
   it('keeps settings in settings.json, apart from the saves', async () => {

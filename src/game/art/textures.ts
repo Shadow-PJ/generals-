@@ -10,6 +10,7 @@ import { UNIT_CLASSES, type UnitClass } from '../../data/units';
 import type { Side } from '../../sim';
 import { backdropPixels, FRAME_STYLES, framePixels, UI_PIXEL, type FrameStyleId, type PixelImage } from './frames';
 import { groundImage } from './ground';
+import { stopScenePixels, type StopScene } from './stops';
 import { titlePixels } from './title';
 import { wallPixels, type WallKind } from './walls';
 import { CASTLE_ART, CASTLE_PALETTE, CLEARED_ICON, cloudPixels, LOCK_ICON, MARKER_ARROW, medallionPixels, RUN_BANNER, regionLandPixels, worldMapPixels, type WorldMapPlan } from './worldMap';
@@ -188,4 +189,11 @@ export function titleTexture(scene: Phaser.Scene, w: number, h: number): string 
   const aw = artPixels(w);
   const ah = artPixels(h);
   return pixelTexture(scene.textures, `title-${aw}x${ah}`, titlePixels(aw, ah));
+}
+
+/** A run stop's picture (session 7E), `w × h` world units, in the region's colors. */
+export function stopSceneTexture(scene: Phaser.Scene, stop: StopScene, region: RegionId, w: number, h: number): string {
+  const aw = artPixels(w);
+  const ah = artPixels(h);
+  return pixelTexture(scene.textures, `stop-${stop}-${region}-${aw}x${ah}`, stopScenePixels(stop, region, aw, ah));
 }

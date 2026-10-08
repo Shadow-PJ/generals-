@@ -11,7 +11,10 @@ import { appendFileSync } from 'node:fs';
 
 export type SmokeMode = 'play' | 'reopen' | 'model';
 
-const ORDER = 'Everyone focus their Ranger';
+/** The order the smoke test writes into slot 1; no part of a starter order, so finding it in the save means it was saved. */
+const ORDER = 'Rangers focus their Guardian';
+/** What slot 1 holds on a new save: the first starter order (STARTER_ORDERS in src/data/armies.ts, session 7E). */
+const STARTER_ORDER = 'Everyone focus their Rangers';
 const READY_TIMEOUT_MS = 30_000;
 const SAVE_TIMEOUT_MS = 5_000;
 const SCREEN_CHANGE_MS = 800;
@@ -122,7 +125,7 @@ export async function runSmokeTest(options: {
   check(box !== null, 'Enter opens the orders screen');
 
   if (mode === 'play') {
-    check(box === '', 'slot 1 starts empty');
+    check(box === STARTER_ORDER, 'slot 1 starts with the first starter order');
     // Type the order and press Enter in the text box (translate), then Enter again (save to slot 1).
     await page(
       `(() => { const box = document.querySelector('input'); box.focus(); box.value = ${JSON.stringify(ORDER)};` +

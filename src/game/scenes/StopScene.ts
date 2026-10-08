@@ -1,7 +1,8 @@
 // What waits at a run's node, other than a fight: the spoils after a won fight (and after an elite
 // fight, the beaten commander's orders to take as a decree), an event's hard choice, the merchant,
-// a rest camp, and the end of the run. Each shows a little text and a list
-// of options. ↑↓ (or Tab) pick an option, Enter takes it, Esc leaves when you may.
+// a rest camp, and the end of the run. Each opens on a picture of the place in the region's colors
+// (session 7E), then shows a little text and a list of options. ↑↓ (or Tab) pick an option, Enter
+// takes it, Esc leaves when you may.
 
 import Phaser from 'phaser';
 import { fighterLabel, offerLabel, offerText } from '../../campaign/describe';
@@ -44,6 +45,10 @@ import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
 import { currentCampaign, earnedRank, saveCampaign } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
+import { UI_PIXEL } from '../art/frames';
+import type { StopScene as StopPicture } from '../art/stops';
+import { stopSceneTexture } from '../art/textures';
+import { PICTURE_GAP, pictureHeight } from '../stopPicture';
 import { addFrame, displayStyle, textStyle, titleCase } from '../ui';
 
 const ROW_X = 110;
@@ -68,6 +73,8 @@ interface Option {
 }
 
 interface View {
+  /** The picture over the screen's top. */
+  picture: StopPicture;
   title: string;
   titleColor: string;
   lines: { text: string; color?: string; bold?: boolean }[];
@@ -174,6 +181,7 @@ export class StopScene extends Phaser.Scene {
     }
     lines.push({ text: 'Pick one. Fighters join your army and boons last the rest of the run.', color: TEXT.muted });
     return {
+      picture: 'spoils',
       title: 'VICTORY · SPOILS',
       titleColor: TEXT.victory,
       lines,
@@ -216,6 +224,7 @@ export class StopScene extends Phaser.Scene {
     }
     const leave = () => this.step(takeDecree(campaign, null, rank), 'Run');
     return {
+      picture: 'decree',
       title: 'THE BEATEN COMMANDER’S ORDERS',
       titleColor: TEXT.title,
       lines,
@@ -239,6 +248,7 @@ export class StopScene extends Phaser.Scene {
     const event = EVENTS[stop.event];
     if (stop.chosen === null) {
       return {
+        picture: 'event',
         title: event.title.toUpperCase(),
         titleColor: TEXT.title,
         lines: [{ text: event.story }, { text: `You have ${run.gold} gold.`, color: TEXT.muted }],
@@ -250,6 +260,7 @@ export class StopScene extends Phaser.Scene {
     }
     const leave = () => this.step(leaveStop(campaign), 'Run');
     return {
+      picture: 'event',
       title: event.title.toUpperCase(),
       titleColor: TEXT.title,
       lines: [
@@ -268,6 +279,7 @@ export class StopScene extends Phaser.Scene {
     const heal = healProblem(run);
     const again = rerollProblem(run);
     return {
+      picture: 'merchant',
       title: 'MERCHANT',
       titleColor: TEXT.gold,
       lines: [
@@ -320,6 +332,7 @@ export class StopScene extends Phaser.Scene {
     const leave = () => this.step(leaveStop(campaign), 'Run');
     const banked = stop.banked.map((a) => ARTIFACTS[a].name);
     return {
+      picture: 'camp',
       title: 'REST CAMP',
       titleColor: TEXT.victory,
       lines: [
@@ -362,7 +375,7 @@ export class StopScene extends Phaser.Scene {
       lines.push({ text: `Fear ${stop.fear}${bounty}.`, color: TEXT.threat, bold: stop.bounty > 0 });
     }
     const back: Option = { label: 'Back to the Capital', detail: stop.won ? 'Your company is the fighters marked to stay.' : 'Set out again when you are ready.', problem: null, act: leave };
-    if (!stop.won) return { title: 'RUN OVER', titleColor: TEXT.defeat, lines, options: [back], leave };
+    if (!stop.won) return { picture: 'lost', title: 'RUN OVER', titleColor: TEXT.defeat, lines, options: [back], leave };
 
     // A won run: choose who stays in your company. Enter (or a click) on a fighter switches it.
     lines.push({ text: `WHO STAYS IN YOUR COMPANY: ${stop.keep.length} of ${COMPANY_RULES.size}. The rest leave after the run.`, color: TEXT.title, bold: true });
@@ -378,7 +391,7 @@ export class StopScene extends Phaser.Scene {
         act: () => this.step(toggleKeep(campaign, f.id), 'stay'),
       };
     });
-    return { title: 'REGION CLEARED!', titleColor: TEXT.victory, lines, options: [...fighters, back], leave };
+    return { picture: 'won', title: 'REGION CLEARED!', titleColor: TEXT.victory, lines, options: [...fighters, back], leave };
   }
 
   private render(): void {
@@ -387,17 +400,18 @@ export class StopScene extends Phaser.Scene {
     const run = currentCampaign().run;
     if (!view || !run) return;
     if (this.selected >= view.options.length) this.selected = 0;
-    const g = this.add.graphics();
-    this.ui.add(g);
     const cx = GAME_WIDTH / 2;
-    let y = 10;
-    this.ui.add(this.add.text(cx, y, titleCase(view.title), displayStyle(36, view.titleColor)).setOrigin(0.5, 0));
-    y += 52;
-    this.ui.add(this.add.text(cx, y, `${REGIONS[run.region].name} · ${runFloor(run)}`, textStyle(12, TEXT.muted, true)).setOrigin(0.5, 0));
-    y += 26;
+    // The words and options are laid out first, from the top of `body`; the picture then takes
+    // the room they leave (session 7E), and `body` moves down under it.
+    const body = this.add.container(0, 0);
+    const g = this.add.graphics();
+    body.add(g);
+    let y = 0;
+    body.add(this.add.text(cx, y, `${REGIONS[run.region].name} · ${runFloor(run)}`, textStyle(12, TEXT.muted, true)).setOrigin(0.5, 0));
+    y += 22;
     for (const line of view.lines) {
       const t = this.add.text(cx, y, line.text, { ...textStyle(14, line.color ?? TEXT.body, line.bold ?? false), wordWrap: { width: ROW_W }, align: 'center' });
-      this.ui.add(t.setOrigin(0.5, 0));
+      body.add(t.setOrigin(0.5, 0));
       y += t.height + 6;
     }
     y += 10;
@@ -413,7 +427,7 @@ export class StopScene extends Phaser.Scene {
         box.on('pointerdown', () => (this.selected === i ? this.take(i) : ((this.selected = i), this.render())));
         const label = this.add.text(x + 10, y + COMPACT_H / 2, option.label, textStyle(12, option.labelColor ?? TEXT.title, true)).setOrigin(0, 0.5);
         const detail = this.add.text(x + w - 10, y + COMPACT_H / 2, option.detail, textStyle(12, option.detailColor ?? TEXT.body, true)).setOrigin(1, 0.5);
-        this.ui.add([box, label, detail]);
+        body.add([box, label, detail]);
         column = (column + 1) % 2;
         if (column === 0 || !view.options[i + 1]?.compact) y += COMPACT_H + 4;
         if (!view.options[i + 1]?.compact) {
@@ -429,19 +443,31 @@ export class StopScene extends Phaser.Scene {
       const h = Math.max(ROW_H, detail.height + 34);
       const box = addFrame(this, ROW_X, y, ROW_W, h, on ? 'rowOn' : option.problem ? 'rowDim' : 'row').setInteractive({ useHandCursor: !option.problem });
       box.on('pointerdown', () => (this.selected === i ? this.take(i) : ((this.selected = i), this.render())));
-      this.ui.add([box, label, detail]);
+      body.add([box, label, detail]);
       if (option.icon?.kind === 'fighter') drawFighter(g, option.icon.cls, option.icon.rarity, ROW_X + 26, y + h / 2, 1, dim, 'player', option.icon.faction);
       else if (option.icon?.kind === 'boon') drawBoon(g, option.icon.boon, ROW_X + 26, y + h / 2);
       if (option.note) {
         const color = option.problem ? TEXT.defeat : TEXT.gold;
-        this.ui.add(this.add.text(ROW_X + ROW_W - 14, y + h / 2, option.note, textStyle(13, color, true)).setOrigin(1, 0.5));
+        body.add(this.add.text(ROW_X + ROW_W - 14, y + h / 2, option.note, textStyle(13, color, true)).setOrigin(1, 0.5));
       }
       y += h + ROW_GAP;
     });
     // The icons go over the option rows.
-    this.ui.bringToTop(g);
+    body.bringToTop(g);
     const help = `↑↓ pick, ${keyLabel('confirm')}: take it${view.leave ? `, ${keyLabel('back')}: leave` : ''}`;
-    this.ui.add(this.add.text(cx, Math.max(y + 4, GAME_HEIGHT - 58), help, textStyle(12, TEXT.muted)).setOrigin(0.5, 0));
+    const picture = pictureHeight(y);
+    body.y = picture + PICTURE_GAP;
+    // The picture of the place, the title over its sky, and a gold rule under it.
+    const rule = this.add.graphics();
+    rule.fillStyle(0x0e0b12, 1).fillRect(0, picture, GAME_WIDTH, UI_PIXEL * 2);
+    rule.fillStyle(0xd9a74a, 1).fillRect(0, picture, GAME_WIDTH, UI_PIXEL);
+    this.ui.add([
+      this.add.image(0, 0, stopSceneTexture(this, view.picture, run.region, GAME_WIDTH, picture)).setOrigin(0).setScale(UI_PIXEL),
+      rule,
+      this.add.text(cx, 8, titleCase(view.title), displayStyle(36, view.titleColor)).setOrigin(0.5, 0),
+      body,
+    ]);
+    this.ui.add(this.add.text(cx, Math.max(body.y + y + 4, GAME_HEIGHT - 58), help, textStyle(12, TEXT.muted)).setOrigin(0.5, 0));
     if (run.stop?.kind !== 'end') {
       this.ui.add(this.add.text(cx, GAME_HEIGHT - 32, runNumbers(run), textStyle(13, TEXT.body, true)).setOrigin(0.5, 0));
     }

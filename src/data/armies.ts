@@ -1,5 +1,6 @@
 // Preset armies: which troops each side brings and where they stand at the start.
 
+import type { Card } from '../cards/types';
 import type { UnitClass } from './units';
 import { OPEN_FIELD } from './maps';
 import type { ArtifactId } from './artifacts';
@@ -45,6 +46,17 @@ export const STARTER_ARMY_MIRRORED: TroopPlacement[] = STARTER_ARMY.map((t) => (
   ...t,
   x: OPEN_FIELD.width - t.x,
 }));
+
+/**
+ * The orders a new profile starts with in slots 1 and 2 (session 7E), so the first battle has
+ * cards to fire before you have written any: take out their shooters, then finish the weakest.
+ * Plain Rank I orders, written as a player would type them, that help even pressed whenever
+ * they are ready (a test checks it); rewrite or clear them on the Orders screen.
+ */
+export const STARTER_ORDERS: readonly Card[] = [
+  { text: 'Everyone focus their Rangers', condition: null, steps: [{ action: 'focus', actors: { kind: 'all' }, target: { kind: 'class', cls: 'ranger' } }], auto: false },
+  { text: 'Everyone focus the weakest enemy', condition: null, steps: [{ action: 'focus', actors: { kind: 'all' }, target: { kind: 'weakest' } }], auto: false },
+];
 
 /** Your 3 reserve troops, called in by a Call Reserve card. They arrive at your edge of the map. */
 export const STARTER_RESERVES: UnitClass[] = ['vanguard', 'ranger', 'guardian'];

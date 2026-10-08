@@ -503,7 +503,7 @@ export class OrdersScene extends Phaser.Scene {
     this.ui.add(this.add.text(x + 284, 5, xp, textStyle(11, TEXT.muted)).setOrigin(1, 0));
     const lines: [number, string, string][] = [
       [TACTICAL_ROW, 'Tactical mode', versus ? 'Off in versus' : this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
-      [GENERAL_ROW, 'General (debug)', GENERALS[this.setup.general].name],
+      [GENERAL_ROW, 'General', GENERALS[this.setup.general].name],
     ];
     lines.forEach(([row, label, value], i) => {
       const y = 22 + i * 20;
