@@ -3,6 +3,7 @@
 // past it to Electron, the file system or a store.
 
 import type { LoadOptions, LocalModel } from './model';
+import type { Network } from './network';
 import type { SpeechInput } from './speech';
 
 /**
@@ -49,4 +50,6 @@ export interface Platform {
   loadModel(url: string, options?: LoadOptions): Promise<LocalModel>;
   /** Turns speech into words for spoken orders; null where there is no speech recognition. */
   readonly speech: SpeechInput | null;
+  /** Connections to the multiplayer relay (session 6D). */
+  readonly network: Network;
 }

@@ -1,6 +1,9 @@
 // The battle: runs the battle engine at a fixed 20 ticks per second and draws it every frame.
 // This scene only reads the battle state; the engine alone changes it. Key presses reach the
 // engine as inputs stamped with the tick they take effect on, so every battle can be replayed.
+// In versus (session 6D) both games run the same battle in lockstep: a tick runs once both
+// players' presses for it are in, and the guest, who commands the right side, sees the field
+// turned around so their army stands on the left in blue, as it always does.
 
 import Phaser from 'phaser';
 import { hasLook } from '../../campaign/mastery';
@@ -19,6 +22,7 @@ import { UNIT_CLASSES } from '../../data/units';
 import {
   bloodPayer,
   chainTicksLeft,
+  commandOf,
   createBattle,
   hiddenFromSide,
   LEGENDARY_SLOT,
@@ -30,12 +34,15 @@ import {
   SLOT_COUNT,
   slotCost,
   slotReadiness,
+  stateHash,
   stepBattle,
   TICKS_PER_SECOND,
   ultimateReady,
   type BattleEvent,
   type BattleInput,
+  type BattleSetup,
   type BattleState,
+  type CommandState,
   type Side,
   type Unit,
 } from '../../sim';
@@ -44,6 +51,7 @@ import {
   frameBlend,
   setSpeed,
   ticksForFrame,
+  TICK_MS,
   togglePause,
   toggleSpeed,
   type BattleClock,
@@ -92,9 +100,13 @@ import { addButton, addFrame, addHint, displayStyle, recolor, restyleFrame, text
 import type { FrameStyleId } from '../art/frames';
 import { GEM_PALETTES, PIP_GEM, PIP_SOCKET } from '../art/hud';
 import { paintCentered } from '../art/paint';
+import { currentMatch, GONE_TEXT } from '../versus';
+import { followMatch, leaveMatch } from '../versusScreens';
 
 export interface BattleData extends MatchSetup {
   seed: number;
+  /** A versus battle (session 6D): the battle both games run, and which side is yours. */
+  versusBattle?: { setup: BattleSetup; own: Side };
 }
 
 /** How long a troop flashes white after a hit, in milliseconds. */
@@ -105,6 +117,10 @@ const BOSS_BANNER_MS = 4000;
 const COMBO_BANNER_MS = 2000;
 /** Pause between the last blow and the result screen, in milliseconds. */
 const RESULT_DELAY_MS = 1400;
+/** Versus: how long the battle may stand still waiting for the other game before it says so. */
+const WAIT_NOTICE_MS = 500;
+/** Versus: ticks of waiting kept to catch up on once the other game's presses come in. */
+const CATCH_UP_TICKS = 4;
 
 const SKILL_LABELS = {
   shove: 'Shove!',
@@ -207,7 +223,7 @@ export class BattleScene extends Phaser.Scene {
   private clockText!: Phaser.GameObjects.Text;
   private overtimeText!: Phaser.GameObjects.Text;
   private pausedText!: Phaser.GameObjects.Text;
-  private speedButtons!: { pause: Button; normal: Button; fast: Button };
+  private speedButtons: { pause: Button; normal: Button; fast: Button } | null = null;
   private slotTexts: SlotTexts[] = [];
   private pipsText!: Phaser.GameObjects.Text;
   private ultimateText!: Phaser.GameObjects.Text;
@@ -224,8 +240,19 @@ export class BattleScene extends Phaser.Scene {
   /** The slot cards' frames, restyled as they become ready, rest or lock. */
   private slotFrames: Phaser.GameObjects.Image[] = [];
   private slotStyles: FrameStyleId[] = [];
-  /** The Captain's tips in your first battles. */
-  private tips!: CaptainTips;
+  /** The Captain's tips in your first battles; none in versus. */
+  private tips: CaptainTips | null = null;
+  /** Your side: the player's, or in versus as the guest, the enemy's (shown on the left all the same). */
+  private own: Side = 'player';
+  private foe: Side = 'enemy';
+  /** Words over the field, never turned around with it: popups, damage numbers, banners. */
+  private labels!: Phaser.GameObjects.Container;
+  /** Versus: when the last tick ran, to say when the battle waits for the other game. */
+  private lastTickAt = 0;
+  /** Versus: the match ended mid-battle (the other left, or the games fell out of step). */
+  private halted = false;
+  /** Versus: Esc was pressed once; the next press leaves the match. */
+  private confirmLeave = false;
 
   constructor() {
     super('Battle');
@@ -233,25 +260,9 @@ export class BattleScene extends Phaser.Scene {
 
   init(data: BattleData): void {
     this.setup = data;
-    const enemy = enemyArmyOf(data);
-    this.state = createBattle({
-      seed: data.seed,
-      map: MAPS[data.map],
-      player: data.placement,
-      enemy: enemy.placement,
-      loadout: data.loadout,
-      rank: data.rank,
-      reserves: { player: yourReserves(data), enemy: enemy.reserves },
-      tactical: data.tactical,
-      general: data.general,
-      enemyGeneral: enemy.general,
-      enemyCommander: enemy.commander,
-      specs: { player: data.specs, enemy: enemy.specs },
-      learned: learnedActions(data.bossesBeaten),
-      boons: { player: data.fight?.boons ?? [] },
-      tech: { player: data.fight?.tech ?? {} },
-      boss: bossOf(data),
-    });
+    this.own = data.versusBattle?.own ?? 'player';
+    this.foe = otherSide(this.own);
+    this.state = data.versusBattle ? createBattle(data.versusBattle.setup) : this.ownBattle(data);
     this.clock = createClock();
     this.pending = [];
     this.previous = new Map();
@@ -273,6 +284,52 @@ export class BattleScene extends Phaser.Scene {
     this.lunges = new Map();
     this.seenShots = new Set();
     this.slashes = [];
+    this.tips = null;
+    this.lastTickAt = 0;
+    this.halted = false;
+    this.confirmLeave = false;
+  }
+
+  /** A skirmish or campaign battle, set up from your troops, cards and the enemy you face. */
+  private ownBattle(data: BattleData): BattleState {
+    const enemy = enemyArmyOf(data);
+    return createBattle({
+      seed: data.seed,
+      map: MAPS[data.map],
+      player: data.placement,
+      enemy: enemy.placement,
+      loadout: data.loadout,
+      rank: data.rank,
+      reserves: { player: yourReserves(data), enemy: enemy.reserves },
+      tactical: data.tactical,
+      general: data.general,
+      enemyGeneral: enemy.general,
+      enemyCommander: enemy.commander,
+      specs: { player: data.specs, enemy: enemy.specs },
+      learned: learnedActions(data.bossesBeaten),
+      boons: { player: data.fight?.boons ?? [] },
+      tech: { player: data.fight?.tech ?? {} },
+      boss: bossOf(data),
+    });
+  }
+
+  private get versus(): boolean {
+    return this.setup.versusBattle !== undefined;
+  }
+
+  /** Your cards, pips and Momentum. */
+  private get command(): CommandState {
+    return commandOf(this.state, this.own)!;
+  }
+
+  /** The side whose colors a side wears on your screen: yours is always blue. */
+  private look(side: Side): Side {
+    return side === this.own ? 'player' : 'enemy';
+  }
+
+  /** Where a spot on the field shows across: the guest's view is turned around. */
+  private vx(x: number): number {
+    return this.own === 'player' ? x : this.state.map.width - x;
   }
 
   create(): void {
@@ -300,6 +357,9 @@ export class BattleScene extends Phaser.Scene {
       ...this.bursts.emitters,
       addAmbience(this, map.id, map.width, map.height),
     ]);
+    // The guest commands the right side: the field is turned around, so their army is on the left.
+    if (this.own === 'enemy') this.world.setPosition(map.width, TOP_BAR_HEIGHT).setScale(-1, 1);
+    this.labels = this.add.container(0, TOP_BAR_HEIGHT);
 
     addFrame(this, 0, 0, GAME_WIDTH, TOP_BAR_HEIGHT, 'bar');
     // Wells for both armies' HP bars and both Generals' portraits.
@@ -308,59 +368,118 @@ export class BattleScene extends Phaser.Scene {
     addFrame(this, 16 + 300 + 4, 2, 40, 40, 'well');
     addFrame(this, GAME_WIDTH - 16 - 300 - 44, 2, 40, 40, 'well');
     this.topBar = this.add.graphics();
-    this.add.text(16, 4, `YOU · ${GENERALS[this.setup.general].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
-    this.add.text(GAME_WIDTH - 16, 4, `${GENERALS[this.state.generals.enemy].name.toUpperCase()} · ENEMY`, textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
+    const yours = this.state.generals[this.own];
+    const theirs = this.state.generals[this.foe];
+    this.add.text(16, 4, `YOU · ${GENERALS[yours].name.toUpperCase()}`, textStyle(12, TEXT.muted, true));
+    this.add.text(GAME_WIDTH - 16, 4, `${GENERALS[theirs].name.toUpperCase()} · ${this.versus ? 'OPPONENT' : 'ENEMY'}`, textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     // Both Generals' portraits, beside their armies' HP bars.
-    this.add.image(16 + 300 + 8, 6, portraitKey(this.setup.general)).setOrigin(0).setScale(2).setDepth(1);
-    this.add.image(GAME_WIDTH - 16 - 300 - 8, 6, portraitKey(this.state.generals.enemy)).setOrigin(1, 0).setScale(2).setFlipX(true).setDepth(1);
+    this.add.image(16 + 300 + 8, 6, portraitKey(yours)).setOrigin(0).setScale(2).setDepth(1);
+    this.add.image(GAME_WIDTH - 16 - 300 - 8, 6, portraitKey(theirs)).setOrigin(1, 0).setScale(2).setFlipX(true).setDepth(1);
     this.enemyCommandText = this.add.text(GAME_WIDTH - 16, 44, '', textStyle(12, TEXT.muted, true)).setOrigin(1, 0);
     this.clockText = this.add.text(GAME_WIDTH / 2, 3, '0:00', textStyle(24, TEXT.title, true)).setOrigin(0.5, 0);
     this.overtimeText = this.add.text(GAME_WIDTH / 2 + 50, 12, '', textStyle(13, TEXT.overtime, true));
     this.pausedText = this.add.text(GAME_WIDTH / 2 - 50, 12, '', textStyle(13, TEXT.perfect, true)).setOrigin(1, 0);
-    addHint(this, 16, 44, '1-5: cards   U: ultimate   Space: pause   F: speed', 'ⓍⓎⒷⒶ RB: cards   RT: ultimate   Menu: pause   LB: speed', textStyle(12, TEXT.muted));
-
-    const y = 48;
-    this.speedButtons = {
-      pause: addButton(this, GAME_WIDTH / 2 - 62, y, '❚❚', () => togglePause(this.clock), 54, 22),
-      normal: addButton(this, GAME_WIDTH / 2, y, '1x', () => setSpeed(this.clock, 1), 54, 22),
-      fast: addButton(this, GAME_WIDTH / 2 + 62, y, '2x', () => setSpeed(this.clock, 2), 54, 22),
-    };
+    if (this.versus) {
+      // A versus battle never pauses or speeds up: both games keep the same time.
+      addHint(this, 16, 44, '1-5: cards   U: ultimate   Esc: leave', 'ⓍⓎⒷⒶ RB: cards   RT: ultimate', textStyle(12, TEXT.muted));
+      this.pausedText.setOrigin(0.5, 0).setPosition(GAME_WIDTH / 2, 44);
+    } else {
+      addHint(this, 16, 44, '1-5: cards   U: ultimate   Space: pause   F: speed', 'ⓍⓎⒷⒶ RB: cards   RT: ultimate   Menu: pause   LB: speed', textStyle(12, TEXT.muted));
+      const y = 48;
+      this.speedButtons = {
+        pause: addButton(this, GAME_WIDTH / 2 - 62, y, '❚❚', () => togglePause(this.clock), 54, 22),
+        normal: addButton(this, GAME_WIDTH / 2, y, '1x', () => setSpeed(this.clock, 1), 54, 22),
+        fast: addButton(this, GAME_WIDTH / 2 + 62, y, '2x', () => setSpeed(this.clock, 2), 54, 22),
+      };
+    }
 
     this.createBottomBar();
     this.chainBar = this.add.graphics();
     this.chainText = this.add.text(GAME_WIDTH - 16, BOTTOM_BAR_Y - 30, '', textStyle(22, TEXT.combo, true)).setOrigin(1, 0);
 
-    const input = new InputLayer(this)
-      .on('pause', () => togglePause(this.clock))
-      .on('speed', () => toggleSpeed(this.clock))
-      .on('ultimate', () => this.pending.push({ kind: 'ultimate' }));
-    SLOT_ACTIONS.forEach((action, slot) => input.on(action, () => this.pending.push({ kind: 'slot', slot })));
-
-    this.tips = new CaptainTips(this, { x: (GAME_WIDTH - 380) / 2, width: 380, top: TOP_BAR_HEIGHT + 30 }, this.setup.general);
-    this.tips.say([{ id: 'battleStart' }], TUTORIAL_RULES.battleTipSeconds);
+    const input = new InputLayer(this).on('ultimate', () => this.press({ kind: 'ultimate' }));
+    SLOT_ACTIONS.forEach((action, slot) => input.on(action, () => this.press({ kind: 'slot', slot })));
+    if (this.versus) {
+      input.on('back', () => this.leave()).on('confirm', () => this.halted && this.leave());
+      followMatch(this, (event) => event.kind === 'desync' && this.halt('OUT OF STEP', 'Your two games no longer agree on this battle, so it can’t go on.'), {
+        onGone: (why) => this.halt(why === 'left' ? 'OPPONENT LEFT' : 'CONNECTION LOST', GONE_TEXT[why]),
+      });
+      this.lastTickAt = this.time.now;
+    } else {
+      input.on('pause', () => togglePause(this.clock)).on('speed', () => toggleSpeed(this.clock));
+      this.tips = new CaptainTips(this, { x: (GAME_WIDTH - 380) / 2, width: 380, top: TOP_BAR_HEIGHT + 30 }, this.setup.general);
+      this.tips.say([{ id: 'battleStart' }], TUTORIAL_RULES.battleTipSeconds);
+    }
 
     const boss = this.state.boss;
     playMusic(boss ? 'boss' : 'battle');
     playSound('fight');
     if (boss) this.banner(`BOSS: ${GENERALS[boss].name.toUpperCase()}`, TEXT.threat, BOSSES[boss].rule, BOSS_BANNER_MS);
+    else if (this.versus) this.banner('FIGHT!', TEXT.title, `Versus · Rank ${rankRules(this.command.rank).numeral} · ${this.state.map.name}`);
     else this.banner('FIGHT!', TEXT.title, this.setup.tactical ? 'Tactical mode: the battle pauses every 10 s' : undefined);
   }
 
+  /** A card or the ultimate pressed: for the next tick, or in versus, for the lockstep to send. */
+  private press(input: PendingInput): void {
+    if (this.state.result || this.halted) return;
+    if (this.versus) currentMatch()?.press(input);
+    else this.pending.push(input);
+  }
+
+  /** Versus: Esc twice leaves the match (the battle is lost); once it has stopped, Esc or Enter. */
+  private leave(): void {
+    if (this.halted || this.state.result || this.confirmLeave) {
+      leaveMatch(this);
+      return;
+    }
+    this.confirmLeave = true;
+    this.screenPopup(GAME_WIDTH / 2, TOP_BAR_HEIGHT + 60, `Press ${keyLabel('back')} again to leave the match`, TEXT.defeat, 16);
+    this.time.delayedCall(2500, () => {
+      this.confirmLeave = false;
+    });
+  }
+
+  /** Versus: the match ended mid-battle. The field stays as it was, with why, until you leave. */
+  private halt(title: string, why: string): void {
+    if (this.halted || this.state.result) return;
+    this.halted = true;
+    this.tips?.hide();
+    const cx = OPEN_FIELD.width / 2;
+    const cy = OPEN_FIELD.height / 2;
+    const words = this.add.text(cx, cy - 10, titleCase(title), displayStyle(48, TEXT.threat)).setOrigin(0.5);
+    const more = this.add
+      .text(cx, cy + 26, `${why}\nPress ${keyLabel('confirm')} to go back to Versus.`, { ...textStyle(16, TEXT.body), align: 'center' })
+      .setOrigin(0.5, 0);
+    this.labels.add([this.ribbon(cy + 14, 130), words, more]);
+    this.popIn(words);
+  }
+
   override update(time: number, delta: number): void {
-    if (!this.state.result) {
-      const ticks = ticksForFrame(this.clock, delta);
-      for (let i = 0; i < ticks && !this.state.result && !this.clock.paused; i++) {
-        this.rememberPositions();
-        stepBattle(this.state, this.takeInputs());
-        this.tacticalPause();
+    if (!this.state.result && !this.halted) {
+      if (this.versus) this.stepLockstep(time, delta);
+      else {
+        const ticks = ticksForFrame(this.clock, delta);
+        for (let i = 0; i < ticks && !this.state.result && !this.clock.paused; i++) {
+          this.rememberPositions();
+          stepBattle(this.state, this.takeInputs());
+          this.tacticalPause();
+        }
       }
       this.showNewEvents(time);
-      if (!this.state.result && !this.tips.showing) this.tips.say(battleMoments(this.state), TUTORIAL_RULES.battleTipSeconds);
+      if (this.tips && !this.state.result && !this.tips.showing) this.tips.say(battleMoments(this.state), TUTORIAL_RULES.battleTipSeconds);
       if (this.state.result && !this.ended) {
         this.ended = true;
-        this.tips.hide();
+        this.tips?.hide();
+        // Both games end the battle on the same tick; the match is ready for a rematch.
+        if (this.versus) currentMatch()?.battleOver();
         this.time.delayedCall(RESULT_DELAY_MS, () => {
           const result = this.state.result!;
+          if (this.versus) {
+            // No Command XP, Battle IQ or Mastery in versus: just who won.
+            this.scene.launch('Result', { ...this.setup, result, xp: { total: 0, parts: [] }, outcome: null, iq: battleIq(this.state), mastery: [] });
+            this.scene.pause();
+            return;
+          }
           // The Battle IQ report reads the event log; in a campaign battle its grade earns XP.
           const iq = battleIq(this.state);
           const base = battleXp(this.state.events, result);
@@ -374,6 +493,31 @@ export class BattleScene extends Phaser.Scene {
       }
     }
     this.draw(time, this.state.result ? 1 : frameBlend(this.clock));
+  }
+
+  /**
+   * Versus: runs the ticks this frame is owed, each once both games' presses for it are in.
+   * Before each tick, this game's presses for a tick a little ahead go out (even none, so the
+   * other game knows); every few seconds the games compare fingerprints of the battle.
+   */
+  private stepLockstep(time: number, delta: number): void {
+    const match = currentMatch();
+    const lockstep = match?.lockstep;
+    if (!match || !lockstep) return;
+    const ticks = ticksForFrame(this.clock, delta);
+    let ran = 0;
+    for (; ran < ticks && !this.state.result; ran++) {
+      const tick = this.state.tick;
+      const batch = lockstep.batchFor(tick);
+      if (batch) match.sendBatch(batch);
+      if (!lockstep.canRun(tick)) break;
+      this.rememberPositions();
+      stepBattle(this.state, lockstep.inputsFor(tick));
+      match.afterTick(this.state.tick, () => stateHash(this.state));
+      this.lastTickAt = time;
+    }
+    // Waiting on the other game: keep a little of the time owed, to catch up once its presses come.
+    if (ran < ticks) this.clock.carryMs = Math.min(this.clock.carryMs + (ticks - ran) * TICK_MS, CATCH_UP_TICKS * TICK_MS);
   }
 
   /** Stamps the waiting key presses with the tick about to run. */
@@ -433,19 +577,19 @@ export class BattleScene extends Phaser.Scene {
         if (e.stacks > 1) this.banner(`RAGE ×${e.stacks}`, TEXT.threat, 'His army hits harder for every troop it loses');
       } else if (e.type === 'synergy') {
         const synergy = SYNERGIES.find((s) => s.id === e.synergy)!;
-        if (e.side === 'player') this.comboBanner(`${synergy.name.toUpperCase()}!`, synergy.bonusText, this.found(e.synergy));
+        if (e.side === this.own) this.comboBanner(`${synergy.name.toUpperCase()}!`, synergy.bonusText, this.found(e.synergy));
       } else if (e.type === 'skill') {
         const unit = this.unit(e.unitId);
         if (unit) {
-          this.popup(unit.x, unit.y - 26, SKILL_LABELS[e.skill], unit.side === 'player' ? '#bfe0ff' : '#ffc9c0');
+          this.popup(unit.x, unit.y - 26, SKILL_LABELS[e.skill], unit.side === this.own ? '#bfe0ff' : '#ffc9c0');
           const burst = SKILL_BURSTS[e.skill];
           if (burst) this.bursts.burst(burst, unit.x, unit.y);
         }
       } else if (e.type === 'death') {
         const unit = this.unit(e.unitId);
         if (unit) {
-          this.popup(unit.x, unit.y - 20, '✖', unit.side === 'player' ? '#7fb8ff' : '#ff8f80');
-          addFallen(this, this.fallenLayer, unit.rooted ? 'turret' : unit.cls, unit.side, unit.x, unit.y);
+          this.popup(unit.x, unit.y - 20, '✖', unit.side === this.own ? '#7fb8ff' : '#ff8f80');
+          addFallen(this, this.fallenLayer, unit.rooted ? 'turret' : unit.cls, this.look(unit.side), unit.x, unit.y);
           this.bursts.burst('puff', unit.x, unit.y + 6);
         }
       } else if (e.type === 'wallBreak') {
@@ -458,29 +602,29 @@ export class BattleScene extends Phaser.Scene {
         }
       } else if (e.type === 'overtime') {
         this.banner('OVERTIME', TEXT.overtime, 'Damage grows every second');
-      } else if (e.type === 'cardFired' && e.side === 'player') {
+      } else if (e.type === 'cardFired' && e.side === this.own) {
         this.slotFlashUntil.set(e.slot, time + 450);
         const x = 16 + e.slot * (SLOT_W + SLOT_GAP) + SLOT_W / 2;
         const label = (e.perfect ? 'PERFECT!' : e.auto ? 'Auto' : 'Go!') + (e.link > 1 ? `  x${e.link}` : '');
         this.screenPopup(x, SLOT_Y - 6, label, e.perfect ? TEXT.perfect : e.link > 1 ? TEXT.combo : TEXT.body, e.perfect || e.link > 1 ? 18 : 13);
       } else if (e.type === 'cardFired') {
-        // The enemy commander's cards: what it ordered, under its HP bar.
-        const card = this.state.enemyCommand?.slots[e.slot]?.card;
-        if (card) this.screenPopup(GAME_WIDTH - 166, TOP_BAR_HEIGHT + 30, `Enemy: ${shortCard(card)}`, TEXT.threat, 13);
+        // The enemy commander's cards (or your opponent's): what it ordered, under its HP bar.
+        const card = commandOf(this.state, this.foe)?.slots[e.slot]?.card;
+        if (card) this.screenPopup(GAME_WIDTH - 166, TOP_BAR_HEIGHT + 30, `${this.versus ? 'Opponent' : 'Enemy'}: ${shortCard(card)}`, TEXT.threat, 13);
       } else if (e.type === 'combo') {
         const entry = codexEntry(e.combo);
-        if (e.side === 'player') this.comboBanner(`${entry.name.toUpperCase()}!`, entry.bonusText, this.found(e.combo));
-        else this.screenPopup(GAME_WIDTH - 166, TOP_BAR_HEIGHT + 52, `Enemy combo: ${entry.name}!`, TEXT.threat, 15);
+        if (e.side === this.own) this.comboBanner(`${entry.name.toUpperCase()}!`, entry.bonusText, this.found(e.combo));
+        else this.screenPopup(GAME_WIDTH - 166, TOP_BAR_HEIGHT + 52, `${this.versus ? 'Opponent' : 'Enemy'} combo: ${entry.name}!`, TEXT.threat, 15);
       } else if (e.type === 'ultimate') {
         const ultimate = GENERALS[this.state.generals[e.side]].ultimate;
         const name = ultimate.name.toUpperCase();
-        if (e.side === 'enemy') this.banner(`ENEMY ${name}!`, TEXT.threat, ultimate.text);
+        if (e.side === this.foe) this.banner(`${this.versus ? 'OPPONENT’S' : 'ENEMY'} ${name}!`, TEXT.threat, ultimate.text);
         else if (e.finisher) this.comboBanner(`FINISHER: ${name}!`, `${ultimate.text}. 50% stronger.`, this.found('finisher'));
         else this.banner(`${name}!`, TEXT.perfect, ultimate.text);
         if (e.name === 'thermalDetonation' && e.at && e.to) this.strikes.push({ kind: 'beam', at: e.at, to: e.to, until: time + STRIKE_MS });
         if (e.name === 'gravityWell' && e.at) this.strikes.push({ kind: 'well', at: e.at, to: null, until: time + STRIKE_MS });
         // The whole field flashes in the side's color, and shakes.
-        const color = COLORS.side[e.side];
+        const color = COLORS.side[this.look(e.side)];
         this.cameras.main.flash(260, (color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff);
         this.shake(320, 0.007);
       } else if (e.type === 'evolved') {
@@ -512,7 +656,7 @@ export class BattleScene extends Phaser.Scene {
     const kind: BurstKind =
       e.cause === 'burn' ? 'fire' : e.cause === 'rift' ? 'magic' : e.cause === 'shove' ? 'heavy' : e.amount === 0 ? 'frost' : 'hit';
     this.bursts.burst(kind, target.x, target.y - 4, e.amount >= 40 ? 1.5 : 1);
-    if (e.amount > 0 && e.cause !== 'burn' && e.cause !== 'rift') this.damageNumber(target.x, target.y - target.stats.radius - 6, e.amount, target.side === 'enemy');
+    if (e.amount > 0 && e.cause !== 'burn' && e.cause !== 'rift') this.damageNumber(target.x, target.y - target.stats.radius - 6, e.amount, target.side !== this.own);
     const source = e.cause === 'attack' ? this.unit(e.sourceId) : undefined;
     if (!source || source.cls === 'ranger' || source.rooted) return;
     const dx = target.x - source.x;
@@ -530,8 +674,8 @@ export class BattleScene extends Phaser.Scene {
   /** A Legendary action: its name across the field, and a word over each troop it acted on. */
   private showLegendary(e: Extract<BattleEvent, { type: 'legendary' }>): void {
     const action = LEGENDARY_ACTION_DATA[e.action];
-    const yours = e.side === 'player';
-    this.banner(`${yours ? '' : 'ENEMY '}${action.name.toUpperCase()}!`, yours ? TEXT.perfect : TEXT.threat, action.text);
+    const yours = e.side === this.own;
+    this.banner(`${yours ? '' : this.versus ? 'OPPONENT’S ' : 'ENEMY '}${action.name.toUpperCase()}!`, yours ? TEXT.perfect : TEXT.threat, action.text);
     if (e.at) this.bursts.burst('dust', e.at.x, e.at.y, 2);
     const words = { hijack: 'Hijacked!', swap: 'Swapped!', bloodPact: 'Sacrificed', fortify: '', echo: '' } as const;
     for (const id of e.unitIds) {
@@ -565,7 +709,7 @@ export class BattleScene extends Phaser.Scene {
       const flash = Math.max(0, ((this.flashUntil.get(u.id) ?? 0) - time) / HIT_FLASH_MS);
       // Troops the other side can't see (Shadow Escort, or deep in the woods) show faintly: yours a little clearer.
       const hidden = u.invisibleTicks > 0 || (!this.state.result && hiddenFromSide(this.state, u, otherSide(u.side)));
-      const alpha = hidden ? (u.side === 'player' ? 0.35 : 0.15) : 1;
+      const alpha = hidden ? (u.side === this.own ? 0.35 : 0.15) : 1;
       // Walking, standing, and leaning into a blow.
       const before = this.previous.get(`u${u.id}`);
       const moving = !this.state.result && !this.clock.paused && before !== undefined && Math.abs(before.x - u.x) + Math.abs(before.y - u.y) > 0.05;
@@ -577,7 +721,7 @@ export class BattleScene extends Phaser.Scene {
       const y = at.y + (lunge?.dy ?? 0) * lean + pose.bob;
       this.troopSprites.show(u.id, {
         cls: u.rooted ? 'turret' : u.cls,
-        side: u.side,
+        side: this.look(u.side),
         frame: pose.frame,
         x,
         y,
@@ -587,7 +731,7 @@ export class BattleScene extends Phaser.Scene {
         tint: u.wraithTicks > 0 ? COLORS.wraith : null,
         size: u.elite ? 1.25 : 1,
       });
-      if (hidden && u.side === 'enemy') continue; // Only a faint shape: no shadow, HP bar or effects to give it away.
+      if (hidden && u.side !== this.own) continue; // Only a faint shape: no shadow, HP bar or effects to give it away.
       under.fillStyle(0x0a0610, 0.4 * alpha).fillEllipse(at.x, at.y + r * 0.95, r * 1.9, r * 0.6);
       if (u.slow) drawSlowed(under, at.x, at.y, r);
       const taunter = u.taunt ? this.unit(u.taunt.unitId) : undefined;
@@ -596,10 +740,10 @@ export class BattleScene extends Phaser.Scene {
       if (u.barrier) drawBarrier(g, at.x, at.y, r, u.barrier.amount / UNIT_CLASSES.guardian.barrier.amount);
       if (u.rallyTicks > 0) g.lineStyle(2, COLORS.glow, 0.7).strokeCircle(at.x, at.y, r + 9);
       // Hijacked: a ring in the color of the side that controls it.
-      if (u.hijackTicks > 0) g.lineStyle(3, COLORS.side[otherSide(u.side)], 0.95).strokeCircle(at.x, at.y, r + 6);
+      if (u.hijackTicks > 0) g.lineStyle(3, COLORS.side[this.look(otherSide(u.side))], 0.95).strokeCircle(at.x, at.y, r + 6);
       drawRarity(g, at.x, at.y, r, u.rarity, alpha);
       // General Mastery: with all three of your General's challenges met, your troops wear a gold trim.
-      if (this.goldTrim && u.side === 'player') g.lineStyle(2, COLORS.capital, alpha).strokeCircle(at.x, at.y, r + 2);
+      if (this.goldTrim && u.side === this.own) g.lineStyle(2, COLORS.capital, alpha).strokeCircle(at.x, at.y, r + 2);
       // Boss fights: the Warlord's rage, the Strategist's phases left (a turret wears its own tower).
       if (u.rage) g.lineStyle(1 + u.rage.stacks, COLORS.haste, 0.85).strokeCircle(at.x, at.y, r + 8);
       for (let i = 0; i < u.bossPhases; i++) g.fillStyle(COLORS.chased, 1).fillCircle(at.x - 5 * (u.bossPhases - 1) + i * 10, at.y - r - 21, 3);
@@ -652,7 +796,7 @@ export class BattleScene extends Phaser.Scene {
       const dy = tail && (tail.x !== p.x || tail.y !== p.y) ? p.y - tail.y : (target?.y ?? p.y) - p.y;
       const owner = this.unit(p.ownerId);
       const tint = p.element === 'burn' ? 0xffb24a : p.element === 'frost' ? 0xc8efff : null;
-      this.arrowSprites.show(p.id, p.side, at.x, at.y, Math.atan2(dy, dx), owner?.rooted ?? false, tint);
+      this.arrowSprites.show(p.id, this.look(p.side), at.x, at.y, Math.atan2(dy, dx), owner?.rooted ?? false, tint);
       if (!this.seenShots.has(p.id)) {
         this.seenShots.add(p.id);
         playSound('arrow');
@@ -673,8 +817,8 @@ export class BattleScene extends Phaser.Scene {
   /** The chain counter, x2, x3 ..., over the right end of the slot bar, with the time left to add a link. */
   private drawChain(): void {
     const g = this.chainBar.clear();
-    const left = this.state.result ? 0 : chainTicksLeft(this.state);
-    const links = this.state.command.chain.links;
+    const left = this.state.result ? 0 : chainTicksLeft(this.state, this.command);
+    const links = this.command.chain.links;
     if (left <= 0 || links < 1) {
       this.chainText.setText('');
       return;
@@ -691,7 +835,7 @@ export class BattleScene extends Phaser.Scene {
 
   /** Threat Readout: "Ranger falls in ~3 s" over troops about to fall. */
   private drawThreats(blend: number): void {
-    const warnings = this.state.result ? [] : threats(this.state);
+    const warnings = this.state.result ? [] : threats(this.state, this.own);
     const shown = new Set(warnings.map((w) => w.unitId));
     for (const [id, text] of this.threatTexts) if (!shown.has(id)) text.setVisible(false);
     for (const w of warnings) {
@@ -700,10 +844,10 @@ export class BattleScene extends Phaser.Scene {
       let text = this.threatTexts.get(w.unitId);
       if (!text) {
         text = this.add.text(0, 0, '', textStyle(11, TEXT.threat, true)).setOrigin(0.5, 1);
-        this.world.add(text);
+        this.labels.add(text);
         this.threatTexts.set(w.unitId, text);
       }
-      text.setText(w.text).setPosition(at.x, at.y - u.stats.radius - 13).setVisible(true);
+      text.setText(w.text).setPosition(this.vx(at.x), at.y - u.stats.radius - 13).setVisible(true);
     }
   }
 
@@ -719,29 +863,36 @@ export class BattleScene extends Phaser.Scene {
     const share = (side: Side) =>
       this.state.units.filter((u) => u.side === side && u.alive).reduce((sum, u) => sum + u.hp, 0) /
       this.state.startHp[side];
-    this.armyBar(g, 14, share('player'), 'player', delta);
-    this.armyBar(g, GAME_WIDTH - 16 - 300 - 2, share('enemy'), 'enemy', delta);
+    this.armyBar(g, 14, share(this.own), 'player', delta);
+    this.armyBar(g, GAME_WIDTH - 16 - 300 - 2, share(this.foe), 'enemy', delta);
 
     const seconds = Math.floor(this.state.tick / TICKS_PER_SECOND);
     this.clockText.setText(`${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`);
     const boost = overtimeMultiplier(this.state.tick) - 1;
     this.overtimeText.setText(boost > 0 ? `OVERTIME +${Math.round(boost * 100)}%` : '');
 
-    const enemy = this.state.enemyCommand;
+    const enemy = commandOf(this.state, this.foe);
     if (enemy) {
       const share = enemy.momentum / COMMAND_RULES.momentum.max;
-      const ultimate = GENERALS[this.state.generals.enemy].ultimate.name;
+      const ultimate = GENERALS[this.state.generals[this.foe]].ultimate.name;
       const charging = share >= CONDITION_RULES.ultimateChargingShare;
+      const who = this.versus ? 'Opponent' : 'Commander';
       recolor(
-        this.enemyCommandText.setText(`Commander: ${enemy.pips} pips · ${ultimate} ${Math.floor(Math.min(1, share) * 100)}%${charging ? '  CHARGING!' : ''}`),
+        this.enemyCommandText.setText(`${who}: ${enemy.pips} pips · ${ultimate} ${Math.floor(Math.min(1, share) * 100)}%${charging ? '  CHARGING!' : ''}`),
         charging ? TEXT.threat : TEXT.muted,
       );
     }
 
+    if (this.versus) {
+      // The battle stands still while the other game's presses are on their way.
+      const waiting = !this.state.result && !this.halted && this.time.now - this.lastTickAt > WAIT_NOTICE_MS;
+      this.pausedText.setText('Waiting for your opponent…').setVisible(waiting);
+      return;
+    }
     this.pausedText.setText(`PAUSED · ${keyLabel('pause')} to go on`).setVisible(this.clock.paused && !this.state.result);
-    this.speedButtons.pause.setHighlighted(this.clock.paused);
-    this.speedButtons.normal.setHighlighted(!this.clock.paused && this.clock.speed === 1);
-    this.speedButtons.fast.setHighlighted(!this.clock.paused && this.clock.speed === 2);
+    this.speedButtons?.pause.setHighlighted(this.clock.paused);
+    this.speedButtons?.normal.setHighlighted(!this.clock.paused && this.clock.speed === 1);
+    this.speedButtons?.fast.setHighlighted(!this.clock.paused && this.clock.speed === 2);
   }
 
   /**
@@ -783,8 +934,8 @@ export class BattleScene extends Phaser.Scene {
     for (let i = 0; i < SLOT_COUNT; i++) {
       const x = 16 + i * (SLOT_W + SLOT_GAP);
       const hit = this.add.rectangle(x, SLOT_Y, SLOT_W, SLOT_H, 0, 0).setOrigin(0).setInteractive({ useHandCursor: true });
-      hit.on('pointerdown', () => this.pending.push({ kind: 'slot', slot: i }));
-      const card = this.state.command.slots[i]?.card;
+      hit.on('pointerdown', () => this.press({ kind: 'slot', slot: i }));
+      const card = this.command.slots[i]?.card;
       this.slotTexts.push({
         key: this.add.text(x + 18, SLOT_Y + 15, String(i + 1), textStyle(13, TEXT.title, true)).setOrigin(0.5),
         card: this.add.text(x + 9, SLOT_Y + 28, card ? shortCard(card) : '', {
@@ -803,18 +954,18 @@ export class BattleScene extends Phaser.Scene {
       .rectangle(PANEL_X, SLOT_Y + 38, GAME_WIDTH - 16 - PANEL_X, 44, 0, 0)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true })
-      .on('pointerdown', () => this.pending.push({ kind: 'ultimate' }));
+      .on('pointerdown', () => this.press({ kind: 'ultimate' }));
   }
 
   private drawBottomBar(time: number): void {
     const g = this.bottomBar.clear();
-    const command = this.state.command;
+    const command = this.command;
     const pulse = 0.55 + 0.45 * Math.sin(time / 120);
 
     for (let i = 0; i < SLOT_COUNT; i++) {
       const x = 16 + i * (SLOT_W + SLOT_GAP);
       const slot = command.slots[i]!;
-      const readiness = slotReadiness(this.state, i);
+      const readiness = slotReadiness(this.state, i, command);
       const texts = this.slotTexts[i]!;
       const dim = readiness === 'locked' || readiness === 'empty';
       // The card's frame: gold when it can be fired, plain while it waits, dark when there is nothing to fire.
@@ -835,7 +986,7 @@ export class BattleScene extends Phaser.Scene {
         g.fillStyle(COLORS.pip, 0.9).fillRect(x + 3, SLOT_Y + SLOT_H - 4 - h, SLOT_W - 6, 2);
       }
       // Its cost in pip gems, green when something makes it cheaper.
-      const cost = slotCost(this.state, i);
+      const cost = slotCost(this.state, i, command);
       const discounted = cost !== null && slot.card !== null && cost < cardCost(slot.card);
       for (let p = 0; p < (cost ?? 0); p++) {
         paintCentered(g, PIP_GEM.frames.still!, GEM_PALETTES[discounted ? 'cheap' : 'pip'], x + SLOT_W - 13 - p * 15, SLOT_Y + 15, { scale: 2, alpha: dim ? 0.4 : 1 });
@@ -868,19 +1019,20 @@ export class BattleScene extends Phaser.Scene {
       const to = Math.min(width, glint + 10);
       if (to > from) g.fillStyle(0xffffff, 0.55).fillRect(PANEL_X + 2 + from, SLOT_Y + 54, to - from, 8);
     }
-    const ready = ultimateReady(this.state);
-    const finisher = ready && rankRules(command.rank).finishers && nextLink(this.state) >= COMMAND_RULES.finisher.minLinks;
-    const ultimate = GENERALS[this.setup.general].ultimate;
+    const ready = ultimateReady(this.state, command);
+    const finisher = ready && rankRules(command.rank).finishers && nextLink(this.state, command) >= COMMAND_RULES.finisher.minLinks;
+    const ultimate = GENERALS[this.state.generals[this.own]].ultimate;
     const u = keyLabel('ultimate');
     let label = `${u}: ${ultimate.name}  ${Math.floor(share * 100)}%`;
     if (finisher) label = `${u}: FINISHER now!`;
     else if (ready) label = `${u}: ${ultimate.name.toUpperCase()} ready!`;
-    else if (momentumFull(this.state)) label = `${u}: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
+    else if (momentumFull(this.state, command)) label = `${u}: ${ultimate.name} needs ${ultimate.needs ?? 'a moment'}`;
     recolor(this.ultimateText.setText(label), finisher ? TEXT.combo : ready ? TEXT.perfect : TEXT.muted);
   }
 
   private slotStatus(index: number, readiness: ReturnType<typeof slotReadiness>): string {
-    const slot = this.state.command.slots[index]!;
+    const command = this.command;
+    const slot = command.slots[index]!;
     const auto = slot.card?.auto ? 'Auto · ' : '';
     switch (readiness) {
       case 'locked': {
@@ -895,13 +1047,13 @@ export class BattleScene extends Phaser.Scene {
       case 'waiting':
         return `${auto}Waits for its moment`;
       case 'noPips': {
-        const cost = slotCost(this.state, index) ?? 0;
+        const cost = slotCost(this.state, index, command) ?? 0;
         return `${auto}Needs ${cost} pip${cost === 1 ? '' : 's'}`;
       }
       case 'ready': {
         // Blood Price (Warlord): short on pips, a troop pays the rest with HP.
-        const cost = slotCost(this.state, index) ?? 0;
-        const blood = this.state.command.pips < cost && bloodPayer(this.state, cost - this.state.command.pips) ? ' (blood)' : '';
+        const cost = slotCost(this.state, index, command) ?? 0;
+        const blood = command.pips < cost && bloodPayer(this.state, cost - command.pips, command) ? ' (blood)' : '';
         return slot.glowing ? `${auto}NOW! Perfect${blood}` : `${auto}Ready${blood}`;
       }
     }
@@ -911,8 +1063,8 @@ export class BattleScene extends Phaser.Scene {
 
   /** Floating text over the battlefield: it pops in, rises and fades. */
   private popup(x: number, y: number, text: string, color: string): void {
-    const label = this.add.text(x, y, text, textStyle(13, color, true)).setOrigin(0.5).setScale(0.4);
-    this.world.add(label);
+    const label = this.add.text(this.vx(x), y, text, textStyle(13, color, true)).setOrigin(0.5).setScale(0.4);
+    this.labels.add(label);
     this.tweens.add({ targets: label, scale: 1, duration: 180, ease: 'Back.Out' });
     this.tweens.add({ targets: label, y: y - 20, alpha: 0, delay: 250, duration: 750, onComplete: () => label.destroy() });
   }
@@ -926,7 +1078,7 @@ export class BattleScene extends Phaser.Scene {
     if (!label) {
       if (this.numbers.length >= MAX_DAMAGE_NUMBERS) return;
       label = this.add.text(0, 0, '', textStyle(12, TEXT.body, true)).setOrigin(0.5);
-      this.world.add(label);
+      this.labels.add(label);
       this.numbers.push(label);
     }
     const heavy = amount >= 40;
@@ -934,11 +1086,11 @@ export class BattleScene extends Phaser.Scene {
     label
       .setText(String(Math.round(amount)))
       .setStyle(textStyle(heavy ? 16 : 12, heavy ? '#ffb347' : onEnemy ? '#fff3c4' : '#ff9a8a', true))
-      .setPosition(x + jitter, y)
+      .setPosition(this.vx(x) + jitter, y)
       .setAlpha(1)
       .setScale(heavy ? 0.5 : 0.7)
       .setVisible(true);
-    this.world.bringToTop(label);
+    this.labels.bringToTop(label);
     this.tweens.killTweensOf(label);
     this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.Out' });
     this.tweens.add({ targets: label, y: y - 18, alpha: 0, delay: 220, duration: 480, onComplete: () => label.setVisible(false) });
@@ -974,7 +1126,7 @@ export class BattleScene extends Phaser.Scene {
     const name = this.add.text(cx, y, titleCase(title), displayStyle(36, TEXT.combo)).setOrigin(0.5);
     items.push(name, this.add.text(cx, y + 30, subtitle, textStyle(13, TEXT.body)).setOrigin(0.5));
     if (isNew) items.push(this.add.text(cx, y + 50, 'New in your Combo Codex!', textStyle(13, TEXT.perfect, true)).setOrigin(0.5));
-    this.world.add(items);
+    this.labels.add(items);
     this.popIn(name);
     this.tweens.add({ targets: items, alpha: 0, delay: 1400, duration: 700, onComplete: () => items.forEach((t) => t.destroy()) });
   }
@@ -988,7 +1140,7 @@ export class BattleScene extends Phaser.Scene {
     items.push(words);
     const wrap = { width: OPEN_FIELD.width - 160 };
     if (subtitle) items.push(this.add.text(cx, cy + 26, subtitle, { ...textStyle(16, TEXT.body), wordWrap: wrap, align: 'center' }).setOrigin(0.5, 0));
-    this.world.add(items);
+    this.labels.add(items);
     this.popIn(words);
     this.tweens.add({ targets: items, alpha: 0, delay: holdMs, duration: 800, onComplete: () => items.forEach((t) => t.destroy()) });
   }

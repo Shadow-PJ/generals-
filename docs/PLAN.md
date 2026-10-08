@@ -257,11 +257,12 @@ Owner checks: play a battle with a controller only.
 
 ### 6D. Multiplayer
 
-- [ ] Networking behind one interface in `src/platform`
-- [ ] A small relay server (Node and WebSockets) in `server/` with room codes, working in the browser and desktop builds, so Steam, Epic and browser players can play each other
-- [ ] Lockstep sync that sends only key presses by tick, which works because the battle engine is deterministic
-- [ ] Both players' cards are exchanged and validated before the battle starts
-- [ ] A desync check: both sides compare a hash of the battle state every few seconds
+- [x] Networking behind one interface in `src/platform`
+- [x] A small relay server (Node and WebSockets) in `server/` with room codes, working in the browser and desktop builds, so Steam, Epic and browser players can play each other
+- [x] Lockstep sync that sends only key presses by tick, which works because the battle engine is deterministic
+- [x] Both players' cards are exchanged and validated before the battle starts
+- [x] A desync check: both sides compare a hash of the battle state every few seconds
+- [x] The Versus screens: host or join by code, the host's map and rank, secret setup, Ready, the guest's turned-around view, rematch and leaving
 
 Owner checks: play a match against a friend, and choose where to host the server.
 

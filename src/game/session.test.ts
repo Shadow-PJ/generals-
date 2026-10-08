@@ -64,6 +64,7 @@ function fakePlatform(options: { desktop: boolean; files?: Partial<Record<FileNa
       throw new Error('no model in tests');
     },
     speech: null,
+    network: { defaultRelay: 'ws://localhost:8787', connect: () => Promise.reject(new Error('offline')) },
   };
   return { platform, files, log, failNextWrites: (on: boolean) => (failWrites = on) };
 }

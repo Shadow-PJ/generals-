@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultSettings, readSettings, writeSettings } from './settings';
 
 describe('settings', () => {
-  it('default to a window that fits the screen, sharp resolution, not fullscreen, and no model download', () => {
+  it('default to a window that fits the screen, sharp resolution, not fullscreen, no model download and the build’s own relay', () => {
     expect(readSettings(null)).toEqual({
       version: 1,
       fullscreen: false,
@@ -11,7 +11,16 @@ describe('settings', () => {
       orderModel: null,
       volume: { master: 0.8, music: 0.6, effects: 0.8 },
       screenShake: true,
+      relayUrl: null,
     });
+  });
+
+  it('keep a relay address only if it is one the game can use', () => {
+    expect(readSettings(JSON.stringify({ relayUrl: 'wss://relay.example.com' })).relayUrl).toBe('wss://relay.example.com');
+    expect(readSettings(JSON.stringify({ relayUrl: 'http://relay.example.com' })).relayUrl).toBeNull();
+    expect(readSettings(JSON.stringify({ relayUrl: 42 })).relayUrl).toBeNull();
+    const settings = { ...defaultSettings(), relayUrl: 'ws://192.168.1.20:8787' };
+    expect(readSettings(writeSettings(settings))).toEqual(settings);
   });
 
   it('come back exactly as written', () => {

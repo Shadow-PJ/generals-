@@ -3,6 +3,7 @@
 // quieter sound), so they don't sync between computers.
 
 import type { FileName } from '../platform';
+import { isRelayAddress } from '../platform/network';
 
 export const SETTINGS_VERSION = 1;
 export const SETTINGS_FILE: FileName = 'settings.json';
@@ -30,6 +31,8 @@ export interface Settings {
   volume: Volume;
   /** The battlefield shakes for big blows (ultimates, walls falling); off for players it bothers. */
   screenShake: boolean;
+  /** The multiplayer relay typed on the Versus screen (session 6D), or null for the one the build points at. */
+  relayUrl: string | null;
 }
 
 export interface Volume {
@@ -48,6 +51,7 @@ export function defaultSettings(): Settings {
     orderModel: null,
     volume: { master: 0.8, music: 0.6, effects: 0.8 },
     screenShake: true,
+    relayUrl: null,
   };
 }
 
@@ -86,5 +90,6 @@ export function readSettings(text: string | null): Settings {
     }
   }
   if (typeof saved.screenShake === 'boolean') settings.screenShake = saved.screenShake;
+  if (typeof saved.relayUrl === 'string' && isRelayAddress(saved.relayUrl)) settings.relayUrl = saved.relayUrl;
   return settings;
 }

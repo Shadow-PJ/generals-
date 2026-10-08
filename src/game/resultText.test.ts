@@ -25,4 +25,13 @@ describe('result screen text', () => {
       'Time ran out. You kept 46% of your HP, the enemy kept 30%.',
     );
   });
+
+  it('speaks from the guest’s side in versus, who commands the enemy’s', () => {
+    expect(resultTitle(result({ winner: 'enemy' }), 'enemy')).toBe('VICTORY');
+    expect(resultTitle(result({ winner: 'player' }), 'enemy')).toBe('DEFEAT');
+    expect(resultReason(result({ winner: 'player' }), 'enemy')).toBe('Your army is destroyed.');
+    expect(resultReason(result({ reason: 'timeout', hpShare: { player: 0.456, enemy: 0.3 } }), 'enemy')).toBe(
+      'Time ran out. You kept 30% of your HP, the enemy kept 46%.',
+    );
+  });
 });

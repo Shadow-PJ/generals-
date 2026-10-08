@@ -1,6 +1,7 @@
 // Before the battle: you see the map and the enemy army, and place your troops on your half.
 // Drag a troop with the mouse, or pick one with Tab and move it with the arrow keys. In a
-// campaign fight your troops are your run's fighters; in a skirmish, your skirmish army.
+// campaign fight your troops are your run's fighters; in a skirmish or a versus match, your
+// skirmish army. In versus (session 6D) the other player sets up in secret, so their half is empty.
 
 import Phaser from 'phaser';
 import { withSpots } from '../../campaign/army';
@@ -17,6 +18,7 @@ import { placementProblem } from '../../sim';
 import { drawFactionDot } from '../campaignUi';
 import { addGround, addWallImage } from '../art/textures';
 import { drawBar, drawBody, drawRarity, drawWall, drawZone, wallKind } from '../draw';
+import { keyLabel } from '../bindings';
 import { CaptainTips } from '../captain';
 import { fitCamera } from '../display';
 import { InputLayer } from '../InputLayer';
@@ -26,6 +28,7 @@ import { BOTTOM_BAR_Y, COLORS, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } f
 import { enemyArmyOf, yourReserves, yourSynergies } from '../troops';
 import { sceneTips } from '../tutorial';
 import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
+import { followMatch, leaveMatch } from '../versusScreens';
 
 /** How fast the arrow keys move a troop, in world units per second. */
 const KEYBOARD_MOVE_SPEED = 220;
@@ -41,6 +44,11 @@ export class PrepScene extends Phaser.Scene {
   private actions!: InputLayer;
   private graphics!: Phaser.GameObjects.Graphics;
   private label!: Phaser.GameObjects.Text;
+  /** Versus: Esc was pressed once; the next press leaves the match. */
+  private confirmLeave = false;
+  private leaveText: Phaser.GameObjects.Text | null = null;
+  /** False when the screen closed as it opened (a versus match already over). */
+  private built = false;
 
   constructor() {
     super('Prep');
@@ -52,16 +60,25 @@ export class PrepScene extends Phaser.Scene {
     this.placement = this.setup.placement.map((t) => ({ ...t }));
     this.selected = 0;
     this.drag = null;
+    this.confirmLeave = false;
+    this.leaveText = null;
+    this.built = false;
   }
 
   create(): void {
     fitCamera(this);
     const fight = this.setup.fight;
+    const versus = this.setup.versus;
+    if (versus && !followMatch(this)) return;
     const region = fight ? REGION_IDS.find((id) => REGIONS[id].map === fight.encounter.map) : undefined;
-    addTitle(this, fight ? `PLACE YOUR TROOPS · ${NODE_NAMES[fight.encounter.kind].toUpperCase()}` : 'SKIRMISH');
-    const where = fight ? `${region ? REGIONS[region].name : ''} run.` : 'Practice: no XP.';
-    addHint(this, 16, 38, `${where} Drag troops, or Tab + arrows.`, `${fight ? where : 'No XP.'} RB: next troop, ✚ moves it.`, textStyle(12));
-    if (fight) {
+    addTitle(this, fight ? `PLACE YOUR TROOPS · ${NODE_NAMES[fight.encounter.kind].toUpperCase()}` : versus ? 'VERSUS · PLACE YOUR TROOPS' : 'SKIRMISH');
+    const where = fight ? `${region ? REGIONS[region].name : ''} run.` : versus ? 'Your opponent can’t see your troops.' : 'Practice: no XP.';
+    addHint(this, 16, 38, `${where} Drag troops, or Tab + arrows.`, `${fight || versus ? where : 'No XP.'} RB: next troop, ✚ moves it.`, textStyle(12));
+    if (versus) {
+      addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
+      addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Leave  Esc', () => this.goBack(), 140, 34);
+      this.leaveText = this.add.text(GAME_WIDTH / 2, 40, '', textStyle(12, TEXT.defeat, true)).setOrigin(0.5, 0);
+    } else if (fight) {
       addButton(this, GAME_WIDTH - 506, TOP_BAR_HEIGHT / 2, 'General  G', () => this.toGenerals(), 112, 34);
       addButton(this, GAME_WIDTH - 384, TOP_BAR_HEIGHT / 2, 'Codex  C', () => this.toCodex(), 112, 34);
       addButton(this, GAME_WIDTH - 250, TOP_BAR_HEIGHT / 2, '◀ Army  Esc', () => this.goBack(), 140, 34);
@@ -82,7 +99,8 @@ export class PrepScene extends Phaser.Scene {
     for (const wall of map.walls) drawWall(field, wall, map.id, false);
     const walls = map.walls.map((wall) => addWallImage(this, wall, wallKind(wall, map.id)));
     const enemy = enemyArmyOf(this.setup);
-    for (const t of enemy.placement) {
+    // In versus the other player's troops are theirs to place, out of sight.
+    for (const t of versus ? [] : enemy.placement) {
       const r = UNIT_CLASSES[t.cls].stats.radius;
       drawBody(field, t.cls, 'enemy', t.x, t.y, r, t.x - 100, t.y, { alpha: 0.85 });
       drawRarity(field, t.x, t.y, r, t.rarity ?? 'common', 0.85);
@@ -94,14 +112,21 @@ export class PrepScene extends Phaser.Scene {
     const zone = map.deployZones.enemy;
     const rank = RANKS.find((r) => r.rank === enemy.commander?.rank);
     const enemyReserves = enemy.reserves.length > 0 ? ` · ${enemy.reserves.length} in reserve` : '';
-    const enemyLead = this.add
-      .text(
-        zone.x + zone.w / 2,
-        zone.y + zone.h + 6,
-        `${GENERALS[enemy.general].name} · ${rank ? `commander Rank ${rank.numeral}` : 'no commander'}${enemyReserves}`,
-        textStyle(12, TEXT.threat, true),
-      )
-      .setOrigin(0.5, 0);
+    const enemyLead = versus
+      ? this.add
+          .text(zone.x + zone.w / 2, zone.y + zone.h / 2, `Your opponent sets up here,\nout of sight.\nRank ${RANKS.find((r) => r.rank === versus.rank)?.numeral ?? ''} for you both.`, {
+            ...textStyle(13, TEXT.threat, true),
+            align: 'center',
+          })
+          .setOrigin(0.5)
+      : this.add
+          .text(
+            zone.x + zone.w / 2,
+            zone.y + zone.h + 6,
+            `${GENERALS[enemy.general].name} · ${rank ? `commander Rank ${rank.numeral}` : 'no commander'}${enemyReserves}`,
+            textStyle(12, TEXT.threat, true),
+          )
+          .setOrigin(0.5, 0);
     this.graphics = this.add.graphics();
     this.label = this.add.text(0, 0, '', textStyle(12, TEXT.title)).setOrigin(0.5, 1);
     world.add([ground, field, ...walls, band, terrain, enemyLead, this.graphics, this.label]);
@@ -156,9 +181,9 @@ export class PrepScene extends Phaser.Scene {
       .on('prev', () => this.cycleSelection(-1))
       .on('confirm', () => this.toOrders())
       .on('back', () => this.goBack())
-      .on('codex', () => this.toCodex())
       .on('general', () => this.toGenerals());
-    if (!fight) this.actions.on('troops', () => this.toTroops());
+    if (!versus) this.actions.on('codex', () => this.toCodex());
+    if (!fight && !versus) this.actions.on('troops', () => this.toTroops());
 
     // World coordinates, so dragging works at any render scale.
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.pickUp(p.worldX, p.worldY - TOP_BAR_HEIGHT));
@@ -166,10 +191,12 @@ export class PrepScene extends Phaser.Scene {
       if (this.drag) this.drag = { ...this.drag, x: p.worldX, y: p.worldY - TOP_BAR_HEIGHT };
     });
     this.input.on('pointerup', () => this.drop());
-    new CaptainTips(this, { x: (GAME_WIDTH - 340) / 2, width: 340, top: TOP_BAR_HEIGHT + 30 }).say(sceneTips('Prep'));
+    if (!versus) new CaptainTips(this, { x: (GAME_WIDTH - 340) / 2, width: 340, top: TOP_BAR_HEIGHT + 30 }).say(sceneTips('Prep'));
+    this.built = true;
   }
 
   override update(_time: number, delta: number): void {
+    if (!this.built) return;
     this.moveWithKeys(delta);
     this.redraw();
   }
@@ -272,9 +299,22 @@ export class PrepScene extends Phaser.Scene {
     void saveCampaign({ ...campaign, run: withSpots(campaign.run, this.placement) }).catch(() => undefined);
   }
 
-  /** Back to the Army screen in a run, or to the Capital from a skirmish. */
+  /** Back to the Army screen in a run, or to the Capital from a skirmish; in versus, leaving the match (on a second press). */
   private goBack(): void {
     this.drop();
+    if (this.setup.versus) {
+      if (this.confirmLeave) {
+        leaveMatch(this);
+        return;
+      }
+      this.confirmLeave = true;
+      this.leaveText?.setText(`Press ${keyLabel('back')} again to leave the match.`);
+      this.time.delayedCall(3000, () => {
+        this.confirmLeave = false;
+        this.leaveText?.setText('');
+      });
+      return;
+    }
     if (this.setup.fight) {
       this.keepSpots();
       this.scene.start('Army');

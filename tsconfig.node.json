@@ -22,9 +22,11 @@
   "include": [
     "tools",
     "vite.config.ts",
-    "desktop/**/*.test.ts"
+    "desktop/**/*.test.ts",
+    "server"
   ],
   "exclude": [
-    "tools/eval/model/page.ts"
+    "tools/eval/model/page.ts",
+    "server/build"
   ]
 }

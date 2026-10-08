@@ -56,6 +56,6 @@ describe('key bindings', () => {
     expect(keyLabel('confirm', 'gamepad')).toBe('Ⓐ');
     expect(keyLabel('back', 'gamepad')).toBe('Ⓑ');
     expect(GAMEPAD_BINDINGS.View).toEqual(['menu']);
-    for (const action of ['codex', 'general', 'troops', 'tech', 'company', 'oaths', 'talk'] as const) expect(keyLabel(action, 'gamepad')).toBe('');
+    for (const action of ['codex', 'general', 'troops', 'tech', 'company', 'oaths', 'versus', 'talk'] as const) expect(keyLabel(action, 'gamepad')).toBe('');
   });
 });

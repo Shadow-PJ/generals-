@@ -33,6 +33,8 @@ jobs:
       - run: npm run build
         env:
           GITHUB_PAGES: 'true'
+          # The multiplayer relay (session 6D): set the RELAY_URL repository variable once it is hosted.
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

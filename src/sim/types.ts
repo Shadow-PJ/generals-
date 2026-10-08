@@ -44,8 +44,13 @@ export interface BattleSetup {
   general?: GeneralId;
   /** The enemy's General: its troops' skill and doctrine, and its commander's ultimate, twist and card style. The Captain when left out. */
   enemyGeneral?: GeneralId;
-  /** An enemy commander: its rank and the cards it fires by script (all Auto). None when left out. */
-  enemyCommander?: { rank: RankNumber; loadout: Loadout };
+  /**
+   * An enemy commander: its rank and the cards it fires by script (all Auto). None when left out.
+   * In a two-player battle (session 6D) the other player is the enemy commander (`human`): its
+   * cards and ultimate fire only by that player's inputs, and its Legendary slot opens with the
+   * actions that player has `learned`.
+   */
+  enemyCommander?: { rank: RankNumber; loadout: Loadout; human?: boolean; learned?: LegendaryAction[] };
   /** Each side's specializations, one per class; none when left out. */
   specs?: { player?: SpecChoice; enemy?: SpecChoice };
   /** The Legendary actions you have learned from bosses; with one or more the Legendary slot opens. None when left out. */
@@ -58,11 +63,15 @@ export interface BattleSetup {
   tech?: { player?: TechChoice; enemy?: TechChoice };
 }
 
-/** A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a battle. */
+/**
+ * A player input, stamped with the tick it takes effect on. A seed plus its inputs replays a
+ * battle. `side` is whose key it was: yours when left out; in a two-player battle (session 6D)
+ * the other player's are the enemy's.
+ */
 export type BattleInput =
   /** Fire a card slot: 0 to 3 are the regular slots, 4 the Legendary slot. */
-  | { tick: number; kind: 'slot'; slot: number }
-  | { tick: number; kind: 'ultimate' };
+  | { tick: number; kind: 'slot'; slot: number; side?: Side }
+  | { tick: number; kind: 'ultimate'; side?: Side };
 
 export interface Knockback {
   /** Movement per tick. */
@@ -330,6 +339,8 @@ export interface CommandState {
   /** For the event log (Battle IQ): the ultimate was ready, and the pips full, at the end of the last tick. */
   ultimateWasReady: boolean;
   pipsWereFull: boolean;
+  /** A player's (fired by their keys) rather than a scripted enemy commander's, which fires its ultimate by itself. */
+  human: boolean;
 }
 
 /** A wall on the battlefield. It blocks movement and shots until its HP runs out, unless it is unbreakable. */

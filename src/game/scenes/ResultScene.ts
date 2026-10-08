@@ -1,14 +1,16 @@
 // Shown over the finished battle: who won and how, and the Battle IQ report. A campaign battle
 // earns Command XP (and maybe a rank up), Insight and Mastery titles, and carries on to the
-// spoils, or ends the run; a skirmish is practice, with a rematch.
+// spoils, or ends the run; a skirmish is practice, with a rematch. A versus battle (session 6D)
+// shows only who won, with a rematch against the same friend or a way out.
 
 import Phaser from 'phaser';
 import { titleOf, withMastery } from '../../campaign/mastery';
 import { finishFight, type FightOutcome } from '../../campaign/run';
 import type { GeneralId } from '../../data/generals';
+import { MAPS } from '../../data/maps';
 import { MASTERY, type MasteryId } from '../../data/mastery';
 import { rankRules } from '../../data/ranks';
-import { formatBattleTime, type BattleResult } from '../../sim';
+import { formatBattleTime, type BattleResult, type Side } from '../../sim';
 import { playMusic, playSound } from '../audio/audio';
 import type { BattleIq, Grade } from '../battleIq';
 import { CaptainTips } from '../captain';
@@ -22,11 +24,17 @@ import { currentCampaign, currentXp, gainXp, saveCampaign } from '../session';
 import { GAME_HEIGHT, GAME_WIDTH, TEXT } from '../theme';
 import { sceneTips } from '../tutorial';
 import { addButton, addFrame, displayStyle, textStyle, titleCase } from '../ui';
+import { keyLabel } from '../bindings';
+import { currentMatch, GONE_TEXT } from '../versus';
+import { followMatch, leaveMatch } from '../versusScreens';
+import type { BattleData } from './BattleScene';
 
 const GRADE_COLORS: Readonly<Record<Grade, string>> = { A: TEXT.victory, B: TEXT.perfect, C: TEXT.body, D: TEXT.defeat };
 
 export interface ResultData extends MatchSetup {
   seed: number;
+  /** A versus battle: which side was yours. */
+  versusBattle?: BattleData['versusBattle'];
   result: BattleResult;
   /** The Command XP the battle earned; added to your save when this screen opens, in a campaign battle. */
   xp: XpGain;
@@ -55,6 +63,10 @@ export class ResultScene extends Phaser.Scene {
 
   create(): void {
     fitCamera(this);
+    if (this.setup.versusBattle) {
+      this.createVersus(this.setup.versusBattle.own);
+      return;
+    }
     const { result, seed, xp } = this.setup;
     const cx = GAME_WIDTH / 2;
     const cy = GAME_HEIGHT / 2;
@@ -114,6 +126,52 @@ export class ResultScene extends Phaser.Scene {
 
     this.renderIq(cx, top + 250);
     this.addRunButton(cx, top + PANEL_H - 66, result.winner === 'player');
+  }
+
+  /** Versus: who won, and a rematch against the same friend, or a way out. */
+  private createVersus(own: Side): void {
+    const { result, versus } = this.setup;
+    const cx = GAME_WIDTH / 2;
+    const cy = GAME_HEIGHT / 2;
+    const h = 250;
+    const top = cy - h / 2;
+    this.add.rectangle(cx, cy, GAME_WIDTH, GAME_HEIGHT, 0x07050a, 0.62);
+    addFrame(this, cx - PANEL_W / 2, top, PANEL_W, h, 'panel');
+    playMusic(null);
+    playSound(result.winner === own ? 'victory' : 'defeat');
+    const color = result.winner === own ? TEXT.victory : result.winner === 'draw' ? TEXT.title : TEXT.defeat;
+    const title = this.add.text(cx, top + 40, titleCase(resultTitle(result, own)), displayStyle(48, color)).setOrigin(0.5);
+    title.setScale(0.6);
+    this.tweens.add({ targets: title, scale: 1, duration: 420, ease: 'Back.Out' });
+    this.add.text(cx, top + 80, resultReason(result, own), textStyle(15)).setOrigin(0.5);
+    const where = versus ? `${MAPS[versus.map].name} · Rank ${rankRules(versus.rank).numeral}` : '';
+    this.add.text(cx, top + 104, `Versus · ${where} · battle time ${formatBattleTime(result.durationTicks).slice(0, -3)}`, textStyle(13, TEXT.muted)).setOrigin(0.5);
+    this.add.text(cx, top + 132, 'Versus earns no Command XP: it’s a straight fight.', textStyle(12, TEXT.muted)).setOrigin(0.5);
+    const note = this.add
+      .text(cx, top + h - 28, 'A rematch keeps the map and rank; you both set up again.', textStyle(12, TEXT.muted))
+      .setOrigin(0.5);
+    addButton(this, cx - 105, top + h - 66, 'Rematch  ⏎', () => this.rematchVersus(), 180, 38);
+    addButton(this, cx + 105, top + h - 66, 'Leave  Esc', () => this.leaveVersus(), 180, 38);
+    new InputLayer(this).on('confirm', () => this.rematchVersus()).on('back', () => this.leaveVersus());
+    followMatch(this, () => undefined, {
+      onGone: (why) => note.setText(`${GONE_TEXT[why]} Press ${keyLabel('back')} to go back to Versus.`).setColor(TEXT.defeat),
+    });
+  }
+
+  private rematchVersus(): void {
+    const match = currentMatch();
+    if (!match) {
+      this.leaveVersus();
+      return;
+    }
+    match.rematch();
+    this.scene.stop('Battle');
+    this.scene.start('Prep', this.matchSetup());
+  }
+
+  private leaveVersus(): void {
+    this.scene.stop('Battle');
+    leaveMatch(this);
   }
 
   /** The Battle IQ report: the grade, then four lines read from the battle. */
@@ -185,7 +243,7 @@ export class ResultScene extends Phaser.Scene {
 
   /** Everything you set up for the battle (troops, reserves, cards, General...), without its result. */
   private matchSetup(): MatchSetup {
-    const { result: _result, seed: _seed, xp: _xp, outcome: _outcome, iq: _iq, mastery: _mastery, ...setup } = this.setup;
+    const { result: _result, seed: _seed, xp: _xp, outcome: _outcome, iq: _iq, mastery: _mastery, versusBattle: _versusBattle, ...setup } = this.setup;
     return setup;
   }
 }

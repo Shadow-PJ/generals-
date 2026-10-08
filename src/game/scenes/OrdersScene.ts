@@ -3,6 +3,8 @@
 // General reads it by their personality rules and answers. Slots keep the card as you wrote it;
 // the General's version is what fires. Rephrasing is free. Slot 5, the Legendary slot, opens
 // with your first boss win and takes a card with one Legendary action you have learned.
+// In versus (session 6D) the rank is the match's, and B says you are ready: your army goes to the
+// other player's game, which checks it, and the battle starts once both are ready and accepted.
 
 import Phaser from 'phaser';
 import { cardCost } from '../../cards/cost';
@@ -32,8 +34,13 @@ import { rankProgress } from '../progress';
 import { currentPlatform, currentXp, remember, savedSetup } from '../session';
 import { FONT, GAME_HEIGHT, GAME_WIDTH, TEXT, TOP_BAR_HEIGHT } from '../theme';
 import { sceneTips } from '../tutorial';
-import { addButton, addFrame, addHint, addTitle, textStyle } from '../ui';
+import { addButton, addFrame, addHint, addTitle, displayStyle, textStyle, titleCase } from '../ui';
 import { PushToTalk, VOICE_MESSAGES } from '../voice';
+import { wordsFor } from '../../versus/army';
+import type { Side } from '../../sim';
+import { currentMatch, type VersusEvent } from '../versus';
+import { followMatch, leaveMatch } from '../versusScreens';
+import { versusArmy, yourArmyProblems } from '../versusSetup';
 
 const SLOT_COUNT = 4;
 /** Slot 5 (index 4): the Legendary slot. */
@@ -65,6 +72,12 @@ export class OrdersScene extends Phaser.Scene {
   private voice!: PushToTalk;
   /** Typing orders with a controller (session 6C). */
   private osk!: OnScreenKeyboard;
+  /** Versus: your army is sent and you wait for the other player's. */
+  private waiting = false;
+  /** Versus: the other player has sent theirs. */
+  private otherReady = false;
+  /** Versus: Esc was pressed once while waiting; the next press leaves the match. */
+  private confirmLeave = false;
 
   constructor() {
     super('Orders');
@@ -80,10 +93,15 @@ export class OrdersScene extends Phaser.Scene {
     this.slot = 0;
     this.row = FIRST_MENU_ROW;
     this.status = { text: '', color: TEXT.muted };
+    this.waiting = false;
+    this.otherReady = false;
+    this.confirmLeave = false;
   }
 
   create(): void {
     fitCamera(this);
+    const versus = this.setup.versus;
+    if (versus && !followMatch(this, (event) => this.onMatch(event))) return;
     const platform = currentPlatform();
     this.voice = new PushToTalk(
       platform.speech,
@@ -150,25 +168,29 @@ export class OrdersScene extends Phaser.Scene {
     this.input.on('pointerupoutside', () => this.voice.release());
     addButton(this, GAME_WIDTH - 66, 96, 'Translate  ⏎', () => void this.translate(), 100, 28);
 
+    // While you wait for the other player in versus, only leaving does anything.
+    const free = (act: () => void) => () => {
+      if (!this.waiting) act();
+    };
     addButton(this, SLOT_X + 72, GAME_HEIGHT - 34, '◀ Troops  Esc', () => this.backToTroops(), 140, 32);
-    addButton(this, SLOT_X + 224, GAME_HEIGHT - 34, 'Start battle  B', () => this.startBattle(), 150, 32);
-    addButton(this, GAME_WIDTH - 236, GAME_HEIGHT - 34, 'Save to slot  ⏎', () => this.save(), 150, 32);
-    addButton(this, GAME_WIDTH - 82, GAME_HEIGHT - 34, 'Clear slot  Del', () => this.clear(), 140, 32);
+    addButton(this, SLOT_X + 224, GAME_HEIGHT - 34, versus ? 'Ready  B' : 'Start battle  B', free(() => this.startBattle()), 150, 32);
+    addButton(this, GAME_WIDTH - 236, GAME_HEIGHT - 34, 'Save to slot  ⏎', free(() => this.save()), 150, 32);
+    addButton(this, GAME_WIDTH - 82, GAME_HEIGHT - 34, 'Clear slot  Del', free(() => this.clear()), 140, 32);
 
     this.ui = this.add.container(0, 0);
 
     const input = new InputLayer(this)
-      .on('up', () => this.moveRow(-1))
-      .on('down', () => this.moveRow(1))
-      .on('left', () => this.change(-1))
-      .on('right', () => this.change(1))
-      .on('next', () => this.selectSlot(this.slot + 1))
-      .on('prev', () => this.selectSlot(this.slot - 1))
-      .on('confirm', () => (this.row === TEXT_ROW ? this.typeOrder() : this.save()))
-      .on('clear', () => this.clear())
-      .on('start', () => this.startBattle())
+      .on('up', free(() => this.moveRow(-1)))
+      .on('down', free(() => this.moveRow(1)))
+      .on('left', free(() => this.change(-1)))
+      .on('right', free(() => this.change(1)))
+      .on('next', free(() => this.selectSlot(this.slot + 1)))
+      .on('prev', free(() => this.selectSlot(this.slot - 1)))
+      .on('confirm', free(() => (this.row === TEXT_ROW ? this.typeOrder() : this.save())))
+      .on('clear', free(() => this.clear()))
+      .on('start', free(() => this.startBattle()))
       .on('back', () => this.backToTroops())
-      .on('talk', () => this.voice.press())
+      .on('talk', free(() => this.voice.press()))
       .onRelease('talk', () => this.voice.release());
     this.osk = new OnScreenKeyboard(this, input, ROWS_Y - 8, ({ text, read, toKeyboard }) => {
       this.orderInput.value = text;
@@ -178,7 +200,55 @@ export class OrdersScene extends Phaser.Scene {
     });
 
     this.render();
-    new CaptainTips(this, { x: GAME_WIDTH - 476, width: 460, bottom: GAME_HEIGHT - 60 }).say(sceneTips('Orders'));
+    if (!versus) new CaptainTips(this, { x: GAME_WIDTH - 476, width: 460, bottom: GAME_HEIGHT - 60 }).say(sceneTips('Orders'));
+  }
+
+  /** Versus: what the match says while you write your orders. */
+  private onMatch(event: VersusEvent): void {
+    const ready = keyLabel('start');
+    switch (event.kind) {
+      case 'otherReady':
+        this.otherReady = true;
+        if (!this.waiting) this.status = { text: `Your opponent is ready. Press ${ready} when you are.`, color: TEXT.perfect };
+        break;
+      case 'refused': {
+        this.waiting = false;
+        this.otherReady = false;
+        const more = event.problems.length > 1 ? ` (and ${event.problems.length - 1} more)` : '';
+        this.status = event.yours
+          ? { text: `Turned down: ${wordsFor('yours', event.problems[0] ?? '')}${more}`, color: TEXT.defeat }
+          : { text: `Your opponent’s army broke the rules: ${event.problems[0] ?? ''} Press ${ready} once more.`, color: TEXT.defeat };
+        break;
+      }
+      case 'start': {
+        const own: Side = currentMatch()?.role === 'guest' ? 'enemy' : 'player';
+        this.scene.start('Battle', { ...this.setup, seed: event.setup.seed, versusBattle: { setup: event.setup, own } });
+        return;
+      }
+      case 'error':
+        this.status = { text: event.text, color: TEXT.defeat };
+        break;
+      default:
+        return;
+    }
+    if (this.scene.isActive()) this.render();
+  }
+
+  /** Versus: sends your army to the other player's game, if the rules allow it. */
+  private ready(): void {
+    const match = currentMatch();
+    if (!match || this.waiting) return;
+    const problems = yourArmyProblems(this.setup);
+    if (problems.length > 0) {
+      this.status = { text: `Not ready: ${problems[0]}`, color: TEXT.defeat };
+      this.render();
+      return;
+    }
+    this.keep();
+    match.ready(versusArmy(this.setup));
+    this.waiting = true;
+    this.confirmLeave = false;
+    this.render();
   }
 
   private get draft(): Card {
@@ -254,7 +324,9 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   private change(step: number): void {
-    if (this.row === TACTICAL_ROW) {
+    if (this.row === TACTICAL_ROW && this.setup.versus) {
+      this.status = { text: 'Versus has no Tactical mode: the battle never pauses.', color: TEXT.muted };
+    } else if (this.row === TACTICAL_ROW) {
       this.setup.tactical = !this.setup.tactical;
       this.keep();
     } else if (this.row === GENERAL_ROW) {
@@ -367,10 +439,24 @@ export class OrdersScene extends Phaser.Scene {
   }
 
   private backToTroops(): void {
-    this.scene.start('Prep', this.setup);
+    if (!this.waiting) {
+      this.scene.start('Prep', this.setup);
+      return;
+    }
+    // Ready in versus: your army is sent, so Esc can only leave the match, on a second press.
+    if (this.confirmLeave) {
+      leaveMatch(this);
+      return;
+    }
+    this.confirmLeave = true;
+    this.render();
   }
 
   private startBattle(): void {
+    if (this.setup.versus) {
+      this.ready();
+      return;
+    }
     // A campaign fight's seed was fixed when you reached its node.
     this.scene.start('Battle', { ...this.setup, seed: this.setup.fight?.encounter.seed ?? newSeed() });
   }
@@ -383,6 +469,25 @@ export class OrdersScene extends Phaser.Scene {
     this.renderSlots();
     this.renderPreview();
     this.renderMenus();
+    this.renderWaiting();
+  }
+
+  /** Versus: ready, over everything, until the other player is too. */
+  private renderWaiting(): void {
+    this.orderInput.style.visibility = this.waiting ? 'hidden' : 'visible';
+    if (!this.waiting) return;
+    const w = 480;
+    const h = 160;
+    const x = (GAME_WIDTH - w) / 2;
+    const y = (GAME_HEIGHT - h) / 2 - 40;
+    // The shade takes clicks, so nothing under it can be pressed.
+    this.ui.add(this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, GAME_HEIGHT, 0x07050a, 0.62).setInteractive());
+    this.ui.add(addFrame(this, x, y, w, h, 'panel'));
+    this.ui.add(this.add.text(GAME_WIDTH / 2, y + 38, titleCase('Ready'), displayStyle(36, TEXT.victory)).setOrigin(0.5));
+    const waitingFor = this.otherReady ? 'Your opponent is ready too: checking both armies…' : 'Waiting for your opponent to finish their orders…';
+    this.ui.add(this.add.text(GAME_WIDTH / 2, y + 82, waitingFor, textStyle(14, TEXT.body, true)).setOrigin(0.5));
+    const leave = this.confirmLeave ? `Press ${keyLabel('back')} again to leave the match.` : `${keyLabel('back')}: leave the match`;
+    this.ui.add(this.add.text(GAME_WIDTH / 2, y + 118, leave, textStyle(12, this.confirmLeave ? TEXT.defeat : TEXT.muted)).setOrigin(0.5));
   }
 
   private renderSwitches(): void {
@@ -391,11 +496,13 @@ export class OrdersScene extends Phaser.Scene {
     // Your rank is earned in battle: shown here, not switched (practice ranks are set on the Skirmish screen).
     const progress = rankProgress(currentXp());
     const practice = this.setup.practiceRank !== null;
-    const xp = practice ? 'practice: no XP' : progress ? `${progress.into}/${progress.span} XP to the next` : 'the highest rank';
-    this.ui.add(this.add.text(x, 5, `${practice ? 'Practice ' : ''}Rank ${rules.numeral} · ${rules.name}`, textStyle(12, TEXT.title, true)));
+    const versus = this.setup.versus !== undefined;
+    const xp = versus ? 'the host’s pick' : practice ? 'practice: no XP' : progress ? `${progress.into}/${progress.span} XP to the next` : 'the highest rank';
+    const kind = versus ? 'Versus · ' : practice ? 'Practice ' : '';
+    this.ui.add(this.add.text(x, 5, `${kind}Rank ${rules.numeral} · ${rules.name}`, textStyle(12, TEXT.title, true)));
     this.ui.add(this.add.text(x + 284, 5, xp, textStyle(11, TEXT.muted)).setOrigin(1, 0));
     const lines: [number, string, string][] = [
-      [TACTICAL_ROW, 'Tactical mode', this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
+      [TACTICAL_ROW, 'Tactical mode', versus ? 'Off in versus' : this.setup.tactical ? 'On: pause every 10 s' : 'Off'],
       [GENERAL_ROW, 'General (debug)', GENERALS[this.setup.general].name],
     ];
     lines.forEach(([row, label, value], i) => {

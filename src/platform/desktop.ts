@@ -4,6 +4,7 @@
 
 import type { DesktopBridge } from './bridge';
 import { loadLocalModel } from './model';
+import { buildRelay, webSocketNetwork } from './network';
 import type { Platform } from './types';
 
 export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Platform> {
@@ -47,5 +48,6 @@ export async function createDesktopPlatform(bridge: DesktopBridge): Promise<Plat
     loadModel: loadLocalModel,
     // Electron's Chromium has the speech API but not the speech service behind it.
     speech: null,
+    network: webSocketNetwork(buildRelay(import.meta.env.VITE_RELAY_URL)),
   };
 }

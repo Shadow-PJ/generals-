@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { describeCard } from '../cards/describe';
 import { translateOrder, type Translator } from '../cards/translator';
 import { createPlatform } from '../platform';
+import { stateHash, type BattleState } from '../sim';
 import { audioStatus, setVolume, unlockAudio } from './audio/audio';
 import { actionForKey } from './bindings';
 import { onDeviceChange } from './inputDevice';
@@ -29,7 +30,9 @@ import { SettingsScene } from './scenes/SettingsScene';
 import { StopScene } from './scenes/StopScene';
 import { TitleScene } from './scenes/TitleScene';
 import { TroopsScene } from './scenes/TroopsScene';
+import { VersusScene } from './scenes/VersusScene';
 import { watchScenes } from './sceneHooks';
+import { currentMatch } from './versus';
 import { applyWindowSettings, currentPlatform, currentSettings, startSession, toggleFullscreen } from './session';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH } from './theme';
 
@@ -80,6 +83,7 @@ async function boot(): Promise<void> {
       TroopsScene,
       GeneralsScene,
       OathsScene,
+      VersusScene,
     ],
   });
 
@@ -98,7 +102,7 @@ async function boot(): Promise<void> {
   window.addEventListener('resize', () => setRenderScale(game, wantedRenderScale()));
   game.events.on('settings-changed', () => setRenderScale(game, wantedRenderScale()));
   // Automatic tests (the desktop smoke test) can ask the order reader and model directly with ?smoke.
-  if (new URLSearchParams(window.location.search).has('smoke')) exposeTestHook();
+  if (new URLSearchParams(window.location.search).has('smoke')) exposeTestHook(game);
   // F11 toggles fullscreen on every screen.
   window.addEventListener('keydown', (event) => {
     if (actionForKey(event.code, event.shiftKey) !== 'fullscreen' || event.repeat) return;
@@ -107,7 +111,7 @@ async function boot(): Promise<void> {
   });
 }
 
-function exposeTestHook(): void {
+function exposeTestHook(game: Phaser.Game): void {
   /** Reads an order the way the Orders screen does, or with only the parser and the model. */
   async function translate(text: string, others: readonly (Translator | null)[]) {
     const start = performance.now();
@@ -120,6 +124,19 @@ function exposeTestHook(): void {
       audio: audioStatus,
       translate: (text: string) => translate(text, [orderReaderTranslator, orderModelTranslator()]),
       translateWithModel: (text: string) => translate(text, [orderModelTranslator()]),
+      /** The versus match in progress (session 6D), for the two-browser check. */
+      versus: () => {
+        const match = currentMatch();
+        return match && { role: match.role, phase: match.phase, code: match.code, round: match.round };
+      },
+      /** The battle on screen: its tick, fingerprint and result, to compare two games' battles. */
+      battle: () => {
+        const scene = game.scene.getScene('Battle') as unknown as { state?: BattleState } | null;
+        const state = scene?.state;
+        if (!state) return null;
+        const fired = state.events.filter((e) => e.type === 'cardFired').map((e) => e.side);
+        return { tick: state.tick, hash: stateHash(state), result: state.result, inputs: state.inputLog.length, fired };
+      },
     },
   });
 }
