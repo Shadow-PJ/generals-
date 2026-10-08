@@ -1,8 +1,9 @@
 // What waits at a run's node, other than a fight: the spoils after a won fight (and after an elite
-// fight, the beaten commander's orders to take as a decree), an event's hard choice, the merchant,
-// a rest camp, and the end of the run. Each opens on a picture of the place in the region's colors
-// (session 7E), then shows a little text and a list of options. ↑↓ (or Tab) pick an option, Enter
-// takes it, Esc leaves when you may.
+// fight, the beaten commander's orders to take as a decree; after a crossroads, session 7F, two
+// deals in place of the spoils), an event's hard choice, the merchant, a rest camp, and the end
+// of the run. Each opens on a picture of the place in the region's colors (session 7E), then
+// shows a little text and a list of options. ↑↓ (or Tab) pick an option, Enter takes it, Esc
+// leaves when you may.
 
 import Phaser from 'phaser';
 import { fighterLabel, offerLabel, offerText } from '../../campaign/describe';
@@ -22,14 +23,17 @@ import {
   leaveStop,
   merchantPrices,
   pickSpoils,
+  dealTakeProblem,
   reroll,
   rerollProblem,
+  takeDeal,
   takeDecree,
   toggleKeep,
 } from '../../campaign/run';
 import { veteranRank } from '../../campaign/company';
 import type { Campaign, Offer, RunState, Stop } from '../../campaign/types';
 import { ARTIFACTS } from '../../data/artifacts';
+import { DEALS, type DealCost } from '../../data/crossroads';
 import { EVENTS } from '../../data/events';
 import { FACTIONS } from '../../data/factions';
 import { GENERALS } from '../../data/generals';
@@ -82,6 +86,9 @@ interface View {
   /** What Esc does, if anything. */
   leave?: () => void;
 }
+
+/** What a crossroads deal costs, on the right of its row (session 7F). */
+const DEAL_COST_NAMES: Readonly<Record<DealCost, string>> = { blood: 'Costs blood', gold: 'Costs gold', loss: 'Costs one of yours' };
 
 /** What an offer gives, and for a fighter of a faction how many of it your run has already. */
 function offerDetail(run: RunState, offer: Offer): string {
@@ -159,6 +166,8 @@ export class StopScene extends Phaser.Scene {
     switch (stop.kind) {
       case 'spoils':
         return this.spoils(campaign, run, stop);
+      case 'crossroads':
+        return this.crossroads(campaign, run, stop);
       case 'decree':
         return this.decree(campaign, run, stop);
       case 'event':
@@ -203,6 +212,43 @@ export class StopScene extends Phaser.Scene {
   private afterSpoils(next: Campaign): void {
     this.selected = 0;
     this.step(next, next.run?.stop ? 'stay' : 'Run');
+  }
+
+  /** A won crossroads (session 7F): take one of two deals; then what it did, until you carry on. */
+  private crossroads(campaign: Campaign, run: RunState, stop: Extract<Stop, { kind: 'crossroads' }>): View {
+    const title = 'VICTORY · CROSSROADS';
+    if (stop.chosen !== null) {
+      const leave = () => this.step(leaveStop(campaign), 'Run');
+      return {
+        picture: 'crossroads',
+        title,
+        titleColor: TEXT.victory,
+        lines: [{ text: `You took ${DEALS[stop.deals[stop.chosen]!].name}.`, bold: true }, ...stop.outcome.map((text) => ({ text, color: TEXT.perfect }))],
+        options: [{ label: 'Carry on', detail: 'Back to the map.', problem: null, act: leave }],
+        leave,
+      };
+    }
+    return {
+      picture: 'crossroads',
+      title,
+      titleColor: TEXT.victory,
+      lines: [
+        { text: `+${stop.gold} gold. You have ${run.gold}.`, color: TEXT.gold, bold: true },
+        { text: 'Two roads, one choice: take one deal. Each gives you something big and costs you something real.', color: TEXT.muted },
+      ],
+      options: stop.deals.map((id, i) => {
+        const deal = DEALS[id];
+        const problem = dealTakeProblem(run, i);
+        return {
+          label: deal.name,
+          labelColor: TEXT.gold,
+          detail: `${deal.gainText}. Cost: ${deal.costText}.`,
+          note: problem ?? DEAL_COST_NAMES[deal.costKind],
+          problem,
+          act: () => this.step(takeDeal(campaign, i), 'stay'),
+        };
+      }),
+    };
   }
 
   /** The beaten elite commander's orders (session 7D): take one as your decree, or march on. */

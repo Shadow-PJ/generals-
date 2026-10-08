@@ -74,6 +74,12 @@ plan is yours to fix.
   beaten commander's cards as your run's decree: your army fires it by itself in every battle of
   the run. See `docs/DESIGN.md`, Decrees.
 
+## Built in session 7F (the owner asked for it)
+
+- **Two clear choices instead of three** (Thronefall): crossroads battles on the run map. Win one
+  and take one of two deals, each a big gain bought with a real cost, in place of the spoils' pick
+  of three. See `docs/DESIGN.md`, Crossroads.
+
 ## Noted for later
 
 - **Two Generals, swap mid-battle** (Skul): lead with two recruited Generals and swap with a key,
@@ -84,4 +90,3 @@ plan is yours to fix.
   between card presses, and fits the controller work of session 6C.
 - **Endless after the last ruler** (9 Kings): keep fighting stronger armies after the fifth boss,
   for a high score.
-- **Two clear choices instead of three** (Thronefall): some stops could offer a sharp either/or.

@@ -1,10 +1,11 @@
 // The pictures at the top of a run's stops (session 7E): a small scene of the place, in the
-// colors of the region the run is in. The spoils of a won fight are a chest by your banner; a
-// beaten commander's orders, its red standard and a sealed scroll; an event, a signpost at a
-// crossroads; the merchant, a striped stall; a rest camp, tents round a fire under the stars; and
-// the run's end, your banner at dawn, or the enemy's over your fallen one in a storm. Worked out in code, the same every
-// time, at art size (one art pixel is UI_PIXEL world units); the stop screen writes its title
-// over the sky.
+// colors of the region the run is in. The spoils of a won fight are a chest by your banner (at a
+// crossroads, session 7F, a signpost stands between them, under a dusk of its own); a beaten
+// commander's orders, its red standard and a sealed scroll; an event, a signpost at twilight; the
+// merchant, a striped stall; a rest camp, tents round a fire under the stars; and the run's end,
+// your banner at dawn, or the enemy's over your fallen one in a storm. Worked out in code, the
+// same every time, at art size (one art pixel is UI_PIXEL world units); the stop screen writes
+// its title over the sky.
 
 import type { RegionId } from '../../data/regions';
 import type { UnitClass } from '../../data/units';
@@ -16,8 +17,8 @@ import { PROP_ART, type PropId } from './props';
 import { TROOP_ART } from './troops';
 import { REGION_BIOMES, regionGround } from './worldMap';
 
-export type StopScene = 'spoils' | 'decree' | 'event' | 'merchant' | 'camp' | 'won' | 'lost';
-export const STOP_SCENES: readonly StopScene[] = ['spoils', 'decree', 'event', 'merchant', 'camp', 'won', 'lost'];
+export type StopScene = 'spoils' | 'crossroads' | 'decree' | 'event' | 'merchant' | 'camp' | 'won' | 'lost';
+export const STOP_SCENES: readonly StopScene[] = ['spoils', 'crossroads', 'decree', 'event', 'merchant', 'camp', 'won', 'lost'];
 
 /** A canvas tent, its door open: lit on the left, shaded on the right. */
 export const TENT_ART: Sprite = still([
@@ -199,6 +200,7 @@ interface SkyLook {
 
 const SKIES: Readonly<Record<StopScene, SkyLook>> = {
   spoils: { shades: [0x2a1b45, 0x5c2a55, 0xa4434a, 0xe57f45, 0xf3a457, 0xfcc874], stars: false, light: 0.8 },
+  crossroads: { shades: [0x1c2340, 0x3a3560, 0x6e4a6e, 0xb06a5e, 0xe39a62, 0xf6c98a], stars: false, light: 0.75 },
   won: { shades: [0x3e2150, 0x7f3452, 0xc85a42, 0xf3a457, 0xfcc874, 0xffe39a], stars: false, light: 1 },
   decree: { shades: [0x1a0f14, 0x2e1418, 0x4f1c1c, 0x7a2a22, 0xa3402a], stars: false, light: 0.6 },
   event: { shades: [0x0d0a1c, 0x1d1536, 0x2a1b45, 0x3e2150, 0x5c2a55], stars: true, light: 0.45 },
@@ -262,6 +264,9 @@ function setPiece(scene: StopScene, cx: number, base: number, light: number): Pl
   switch (scene) {
     case 'spoils':
       return [at(STANDARD_ART, cx + 16, you, base - 2), at(CHEST_ART, cx - 6), troop('vanguard', cx - 36), troop('ranger', cx - 54, false, base - 3), troop('guardian', cx + 40, true)];
+    case 'crossroads':
+      // Two roads from a won field: a signpost between your spoils and the road on.
+      return [at(SIGNPOST_ART, cx), at(CHEST_ART, cx - 26), at(STANDARD_ART, cx + 26, you, base - 2), troop('vanguard', cx - 50), troop('ranger', cx + 48, true)];
     case 'decree':
       return [at(STANDARD_ART, cx + 4, them, base - 3), at(SCROLL_ART, cx - 14), troop('vanguard', cx - 42), troop('guardian', cx + 36, true)];
     case 'event':

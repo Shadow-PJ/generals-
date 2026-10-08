@@ -97,8 +97,8 @@ describe('the saved profile', () => {
   });
 
   it('carries its version number', () => {
-    expect(JSON.parse(writeProfile(saved())).version).toBe(8);
-    expect(profileVersion(writeProfile(saved()))).toBe(8);
+    expect(JSON.parse(writeProfile(saved())).version).toBe(9);
+    expect(profileVersion(writeProfile(saved()))).toBe(9);
     expect(profileVersion(null)).toBeNull();
     expect(profileVersion('{')).toBeNull();
   });
@@ -180,6 +180,39 @@ describe('the saved profile', () => {
     const data = JSON.parse(writeProfile(profile));
     data.run.stop.commander.rank = 9;
     expect(readProfile(JSON.stringify(data)).run).toBeNull();
+  });
+
+  it('keeps a run map’s crossroads and the deals a won one offers (session 7F)', () => {
+    const profile = saved();
+    const run = profile.run!;
+    const map = run.map.map((floor) => floor.map((n) => (n.kind === 'battle' ? { ...n, crossroads: true as const } : n)));
+    const stop = { kind: 'crossroads' as const, gold: 31, deals: ['bloodPrice' as const, 'warChest' as const], chosen: 1, outcome: ['+110 gold.'] };
+    profile.run = { ...run, map, stop };
+    const read = readProfile(writeProfile(profile)).run!;
+    expect(read.map).toEqual(map);
+    expect(read.stop).toEqual(stop);
+    // A deal that doesn't exist, or a choice past the deals, drops the run.
+    const data = JSON.parse(writeProfile(profile));
+    data.run.stop.deals[0] = 'freeLunch';
+    expect(readProfile(JSON.stringify(data)).run).toBeNull();
+    data.run.stop.deals[0] = 'bloodPrice';
+    data.run.stop.chosen = 2;
+    expect(readProfile(JSON.stringify(data)).run).toBeNull();
+    // Only a battle can be a crossroads.
+    const odd = JSON.parse(writeProfile(profile));
+    odd.run.map[odd.run.map.length - 1][0].crossroads = true;
+    expect(readProfile(JSON.stringify(odd)).run!.map.at(-1)![0]).toEqual({ kind: 'boss', next: [] });
+  });
+
+  it('loads a version 8 save: a run in progress keeps its map, with no crossroads', () => {
+    const data = JSON.parse(writeProfile(saved()));
+    data.version = 8;
+    // A version 8 save was written before crossroads: its map has none.
+    for (const floor of data.run.map) for (const node of floor) delete node.crossroads;
+    const read = readProfile(JSON.stringify(data));
+    expect(read.version).toBe(9);
+    expect(read.run).not.toBeNull();
+    expect(read.run!.map.flat().some((n) => n.crossroads)).toBe(false);
   });
 
   it('keeps your Oaths of Command and Fear records, and only the parts that read', () => {

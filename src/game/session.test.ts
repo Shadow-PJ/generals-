@@ -124,7 +124,7 @@ describe('the session', () => {
     await startSession(fake.platform);
     expect(savedSetup()).toMatchObject({ rank: 4, tactical: true, bossesBeaten: [] });
     expect(fake.files.get('saves/profile-backup.json')).toBe(v1);
-    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 8, xp: RANK_XP[4], run: null, artifacts: [], tutorial: { on: false, seen: [] }, oaths: {}, fearRecords: {} });
+    expect(JSON.parse(fake.files.get('saves/profile.json')!)).toMatchObject({ version: 9, xp: RANK_XP[4], run: null, artifacts: [], tutorial: { on: false, seen: [] }, oaths: {}, fearRecords: {} });
     // Already up to date: no new backup.
     fake.files.delete('saves/profile-backup.json');
     await startSession(fake.platform);

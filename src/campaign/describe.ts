@@ -9,7 +9,7 @@ import { RARITY_RULES, type Rarity } from '../data/rarity';
 import type { NodeKind } from '../data/runs';
 import { TROOP_NAMES, type TroopClass } from '../data/units';
 import { veteranRank } from './company';
-import type { Encounter, FighterRecord, Offer } from './types';
+import type { Encounter, FighterRecord, Offer, RunNode } from './types';
 
 /** "Rare Hive Ranger"; a Common fighter of no faction is just "Ranger". */
 export function fighterLabel(cls: TroopClass, rarity: Rarity, faction: FactionId | null = null): string {
@@ -65,6 +65,14 @@ export const NODE_TEXT: Readonly<Record<NodeKind, string>> = {
   camp: 'Your army rests and heals, and the artifacts you carry are banked for good.',
   boss: 'The ruler of the region. Beat them to win the run.',
 };
+
+/** A stop's name on the run map: a crossroads battle is named for what it offers (session 7F). */
+export function nodeName(node: RunNode): string {
+  return node.crossroads ? 'Crossroads' : NODE_NAMES[node.kind];
+}
+
+/** What a crossroads offers, for the run map (session 7F). */
+export const CROSSROADS_TEXT = 'Win it, then take one of two deals instead of the spoils';
 
 /**
  * A fight scouted on the run map (session 5F): "The Hive Mother's army: 5 troops and 2 in

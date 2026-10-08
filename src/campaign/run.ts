@@ -18,6 +18,7 @@ import { benchWounded, joined, removeFighter } from './army';
 import { afterBattle, defaultKeep, fighterFromVeteran, filledCompany, veteranFromFighter } from './company';
 import { decreeOffers } from './decrees';
 import { nodeEncounter } from './encounters';
+import { dealChoice, dealProblem, markCrossroads, rollDeals } from './crossroads';
 import { applyChoice, choiceProblem, newArtifact } from './events';
 import { campHeal, fallenHp, fearBounty, fearOf, oathGold, oathInsight, oathPrice, spoilsOffers } from './oaths';
 import { rollOffers, rollStock, takeOffer } from './offers';
@@ -57,7 +58,8 @@ export function newRun(campaign: Campaign, region: RegionId, seed: number): Camp
     level: BOSS_ORDER.filter((g) => campaign.bossesBeaten.includes(g)).length,
     seed,
     rng,
-    map: generateRunMap(rng),
+    // Crossroads (session 7F) come from the seed alone, leaving the generator's rolls as they were.
+    map: markCrossroads(generateRunMap(rng), seed),
     path: [],
     stop: null,
     gold: RUN_RULES.startingGold,
@@ -185,12 +187,11 @@ export function finishFight(campaign: Campaign, outcome: FightOutcome): Campaign
     const offers = rollOffers(rng, healed, campaign.bossesBeaten, rarityChances(floor, encounter.kind === 'elite'), spoilsOffers(healed.oaths));
     // A beaten elite commander's orders are offered next, as a decree (session 7D).
     const commander = encounter.kind === 'elite' && encounter.commander !== null ? { general: encounter.general, rank: encounter.commander } : null;
-    return {
-      ...healed,
-      gold: healed.gold + gold,
-      artifacts: artifact ? [...healed.artifacts, artifact] : healed.artifacts,
-      stop: { kind: 'spoils', gold, artifact, offers, commander },
-    };
+    const paid: RunState = { ...healed, gold: healed.gold + gold, artifacts: artifact ? [...healed.artifacts, artifact] : healed.artifacts };
+    // A won crossroads offers two deals instead of the pick (session 7F).
+    const deals = currentNode(run)?.node.crossroads ? rollDeals(rng, paid) : null;
+    if (deals) return { ...paid, stop: { kind: 'crossroads', gold, deals, chosen: null, outcome: [] } };
+    return { ...paid, stop: { kind: 'spoils', gold, artifact, offers, commander } };
   });
   return { ...earned, run: next };
 }
@@ -315,11 +316,34 @@ export function chooseEvent(campaign: Campaign, index: number): Campaign {
   return { ...campaign, run: next };
 }
 
-/** Moves on from a merchant, a camp or a finished event, back to the map. */
+/** Why you can't take this crossroads deal now, or null if you can. */
+export function dealTakeProblem(run: RunState, index: number): string | null {
+  if (run.stop?.kind !== 'crossroads' || run.stop.chosen !== null) return 'No deal to take';
+  const deal = run.stop.deals[index];
+  return deal ? dealProblem(run, deal) : 'No such deal';
+}
+
+/** Takes one of a crossroads' two deals (session 7F); the stop then shows what happened until you leave. */
+export function takeDeal(campaign: Campaign, index: number): Campaign {
+  const run = runOf(campaign);
+  const problem = dealTakeProblem(run, index);
+  if (problem) throw new Error(problem);
+  const stop = run.stop as Extract<Stop, { kind: 'crossroads' }>;
+  const next = rolling(run, (rng) => {
+    const done = applyChoice(rng, run, dealChoice(stop.deals[index]!), campaign.artifacts, campaign.bossesBeaten);
+    return { ...done.run, stop: { ...stop, chosen: index, outcome: done.outcome } };
+  });
+  return { ...campaign, run: next };
+}
+
+/** Moves on from a merchant, a camp, a finished event or a taken crossroads deal, back to the map. */
 export function leaveStop(campaign: Campaign): Campaign {
   const run = runOf(campaign);
   const stop = run.stop;
-  const done = stop?.kind === 'merchant' || stop?.kind === 'camp' || (stop?.kind === 'event' && stop.chosen !== null);
+  const done =
+    stop?.kind === 'merchant' ||
+    stop?.kind === 'camp' ||
+    ((stop?.kind === 'event' || stop?.kind === 'crossroads') && stop.chosen !== null);
   if (!done) throw new Error('You can’t leave yet');
   return { ...campaign, run: { ...run, stop: null } };
 }
