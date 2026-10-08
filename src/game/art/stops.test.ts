@@ -15,8 +15,10 @@ describe('the stop pictures (session 7E)', () => {
         expect(image.w).toBe(W);
         expect(image.h).toBe(H);
         expect(image.pixels.length).toBe(W * H);
-        expect([...image.pixels].every((p) => p >>> 24 === 0xff)).toBe(true);
-        expect(stopScenePixels(scene, region, W, H).pixels).toEqual(image.pixels);
+        // Plain loops: deep equality over 35 pictures of 28,800 pixels each is slow on a busy runner.
+        expect(image.pixels.every((p) => p >>> 24 === 0xff)).toBe(true);
+        const again = stopScenePixels(scene, region, W, H).pixels;
+        expect(again.every((p, i) => p === image.pixels[i])).toBe(true);
       }
     }
   });
