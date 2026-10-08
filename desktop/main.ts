@@ -1,7 +1,7 @@
 // The desktop app's main process. It opens one window that runs the same game build as the
 // browser version, served from inside the app, and answers the game's few requests: read and
-// write its files, fullscreen, window size, and under Steam its achievements and presence
-// (session 7A). The game never gets Node or Electron itself.
+// write its files, fullscreen, window size, and under Steam (session 7A) or the Epic Games Store
+// (session 7B) its achievements and presence. The game never gets Node or Electron itself.
 
 import {
   app,
@@ -15,12 +15,14 @@ import {
   type IpcMainEvent,
   type IpcMainInvokeEvent,
 } from 'electron';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import type { DesktopInfo } from '../src/platform/bridge.js';
 import { DataFiles } from './dataFiles.js';
+import { koffiLoadProblem } from './eos.js';
+import { EPIC_FOLDER, epicLaunch, findEpicFiles, startEpic, type EpicStore } from './epic.js';
 import { runSmokeTest, smokeLog, smokeModel, smokeTestMode, type SmokeMode } from './smokeTest.js';
 import { startSteam, steamAppId, steamworksLoadProblem, type SteamStore } from './steam.js';
 
@@ -50,6 +52,8 @@ if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
 let win: BrowserWindow | null = null;
 /** Steam, when Steam started the app (or a test App ID was given); null otherwise. */
 let steam: SteamStore | null = null;
+/** The Epic Games Store, when its launcher started the Epic build; null otherwise. */
+let epic: EpicStore | null = null;
 let shown = false;
 let fullscreenOnShow = false;
 let markReady: () => void = () => undefined;
@@ -105,7 +109,7 @@ function listenToGame(files: DataFiles, savesFolder: string): void {
     savesFolder,
     fullscreen: win?.isFullScreen() || fullscreenOnShow,
     workArea: workArea(),
-    store: steam ? 'steam' : 'none',
+    store: steam ? 'steam' : epic ? 'epic' : 'none',
   }));
   handle('read-file', (name) => files.read(name));
   handle('write-file', (name, text) => files.write(name, text));
@@ -133,12 +137,16 @@ function listenToGame(files: DataFiles, savesFolder: string): void {
   ipcMain.on('quit', (event) => {
     if (fromGame(event)) app.quit();
   });
-  // The store checks what it is given; without Steam these do nothing.
+  // The store checks what it is given; without a store these do nothing.
   ipcMain.on('unlock-achievement', (event, id: unknown) => {
-    if (fromGame(event)) steam?.unlock(id);
+    if (!fromGame(event)) return;
+    steam?.unlock(id);
+    epic?.unlock(id);
   });
   ipcMain.on('set-presence', (event, presence: unknown) => {
-    if (fromGame(event)) steam?.presence(presence);
+    if (!fromGame(event)) return;
+    steam?.presence(presence);
+    epic?.presence(presence);
   });
 }
 
@@ -149,6 +157,35 @@ function readText(file: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Starts Epic when its launcher started the app (or a developer sign-in was asked for), in a
+ * build that carries the SDK and epic.json: the Epic build's resources, or desktop/eos/ when run
+ * from the repository. Like Steam's, Epic's overlay draws only with the GPU in the app's own
+ * process, so the same two Chromium switches go on with it.
+ */
+function startEpicIfLaunched(): EpicStore | null {
+  const launch = epicLaunch(process.argv);
+  if (!launch) return null;
+  const log = (line: string) => console.log(line);
+  const files = findEpicFiles([path.join(process.resourcesPath, EPIC_FOLDER), path.join(here, '..', EPIC_FOLDER)], readText, existsSync);
+  if (!files) {
+    log('Epic is off: this build has no Epic SDK or epic.json (the Epic build is made with npm run epic:stage).');
+    return null;
+  }
+  if (launch.overlay) {
+    app.commandLine.appendSwitch('in-process-gpu');
+    app.commandLine.appendSwitch('disable-direct-composition');
+  }
+  return startEpic({
+    launch,
+    config: files.config,
+    library: files.library,
+    productVersion: app.getVersion(),
+    cacheDirectory: path.join(path.dirname(app.getPath('sessionData')), 'eos'),
+    log,
+  });
 }
 
 /** `query` is added to the page address; smoke tests use it to switch on the game's test hook. */
@@ -209,7 +246,11 @@ if (!app.requestSingleInstanceLock()) {
   // Steam starts before the app is ready: its overlay needs Chromium switches set first.
   const appId = smokeMode ? null : steamAppId(process.env, process.argv, readText, [path.dirname(app.getPath('exe')), process.cwd()]);
   if (appId !== null) steam = startSteam(appId, (line) => console.log(line));
-  app.on('will-quit', () => steam?.stop());
+  if (!steam && !smokeMode) epic = startEpicIfLaunched();
+  app.on('will-quit', () => {
+    steam?.stop();
+    epic?.stop();
+  });
 
   void app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
@@ -233,11 +274,16 @@ function startSmokeTest(mode: SmokeMode, window: BrowserWindow, files: DataFiles
     app.exit(passed ? 0 : 1);
   };
   setTimeout(() => finish(false, 'it took too long'), SMOKE_TEST_LIMIT_MS);
-  // The app carries Steam's module and library (session 7A); Steam itself isn't started here.
+  // The app carries Steam's module and library (session 7A) and koffi for Epic's SDK (session 7B);
+  // neither store is started here.
   const steamProblem = mode === 'play' ? steamworksLoadProblem() : null;
-  if (mode === 'play') log(steamProblem ? `FAIL  steamworks.js loads in the app: ${steamProblem}` : 'ok    steamworks.js loads in the app, for Steam');
+  const koffiProblem = mode === 'play' ? koffiLoadProblem() : null;
+  if (mode === 'play') {
+    log(steamProblem ? `FAIL  steamworks.js loads in the app: ${steamProblem}` : 'ok    steamworks.js loads in the app, for Steam');
+    log(koffiProblem ? `FAIL  koffi loads in the app: ${koffiProblem}` : 'ok    koffi loads in the app, for Epic');
+  }
   runSmokeTest({ mode, win: window, gameReady, readProfile: () => files.read('saves/profile.json'), log }).then(
-    (passed) => finish(passed && steamProblem === null, 'see the lines above'),
+    (passed) => finish(passed && steamProblem === null && koffiProblem === null, 'see the lines above'),
     (error: unknown) => finish(false, String(error)),
   );
 }

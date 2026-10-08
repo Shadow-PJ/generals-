@@ -26,6 +26,8 @@
     "desktop:linux": "npm run build && npm run desktop:compile && electron-builder --linux --config desktop/electron-builder.yml --publish never",
     "desktop:steam": "npm run build && npm run desktop:compile && electron-builder --dir --config desktop/electron-builder.yml --publish never",
     "steam:upload": "tsx tools/steam/upload.ts",
+    "epic:stage": "tsx tools/epic/stage.ts",
+    "epic:upload": "tsx tools/epic/upload.ts",
     "dataset": "tsx tools/dataset/generate.ts",
     "eval": "tsx tools/eval/eval.ts",
     "train:reader": "tsx tools/reader/train.ts",
@@ -49,6 +51,7 @@
     "ws": "^8.22.0"
   },
   "dependencies": {
+    "koffi": "^3.3.2",
     "steamworks.js": "^0.4.0"
   }
 }

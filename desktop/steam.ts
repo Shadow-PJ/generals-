@@ -6,7 +6,7 @@
 
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import type { DesktopPresence } from '../src/platform/bridge.js';
+import { readPresence } from './presence.js';
 
 /** The part of steamworks.js the app uses. */
 export interface SteamClient {
@@ -42,26 +42,8 @@ export function steamAppId(
   return null;
 }
 
-/** Steam's names for achievements (their API names) and presence keys. */
+/** Steam's names for achievements: their API names. */
 const ACHIEVEMENT_NAME = /^[A-Z0-9_]{1,64}$/;
-const PRESENCE_LINE = /^[A-Za-z0-9_]{1,40}$/;
-const PRESENCE_KEY = /^[a-z][a-z0-9_]{0,31}$/;
-/** Steam keeps at most 20 presence keys a player, steam_display among them, each value up to 256 characters. */
-const MAX_PRESENCE_PARAMS = 19;
-const MAX_PRESENCE_VALUE = 256;
-
-/** A presence sent by the game, if it is well formed; anything else is dropped. */
-export function readPresence(value: unknown): DesktopPresence | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const { line, params } = value as { line?: unknown; params?: unknown };
-  if (typeof line !== 'string' || !PRESENCE_LINE.test(line) || typeof params !== 'object' || params === null) return null;
-  const entries = Object.entries(params);
-  if (entries.length > MAX_PRESENCE_PARAMS) return null;
-  for (const [key, text] of entries) {
-    if (!PRESENCE_KEY.test(key) || key === 'steam_display' || typeof text !== 'string' || text.length > MAX_PRESENCE_VALUE) return null;
-  }
-  return { line, params: Object.fromEntries(entries) as Record<string, string> };
-}
 
 export interface SteamStoreOptions {
   /** How long to wait before trying an achievement again, in milliseconds. */

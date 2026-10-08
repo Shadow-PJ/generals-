@@ -8,8 +8,8 @@ export interface DesktopInfo {
   fullscreen: boolean;
   /** Free space for the window's inner area on the screen the window is on. */
   workArea: { width: number; height: number };
-  /** The store that started the app and is running alongside it (session 7A), or 'none'. */
-  store: 'none' | 'steam';
+  /** The store that started the app and is running alongside it (sessions 7A and 7B), or 'none'. */
+  store: 'none' | 'steam' | 'epic';
 }
 
 /** What the player is doing, for the store to show friends (see src/platform/store.ts). */
@@ -28,7 +28,7 @@ export interface DesktopBridge {
   onFullscreenChange(listener: (on: boolean) => void): void;
   ready(): void;
   quit(): void;
-  /** Store features (session 7A); they do nothing when no store is running. */
+  /** Store features (sessions 7A and 7B); they do nothing when no store is running. */
   unlockAchievement(id: string): void;
   setPresence(presence: DesktopPresence | null): void;
 }

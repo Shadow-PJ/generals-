@@ -1,6 +1,7 @@
 # Store kit
 
-Everything for putting Generals on a store (session 7A), apart from the art itself.
+Everything for putting Generals on a store (Steam in session 7A, the Epic Games Store in 7B),
+apart from the art itself.
 
 | File | What it is for |
 | --- | --- |
@@ -12,6 +13,9 @@ Everything for putting Generals on a store (session 7A), apart from the art itse
 | [steam/README.md](steam/README.md) | Setting up the app in Steamworks: depots, launch options, Steam Cloud, achievements, rich presence, uploading builds |
 | [steam/achievements.md](steam/achievements.md) | The 18 achievements to enter in Steamworks, with their API names |
 | [steam/rich-presence-english.vdf](steam/rich-presence-english.vdf) | The rich presence file to upload |
+| [epic/README.md](epic/README.md) | Setting up the product in Epic's Developer Portal: the client, Epic Account Services, achievements, the Epic build and uploading it with BuildPatchTool, cross-play |
+| [epic/achievements.md](epic/achievements.md) | The same 18 achievements for the Developer Portal, with their XP |
+| [age-rating.md](age-rating.md) | Answers for the IARC age-rating questionnaire, which Epic requires |
 
 ## In order
 
@@ -24,4 +28,11 @@ Everything for putting Generals on a store (session 7A), apart from the art itse
 6. Build and upload with `npm run steam:upload`, check it on a test branch, then submit the build
    for review.
 
-The Epic Games Store (session 7B) reuses the words, screenshots and trailer; its image sizes differ.
+Then the Epic Games Store (session 7B), which reuses the words, screenshots and trailer:
+
+1. Pay the submission fee (the owner's checklist in `docs/PLAN.md`) and create the product.
+2. Set up the client, Epic Account Services and the achievements ([epic/README.md](epic/README.md)).
+3. Get the age rating through the IARC questionnaire ([age-rating.md](age-rating.md)).
+4. Make the store page; Epic's image sizes differ from Steam's.
+5. Stage and upload the Epic build (`npm run epic:stage`, `npm run epic:upload`), test it in the
+   Dev sandbox, then label it in Live and submit.

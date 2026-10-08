@@ -1,6 +1,6 @@
 // Uploads a build to Steam with SteamPipe (session 7A). First build the folders Steam takes:
 // `npm run desktop:steam` on Windows gives release/win-unpacked, on Linux release/linux-unpacked
-// (or download both from the "Steam builds" workflow and unpack them into release/ with
+// (or download both from the "Store builds" workflow and unpack them into release/ with
 // `tar -xzf <file> -C release`). Then:
 //
 //   npm run steam:upload                 writes release/steam/app_build.vdf and uploads with steamcmd

@@ -1,9 +1,10 @@
-# The folders Steam takes (session 7A): the unpacked desktop app for Windows, and for Linux and
-# the Steam Deck. Run it by hand (Actions > Steam builds > Run workflow) for a build you want on
-# Steam. Each folder is packed as a .tar.gz, which keeps the Linux app's executable files
+# The folders the stores take (session 7A): the unpacked desktop app for Windows, and for Linux
+# and the Steam Deck. Run it by hand (Actions > Store builds > Run workflow) for a build you want
+# on Steam; the Windows folder is also where the Epic build starts (session 7B, npm run
+# epic:stage). Each folder is packed as a .tar.gz, which keeps the Linux app's executable files
 # executable. Unpack both into release/ and upload them with `npm run steam:upload` (see
-# docs/store/steam/README.md). Nothing here signs in to Steam.
-name: Steam builds
+# docs/store/steam/README.md). Nothing here signs in to a store.
+name: Store builds
 
 on:
   workflow_dispatch:

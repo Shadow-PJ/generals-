@@ -5,6 +5,7 @@ import { GENERAL_IDS } from '../data/generals';
 import { MASTERY, type MasteryId } from '../data/mastery';
 import { RANK_XP } from '../data/progression';
 import achievementsPage from '../../docs/store/steam/achievements.md?raw';
+import epicAchievementsPage from '../../docs/store/epic/achievements.md?raw';
 import { AchievementReporter, earnedAchievements, type Progress } from './achievements';
 
 const fresh: Progress = { xp: 0, bossesBeaten: [], codex: [], mastery: [] };
@@ -69,10 +70,25 @@ describe('reporting achievements to the store', () => {
   });
 });
 
-describe('the achievements page for the store', () => {
-  it('lists every achievement with its store name, name and text, and nothing else', () => {
-    // Lines end in \r\n where git checks files out that way (Windows).
-    const rows = achievementsPage.split(/\r?\n/).filter((line) => line.startsWith('| `'));
-    expect(rows).toEqual(ACHIEVEMENTS.map((a) => `| \`${a.id}\` | ${a.name} | ${a.text} |`));
+describe('the achievements pages for the stores', () => {
+  // Lines end in \r\n where git checks files out that way (Windows).
+  const tableRows = (page: string) => page.split(/\r?\n/).filter((line) => line.startsWith('| `'));
+
+  it('lists every achievement for Steam with its store name, name and text, and nothing else', () => {
+    expect(tableRows(achievementsPage)).toEqual(ACHIEVEMENTS.map((a) => `| \`${a.id}\` | ${a.name} | ${a.text} |`));
+  });
+
+  it('lists the same for Epic, with XP that follows Epic’s rules: 5 to 200 each, 1,000 in all', () => {
+    const rows = tableRows(epicAchievementsPage).map((line) => line.split(' | '));
+    expect(rows.map(([id, name, text]) => `${id} | ${name} | ${text}`)).toEqual(ACHIEVEMENTS.map((a) => `| \`${a.id}\` | ${a.name} | ${a.text}`));
+    let total = 0;
+    for (const row of rows) {
+      const xp = Number(row[3]);
+      const tier = row[4]!.replace(/\s*\|$/, '');
+      expect(Number.isInteger(xp) && xp >= 5 && xp <= 200 && xp % 5 === 0, row[0]).toBe(true);
+      expect(tier, row[0]).toBe(xp < 50 ? 'Bronze' : xp < 100 ? 'Silver' : 'Gold');
+      total += xp;
+    }
+    expect(total).toBe(1000);
   });
 });
