@@ -8,6 +8,15 @@ describe('text', () => {
     expect(titleCase('DEEP FOREST · RUN')).toBe('Deep Forest · Run');
     expect(titleCase('FIGHT!')).toBe('Fight!');
     expect(titleCase('RAGE ×2')).toBe('Rage ×2');
+    expect(titleCase("FINISHER: REAPER'S TOLL!")).toBe("Finisher: Reaper's Toll!");
+  });
+
+  it('keeps small words small, except first, last and after a colon (session 7H)', () => {
+    expect(titleCase('STORM ON THE PASS')).toBe('Storm on the Pass');
+    expect(titleCase('THE ROAD GOES ON')).toBe('The Road Goes On');
+    expect(titleCase('BOSS: THE WARLORD')).toBe('Boss: The Warlord');
+    expect(titleCase('BACK TO THE CAPITAL')).toBe('Back to the Capital');
+    expect(titleCase('WEAPONS OF THE FALLEN · LAP 2')).toBe('Weapons of the Fallen · Lap 2');
   });
 
   it('never draws text smaller than the smallest readable size', () => {

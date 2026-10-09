@@ -23,7 +23,8 @@ apart from the art itself.
 2. Create the app; note its App ID and the two depot ids ([steam/README.md](steam/README.md)).
 3. Enter the achievements and upload their icons (`npm run art:achievements`), and upload the rich presence file.
 4. Set up Steam Cloud and the launch options.
-5. Make the capsules and screenshots, write the page from [description.md](description.md), fill in
+5. Make the capsules and screenshots (`npm run store:shots` takes the screenshots, see
+   [screenshots.md](screenshots.md)), write the page from [description.md](description.md), fill in
    the content survey with [ai-disclosure.md](ai-disclosure.md), and submit the Coming Soon page.
 6. Build and upload with `npm run steam:upload`, check it on a test branch, then submit the build
    for review.

@@ -23,7 +23,7 @@ import { RANKS, type RankNumber } from '../data/ranks';
 import { SPECIALIZATIONS, type SpecChoice, type SpecializationId } from '../data/specializations';
 import { TIP_IDS, type TipId } from '../data/tutorial';
 import { TROOP_CLASSES, type UnitClass } from '../data/units';
-import type { FileName } from '../platform';
+import type { FileName } from '../platform/types';
 import { isArmyPlaced } from '../sim';
 import { migrate, saveVersion } from './migrations';
 import { readArtifacts, readCompany, readFearRecords, readMastery, readOaths, readRun, readTech } from './run';

@@ -20,6 +20,7 @@ It ships as a Windows desktop game (Electron) on Steam first, then the Epic Game
 - `npm run build`: production build
 - `npm test`: all tests
 - `npm run sim -- --seed 42`: run one battle headless and print the result
+- `npm run playthrough`, `npm run perf`, `npm run store:shots`: after `npm run build`, play the built game by keyboard in Chromium and report errors, measure a battle's frame times at Steam Deck size, or take the store screenshots (`tools/browser`)
 
 ## Folders
 

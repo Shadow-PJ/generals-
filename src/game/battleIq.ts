@@ -3,6 +3,7 @@
 // In a campaign battle the grade earns Command XP. Pure functions.
 
 import { ACTION_NAMES } from '../cards/describe';
+import { aOrAn } from '../campaign/describe';
 import type { Card } from '../cards/types';
 import { BATTLE_IQ, CLASS_WEAKNESS } from '../data/battleIq';
 import { COMMAND_RULES } from '../data/command';
@@ -163,7 +164,7 @@ function missedOpportunity(state: BattleState): Candidate[] {
     const reversed = plain.find((c) => c.first === first && c.then === then);
     if (reversed) {
       out.push({
-        text: `${ACTION_NAMES[reversed.first]} then ${ACTION_NAMES[reversed.then]} would have made a ${reversed.name}: you fired them the other way round at ${at(a.tick)}.`,
+        text: `${ACTION_NAMES[reversed.first]} then ${ACTION_NAMES[reversed.then]} would have made ${aOrAn(reversed.name)}: you fired them the other way round at ${at(a.tick)}.`,
         weight: 30,
       });
     } else if (gap > window) {

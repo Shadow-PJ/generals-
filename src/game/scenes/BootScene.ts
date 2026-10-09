@@ -1,8 +1,9 @@
-// The first screen, gone in a moment: it turns the pixel art into textures (session 6B), then
-// opens the title screen.
+// The first screen, gone in a moment: it turns the pixel art into textures (session 6B), makes the
+// sprite shaders ready (session 7H), then opens the title screen.
 
 import Phaser from 'phaser';
 import { makeArtTextures } from '../art/textures';
+import { warmShaders } from '../shaderWarmup';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -11,6 +12,6 @@ export class BootScene extends Phaser.Scene {
 
   create(): void {
     makeArtTextures(this);
-    this.scene.start('Title');
+    warmShaders(this, () => this.scene.start('Title'));
   }
 }

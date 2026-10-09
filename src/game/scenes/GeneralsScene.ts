@@ -4,6 +4,7 @@
 // but only those you have can lead. Up and Down pick one, Enter leads with them, Esc goes back.
 
 import Phaser from 'phaser';
+import { aOrAn } from '../../campaign/describe';
 import { hasLook, masteryId, titleOf } from '../../campaign/mastery';
 import { recruitedGenerals } from '../../data/bosses';
 import { GENERAL_IDS, GENERALS, type GeneralId } from '../../data/generals';
@@ -161,5 +162,5 @@ export class GeneralsScene extends Phaser.Scene {
 /** Where to beat a General you don't have yet. */
 function lockedText(id: GeneralId): string {
   const region = regionOf(id);
-  return region ? `Locked: beat ${GENERALS[id].name} at the end of a ${REGIONS[region].name} run.` : 'Locked.';
+  return region ? `Locked: beat ${GENERALS[id].name} at the end of ${aOrAn(REGIONS[region].name)} run.` : 'Locked.';
 }

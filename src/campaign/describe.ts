@@ -11,6 +11,16 @@ import { TROOP_NAMES, type TroopClass } from '../data/units';
 import { veteranRank } from './company';
 import type { Encounter, FighterRecord, Offer, RunNode } from './types';
 
+/** "a" or "an" before a name, by its first letter: "an Ambush", "a Hammer and Anvil" (session 7H). */
+export function aOrAn(name: string): string {
+  return `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+}
+
+/** The text with a capital first letter, to start a sentence: "An Epic Ranger joins". */
+export function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 /** "Rare Hive Ranger"; a Common fighter of no faction is just "Ranger". */
 export function fighterLabel(cls: TroopClass, rarity: Rarity, faction: FactionId | null = null): string {
   const parts = [rarity === 'common' ? '' : RARITY_RULES[rarity].name, faction ? FACTIONS[faction].name : '', TROOP_NAMES[cls].one];

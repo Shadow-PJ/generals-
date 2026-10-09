@@ -30,7 +30,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 /** The game build (`npm run build` output). In the installed app it sits inside app.asar. */
 const GAME_FOLDER = path.join(here, '..', '..', 'dist');
 const GAME_ORIGIN = 'app://game';
-const BACKGROUND = '#11151c';
+/** The game's own background (see src/game/theme.ts), so the bars beside it match. */
+const BACKGROUND = '#15111a';
 /** The game's base size; the window starts at it until the game picks a size. */
 const BASE = { width: 960, height: 704 };
 /** If the game never says it is ready, show the window anyway so any error is visible. */

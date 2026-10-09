@@ -1,6 +1,6 @@
 # Build plan
 
-Seven phases, 24 sessions. Each session ends with a pull request that the owner play-tests and merges before the next one starts. Tick items here as they are finished; "Owner checks" and the owner's release checklist are for the owner, not for Claude.
+Seven phases, 31 sessions. Each session ends with a pull request that the owner play-tests and merges before the next one starts. Tick items here as they are finished; "Owner checks" and the owner's release checklist are for the owner, not for Claude.
 
 | Phase | Sessions | Playable after it |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ Seven phases, 24 sessions. Each session ends with a pull request that the owner 
 | 4. Combos and content | 4A to 4D | Every General, class, combo and map in skirmish mode |
 | 5. Progression and campaign | 5A to 5F | The full campaign from Squad Leader to Legend, as roguelite runs |
 | 6. Polish and multiplayer | 6A to 6D | Real art and sound, balance, controller and Steam Deck play, battles against friends |
-| 7. Release | 7A to 7G | Generals on Steam, then on the Epic Games Store |
+| 7. Release | 7A to 7H | Generals on Steam, then on the Epic Games Store |
 
 ## Phase 1: Battle core
 
@@ -337,3 +337,13 @@ Added after 7D at the owner's request: from `docs/inspiration.md`, "Endless afte
 - [x] Once every region's ruler is beaten, a run can go on past its ruler into ever stronger armies (laps of the region, harder every lap)
 - [x] A score for how far an endless run gets, and your best kept with your profile
 - [x] Saved with the run, and older saves still load (save version 10)
+
+### 7H. Release polish
+
+Added after 7G at the owner's request: no new features, the game made ready to ship.
+
+- [x] A playthrough pass in the browser, by keyboard, from a new profile, from a run near the last ruler and from past it; every bug it found fixed
+- [x] A script that plays the game by keyboard (`npm run playthrough`), reporting errors and screens it gets stuck on
+- [x] Store screenshots taken by a script from the current build (`npm run store:shots`), and the screenshot list updated for crossroads, decrees and endless
+- [x] A performance check at Steam Deck size (1280 × 800) with a script (`npm run perf`); what it found fixed, and the numbers written down
+
